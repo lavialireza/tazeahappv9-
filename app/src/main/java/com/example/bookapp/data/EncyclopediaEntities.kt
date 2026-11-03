@@ -21,7 +21,7 @@ data class EncyclopediaRecordEntity(
     val placeLabel: String = "",
     val sourceCitation: String = "",
     val externalUrl: String = "",
-    val reviewStatus: String = STATUS_PENDING,
+    val reviewStatus: String = PENDING,
     val createdAt: Long,
     val updatedAt: Long
 ) {

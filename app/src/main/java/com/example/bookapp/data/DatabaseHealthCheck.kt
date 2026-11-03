@@ -60,7 +60,7 @@ fun runDatabaseHealthCheck(context: Context, db: AppDatabase): DatabaseHealthRep
         integrityResult = integrity,
         foreignKeyViolations = fkViolations,
         userVersion = userVersion,
-        missingTables = REQUIRED_DATABASE_TABLES - existingTables,
+        missingTables = (REQUIRED_DATABASE_TABLES - existingTables).toList(),
         databaseBytes = bytes
     )
 }
