@@ -62,6 +62,7 @@ private const val ROUTE_GLOSSARY_MANAGEMENT = "glossary_management"
 private const val ROUTE_ENCYCLOPEDIA = "encyclopedia_management"
 private const val ROUTE_ENCYCLOPEDIA_GRAPH = "encyclopedia_graph"
 private const val ROUTE_PERFORMANCE_MANAGEMENT = "performance_management"
+private const val ROUTE_EXECUTION_CENTER = "execution_center"
 
 /**
  * مسیرهای Navigation که فقط مخصوص نسخه Admin هستند (مدیریت محتوا، ویرایشگر،
@@ -79,6 +80,13 @@ fun NavGraphBuilder.adminOnlyRoutes(
         }
         composable(ROUTE_ENCYCLOPEDIA_GRAPH) {
             EncyclopediaGraphScreen(db = db, onBack = { navController.popBackStack() })
+        }
+
+        composable(ROUTE_EXECUTION_CENTER) {
+            ExecutionCenterScreen(
+                onOpenGroupManagement = { navController.navigate(ROUTE_PERFORMANCE_MANAGEMENT) },
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(ROUTE_PERFORMANCE_MANAGEMENT) {
@@ -272,10 +280,6 @@ fun NavGraphBuilder.adminOnlyRoutes(
                 onExportWord = { wordExportLauncher.launch("Majmooe-Tazieh.docx") },
                 onImportWord = { wordImportLauncher.launch(arrayOf("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/octet-stream")) },
                 onArchiveSourceIntake = { navController.navigate(ROUTE_ARCHIVE_SOURCE_INTAKE) },
-                onOpenVersionComparison = { navController.navigate(ROUTE_VERSION_COMPARISON) },
-                onOpenGlossary = { navController.navigate(ROUTE_GLOSSARY_MANAGEMENT) },
-                onOpenEncyclopedia = { navController.navigate(ROUTE_ENCYCLOPEDIA) },
-                onOpenPerformanceManagement = { navController.navigate(ROUTE_PERFORMANCE_MANAGEMENT) },
                 onDetailedHealthCheck = { scope.launch { busy = true; try { healthReport = buildDetailedContentHealthReport(db) } finally { busy = false } } },
                 onExportHealthReport = {
                     scope.launch {
