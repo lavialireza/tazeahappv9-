@@ -57,6 +57,7 @@ private const val ROUTE_SPLASH = "splash"
 private const val ROUTE_ONBOARDING = "onboarding"
 private const val ROUTE_LOGIN = "login"
 private const val ROUTE_MAIN_MENU = "main_menu"
+private const val ROUTE_ACTIVITY_CENTER = "activity_center"
 private const val ROUTE_VIEWER_CONTENT = "viewer_content"
 private const val ROUTE_SEARCH = "search"
 private const val ROUTE_BOOKMARKS = "bookmarks"
@@ -214,31 +215,43 @@ fun AppNavigation(
             MainMenuScreen(
                 randomVerse = randomVerse,
                 recentItems = recentItems,
+                onOpenActivityCenter = { navController.navigate(ROUTE_ACTIVITY_CENTER) },
                 onOpenTaziehList = { navController.navigate(ROUTE_FIELDS) },
                 onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
-                onOpenBookmarks = { navigateIfAllowed("bookmarks", ROUTE_BOOKMARKS) },
-                onOpenNotes = { navigateIfAllowed("notes", ROUTE_NOTES) },
-                onOpenGallery = { navigateIfAllowed("gallery", ROUTE_ALL_IMAGES) },
                 onOpenMyRole = { navigateIfAllowed("myRole", ROUTE_MY_ROLE) },
-                onOpenAbout = { navController.navigate(ROUTE_ABOUT) },
-                onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
-                onOpenVersion = { navController.navigate(ROUTE_VERSION) },
-                onOpenChangelog = { navController.navigate(ROUTE_CHANGELOG) },
-                onOpenGlossary = { navigateIfAllowed("dictionary.view", ROUTE_GLOSSARY) },
-                onOpenEncyclopedia = { navigateIfAllowed("encyclopedia.view", ROUTE_ENCYCLOPEDIA) },
-                onOpenTaziehCorrections = { navigateIfAllowed("taziehCorrections.view", ROUTE_TAZIEH_CORRECTIONS) },
-                onOpenMuharramCalendar = { navController.navigate(ROUTE_MUHARRAM_CALENDAR) },
-                onOpenAiResearch = { navigateIfAllowed("ai", ROUTE_AI_RESEARCH) },
-                showContentManagement = !publicViewer,
-                onOpenContentManagement = { if (!publicViewer) navController.navigate(ROUTE_CONTENT_MANAGEMENT) },
-                showViewerAccessManagement = !publicViewer,
-                onOpenViewerAccessManagement = { if (!publicViewer) navController.navigate(ROUTE_VIEWER_ACCESS) },
-                showSpecialUsersManagement = !publicViewer,
-                onOpenSpecialUsersManagement = { if (!publicViewer) navController.navigate(ROUTE_SPECIAL_USERS) },
-                showAccessAudit = !publicViewer,
-                onOpenAccessAudit = { if (!publicViewer) navController.navigate(ROUTE_ACCESS_AUDIT) },
                 onItemClick = { result -> navController.navigate("text/${result.sectionId}") },
                 featureEnabled = ::featureEnabled
+            )
+        }
+
+        composable(ROUTE_ACTIVITY_CENTER) {
+            ActivityCenterScreen(
+                isAdmin = !publicViewer,
+                canRead = featureEnabled("read.view"),
+                canSearch = featureEnabled("search.basic"),
+                canMyRole = featureEnabled("myRole.view"),
+                canDictionary = featureEnabled("dictionary.view"),
+                canEncyclopedia = featureEnabled("encyclopedia.view"),
+                canCorrections = featureEnabled("taziehCorrections.view"),
+                canAiResearch = featureEnabled("ai"),
+                canCalendar = featureEnabled("calendar.view"),
+                onOpenLibrary = { navController.navigate(ROUTE_FIELDS) },
+                onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
+                onOpenMyRole = { navigateIfAllowed("myRole", ROUTE_MY_ROLE) },
+                onOpenGlossary = { navigateIfAllowed("dictionary.view", ROUTE_GLOSSARY) },
+                onOpenEncyclopedia = { navigateIfAllowed("encyclopedia.view", ROUTE_ENCYCLOPEDIA) },
+                onOpenCorrections = { navigateIfAllowed("taziehCorrections.view", ROUTE_TAZIEH_CORRECTIONS) },
+                onOpenAiResearch = { navigateIfAllowed("ai", ROUTE_AI_RESEARCH) },
+                onOpenCalendar = { navController.navigate(ROUTE_MUHARRAM_CALENDAR) },
+                onOpenVersionComparison = { if (!publicViewer) navController.navigate("version_comparison") },
+                onOpenEncyclopediaManagement = { if (!publicViewer) navController.navigate("encyclopedia_management") },
+                onOpenPerformanceManagement = { if (!publicViewer) navController.navigate("execution_center") },
+                onOpenContentManagement = { if (!publicViewer) navController.navigate(ROUTE_CONTENT_MANAGEMENT) },
+                onOpenViewerAccess = { if (!publicViewer) navController.navigate(ROUTE_VIEWER_ACCESS) },
+                onOpenSpecialUsers = { if (!publicViewer) navController.navigate(ROUTE_SPECIAL_USERS) },
+                onOpenAccessAudit = { if (!publicViewer) navController.navigate(ROUTE_ACCESS_AUDIT) },
+                onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -1081,8 +1094,7 @@ fun AppNavigation(
                         Prefs.markSectionRead(context, id)
                     },
                     onOpenSearch = { navController.navigate(ROUTE_SEARCH) },
-                    onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
-                    onAttachAudio = { sectionId, uri ->
+                        onAttachAudio = { sectionId, uri ->
                         scope.launch {
                             val path = com.example.bookapp.data.copyAudioToAppStorage(context, uri)
                             if (path != null) {
@@ -1270,7 +1282,6 @@ fun AppNavigation(
                     }.onFailure { footnoteError = "حذف پاورقی انجام نشد: ${it.message ?: "خطای نامشخص"}" }
                 } },
                 onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
-                onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
                 fieldTitle = breadcrumb.first,
                 taziehTitle = breadcrumb.second,
                 roleTitle = breadcrumb.third,

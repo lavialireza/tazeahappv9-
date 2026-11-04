@@ -7,216 +7,149 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import com.example.bookapp.data.SearchResult
-
-// رنگ سبز اختصاصی برای گزینه «لیست تعزیه‌ها» (مستقل از تم انتخابی)
-private val TaziehGreen = Color(0xFF2E7D4F)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainMenuScreen(
     randomVerse: SearchResult?,
     recentItems: List<SearchResult>,
+    onOpenActivityCenter: () -> Unit,
     onOpenTaziehList: () -> Unit,
     onOpenSearch: () -> Unit,
-    onOpenBookmarks: () -> Unit,
-    onOpenNotes: () -> Unit,
-    onOpenGallery: () -> Unit,
     onOpenMyRole: () -> Unit,
-    onOpenAbout: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenVersion: () -> Unit,
-    onOpenChangelog: () -> Unit,
-    onOpenGlossary: () -> Unit,
-    onOpenEncyclopedia: () -> Unit,
-    onOpenTaziehCorrections: () -> Unit,
-    onOpenMuharramCalendar: () -> Unit,
-    onOpenAiResearch: () -> Unit,
-    showContentManagement: Boolean,
-    onOpenContentManagement: () -> Unit,
-    showViewerAccessManagement: Boolean,
-    onOpenViewerAccessManagement: () -> Unit,
-    showSpecialUsersManagement: Boolean,
-    onOpenSpecialUsersManagement: () -> Unit,
-    showAccessAudit: Boolean,
-    onOpenAccessAudit: () -> Unit,
     onItemClick: (SearchResult) -> Unit,
     featureEnabled: (String) -> Boolean = { true }
 ) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("تعزیه") }) }
+        topBar = { TopAppBar(title = { Text("تعزیه و شبیه‌خوانی") }) }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 14.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // کتابخانه، مقصد اصلی برنامه است و عمداً برجسته‌تر از سایر امکانات نمایش داده می‌شود.
+            Card(
+                modifier = Modifier.fillMaxWidth().clickable(enabled = featureEnabled("read.view")) {
+                    if (featureEnabled("read.view")) onOpenTaziehList()
+                },
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(42.dp))
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("کتابخانه تعزیه", style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Spacer(Modifier.height(4.dp))
+                        Text("زمینه‌ها، تعزیه‌ها، نسخه‌ها، نقش‌ها و متن مجالس",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
+            }
 
             if (randomVerse != null) {
-                Spacer(Modifier.height(14.dp))
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onItemClick(randomVerse) },
+                    modifier = Modifier.fillMaxWidth().clickable { onItemClick(randomVerse) },
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(
-                            "بیت امروز",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            randomVerse.sectionTitle,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontStyle = FontStyle.Italic,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "${randomVerse.taziehTitle} ← ${randomVerse.roleTitle}",
+                    Column(Modifier.padding(14.dp)) {
+                        Text("بیت امروز", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(5.dp))
+                        Text(randomVerse.sectionTitle, style = MaterialTheme.typography.bodyLarge,
+                            fontStyle = FontStyle.Italic)
+                        Text("${randomVerse.taziehTitle} ← ${randomVerse.roleTitle}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
-
-            if (featureEnabled("read.view")) MenuCard("لیست تعزیه‌ها", Icons.Filled.List, onOpenTaziehList, accentColor = TaziehGreen)
-            Spacer(Modifier.height(10.dp))
-            if (featureEnabled("search.basic")) MenuCard("جستجو", Icons.Filled.Search, onOpenSearch)
-            Spacer(Modifier.height(10.dp))
-            if (featureEnabled("bookmarks.view")) MenuCard("علاقه‌مندی‌ها", Icons.Filled.Favorite, onOpenBookmarks)
-            Spacer(Modifier.height(10.dp))
-            if (featureEnabled("notes.view")) MenuCard("دفتر یادداشت", Icons.Filled.Edit, onOpenNotes)
-            Spacer(Modifier.height(10.dp))
-            if (featureEnabled("gallery.view")) MenuCard("گالری تصاویر", Icons.Filled.PhotoLibrary, onOpenGallery)
-            Spacer(Modifier.height(10.dp))
-            if (featureEnabled("myRole.view")) MenuCard("نقش من", Icons.Filled.School, onOpenMyRole, accentColor = TaziehGreen)
-            Spacer(Modifier.height(10.dp))
-            if (featureEnabled("appIntro.view")) MenuCard("درباره برنامه", Icons.Filled.Info, onOpenAbout)
-            Spacer(Modifier.height(10.dp))
-            MenuCard("تنظیمات", Icons.Filled.Settings, onOpenSettings)
-            Spacer(Modifier.height(10.dp))
-            if (showContentManagement) {
-                MenuCard("مدیریت محتوا", Icons.Filled.Storage, onOpenContentManagement, accentColor = TaziehGreen)
-                Spacer(Modifier.height(10.dp))
-                if (showViewerAccessManagement) {
-                    MenuCard("مدیریت دسترسی Viewer", Icons.Filled.Storage, onOpenViewerAccessManagement, accentColor = TaziehGreen)
-                    Spacer(Modifier.height(10.dp))
-                    if (showSpecialUsersManagement) {
-                        MenuCard("مدیریت کاربران", Icons.Filled.People, onOpenSpecialUsersManagement, accentColor = TaziehGreen)
-                        Spacer(Modifier.height(10.dp))
-                        if (showAccessAudit) {
-                            MenuCard("سوابق تغییرات کاربران", Icons.Filled.History, onOpenAccessAudit, accentColor = TaziehGreen)
-                            Spacer(Modifier.height(10.dp))
-                        }
-                    }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (featureEnabled("search.basic")) {
+                    QuickActionCard("جستجو", Icons.Filled.Search, onOpenSearch, Modifier.weight(1f))
+                }
+                if (featureEnabled("myRole.view")) {
+                    QuickActionCard("نقش من", Icons.Filled.School, onOpenMyRole, Modifier.weight(1f))
                 }
             }
-            MenuCard("ورژن برنامه", null, onOpenVersion)
-            Spacer(Modifier.height(10.dp))
-            MenuCard("چه چیزی جدید است؟", null, onOpenChangelog)
-            Spacer(Modifier.height(10.dp))
-            if (featureEnabled("dictionary.view")) MenuCard("دیکشنری اصطلاحات تعزیه", Icons.AutoMirrored.Filled.MenuBook, onOpenGlossary)
-            if (featureEnabled("encyclopedia.view")) MenuCard("دانشنامه تعزیه", Icons.AutoMirrored.Filled.MenuBook, onOpenEncyclopedia)
-            if (featureEnabled("taziehCorrections.view")) MenuCard("دیکشنری اصلاح و تصحیح متن تعزیه", Icons.AutoMirrored.Filled.MenuBook, onOpenTaziehCorrections)
-            Spacer(Modifier.height(10.dp))
-            if (featureEnabled("calendar.view")) MenuCard("تقویم محرم", null, onOpenMuharramCalendar)
-            Spacer(Modifier.height(10.dp))
-            if (featureEnabled("ai")) MenuCard("دستیار هوشمند پژوهش", Icons.Filled.Search, onOpenAiResearch, accentColor = TaziehGreen)
+
+            Card(
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenActivityCenter),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Storage, contentDescription = null)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("مرکز فعالیت‌ها", style = MaterialTheme.typography.titleMedium)
+                        Text("پژوهش، اجرا، مدیریت و ابزارهای برنامه",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text("ورود", color = MaterialTheme.colorScheme.primary)
+                }
+            }
 
             if (recentItems.isNotEmpty()) {
-                Spacer(Modifier.height(20.dp))
-                Text(
-                    "اخیراً مشاهده‌شده",
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Spacer(Modifier.height(8.dp))
-                recentItems.forEach { item ->
+                Text("ادامه مطالعه و موارد اخیر", style = MaterialTheme.typography.titleSmall)
+                recentItems.take(3).forEach { item ->
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp)
-                            .clickable { onItemClick(item) },
+                        modifier = Modifier.fillMaxWidth().clickable { onItemClick(item) },
                         shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.History, contentDescription = null)
                             Spacer(Modifier.width(10.dp))
-                            Column {
+                            Column(Modifier.weight(1f)) {
                                 Text(item.sectionTitle, style = MaterialTheme.typography.bodyLarge)
-                                Text(
-                                    "${item.taziehTitle} ← ${item.roleTitle}",
+                                Text("${item.taziehTitle} ← ${item.roleTitle}",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
                 }
-                Spacer(Modifier.height(16.dp))
             }
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
 
+
 @Composable
-private fun MenuCard(
-    title: String,
-    icon: ImageVector?,
-    onClick: () -> Unit,
-    accentColor: Color? = null
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = accentColor?.copy(alpha = 0.14f) ?: MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (icon != null) {
-                Icon(icon, contentDescription = null, tint = accentColor ?: MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(12.dp))
-            }
-            Text(
-                title,
-                style = MaterialTheme.typography.titleMedium,
-                color = accentColor ?: MaterialTheme.colorScheme.onSurface
-            )
+private fun QuickActionCard(title: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Card(modifier = modifier.clickable(onClick = onClick), shape = RoundedCornerShape(14.dp)) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null)
+            Spacer(Modifier.width(9.dp))
+            Text(title, style = MaterialTheme.typography.titleSmall)
         }
     }
 }
+
