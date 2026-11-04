@@ -11,7 +11,7 @@ import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
 
-const val APP_DATABASE_SCHEMA_VERSION = 15
+const val APP_DATABASE_SCHEMA_VERSION = 16
 
 @Database(
     entities = [
@@ -23,6 +23,12 @@ const val APP_DATABASE_SCHEMA_VERSION = 15
         FootnoteEntity::class,
         DialogueEntity::class,
         DialogueTurnEntity::class,
+
+        // Multi-role dialogue and rehearsal entities
+        DialogueRoleSelectionEntity::class,
+        DialogueTurnMetadataEntity::class,
+        DialogueStageCueEntity::class,
+
         TaziehImageEntity::class,
         BookmarkEntity::class,
         SectionTagEntity::class,
@@ -49,6 +55,7 @@ const val APP_DATABASE_SCHEMA_VERSION = 15
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
+
     abstract fun fieldDao(): FieldDao
     abstract fun taziehDao(): TaziehDao
     abstract fun roleDao(): RoleDao
@@ -66,7 +73,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun performanceDao(): PerformanceDao
 
     companion object {
-        @Volatile private var INSTANCE: AppDatabase? = null
+
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
 
         private val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -78,7 +87,11 @@ abstract class AppDatabase : RoomDatabase() {
                         FOREIGN KEY(`taziehId`) REFERENCES `taziehs`(`id`) ON DELETE CASCADE
                     )
                 """.trimIndent())
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_dialogues_taziehId` ON `dialogues` (`taziehId`)")
+
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_dialogues_taziehId` ON `dialogues` (`taziehId`)"
+                )
+
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS `dialogue_turns` (
                         `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -89,8 +102,13 @@ abstract class AppDatabase : RoomDatabase() {
                         FOREIGN KEY(`sectionId`) REFERENCES `sections`(`id`) ON DELETE CASCADE
                     )
                 """.trimIndent())
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_dialogue_turns_dialogueId` ON `dialogue_turns` (`dialogueId`)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_dialogue_turns_sectionId` ON `dialogue_turns` (`sectionId`)")
+
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_dialogue_turns_dialogueId` ON `dialogue_turns` (`dialogueId`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_dialogue_turns_sectionId` ON `dialogue_turns` (`sectionId`)"
+                )
             }
         }
 
@@ -105,7 +123,10 @@ abstract class AppDatabase : RoomDatabase() {
                         FOREIGN KEY(`taziehId`) REFERENCES `taziehs`(`id`) ON DELETE CASCADE
                     )
                 """.trimIndent())
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tazieh_images_taziehId` ON `tazieh_images` (`taziehId`)")
+
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_tazieh_images_taziehId` ON `tazieh_images` (`taziehId`)"
+                )
             }
         }
 
@@ -131,9 +152,9 @@ abstract class AppDatabase : RoomDatabase() {
                     "ALTER TABLE `dialogue_turns` ADD COLUMN `uid` TEXT NOT NULL DEFAULT ''",
                     "ALTER TABLE `tazieh_images` ADD COLUMN `uid` TEXT NOT NULL DEFAULT ''"
                 )
+
                 additions.forEach(db::execSQL)
 
-                // Existing installations get deterministic, unique IDs based on their local primary key.
                 db.execSQL("UPDATE fields SET uid = 'legacy-field-' || id WHERE uid = ''")
                 db.execSQL("UPDATE taziehs SET uid = 'legacy-tazieh-' || id WHERE uid = ''")
                 db.execSQL("UPDATE roles SET uid = 'legacy-role-' || id WHERE uid = ''")
@@ -160,18 +181,24 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_9_10 = object : Migration(9, 10) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `notes` ADD COLUMN `sectionUid` TEXT DEFAULT NULL")
+
                 db.execSQL("CREATE TABLE IF NOT EXISTS `bookmarks` (`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, `sectionUid` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_bookmarks_sectionUid` ON `bookmarks` (`sectionUid`)")
+
                 db.execSQL("CREATE TABLE IF NOT EXISTS `section_tags` (`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, `sectionUid` TEXT NOT NULL, `tag` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_section_tags_sectionUid` ON `section_tags` (`sectionUid`)")
+
                 db.execSQL("CREATE TABLE IF NOT EXISTS `recent_sections` (`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, `sectionUid` TEXT NOT NULL, `position` INTEGER NOT NULL, `visitedAt` INTEGER NOT NULL)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_recent_sections_sectionUid` ON `recent_sections` (`sectionUid`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_recent_sections_position` ON `recent_sections` (`position`)")
+
                 db.execSQL("CREATE TABLE IF NOT EXISTS `reading_history` (`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, `sectionUid` TEXT NOT NULL, `firstReadAt` INTEGER NOT NULL, `lastReadAt` INTEGER NOT NULL, `readCount` INTEGER NOT NULL, `totalSeconds` INTEGER NOT NULL)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_reading_history_sectionUid` ON `reading_history` (`sectionUid`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_reading_history_lastReadAt` ON `reading_history` (`lastReadAt`)")
+
                 db.execSQL("CREATE TABLE IF NOT EXISTS `my_roles` (`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, `taziehUid` TEXT NOT NULL, `roleUid` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_my_roles_taziehUid` ON `my_roles` (`taziehUid`)")
+
                 db.execSQL("CREATE TABLE IF NOT EXISTS `active_days` (`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, `dayKey` TEXT NOT NULL)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_active_days_dayKey` ON `active_days` (`dayKey`)")
             }
@@ -182,6 +209,7 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `roles` ADD COLUMN `versionUid` TEXT NOT NULL DEFAULT ''")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_roles_versionUid` ON `roles` (`versionUid`)")
+
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS `tazieh_versions` (
                         `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -197,9 +225,11 @@ abstract class AppDatabase : RoomDatabase() {
                         FOREIGN KEY(`taziehUid`) REFERENCES `taziehs`(`uid`) ON UPDATE NO ACTION ON DELETE CASCADE
                     )
                 """.trimIndent())
+
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_tazieh_versions_taziehUid` ON `tazieh_versions` (`taziehUid`)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_tazieh_versions_taziehUid_versionNumber` ON `tazieh_versions` (`taziehUid`, `versionNumber`)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_tazieh_versions_uid` ON `tazieh_versions` (`uid`)")
+
                 db.execSQL("""
                     INSERT INTO `tazieh_versions`
                     (`uid`, `taziehUid`, `versionNumber`, `title`, `status`, `createdAt`, `updatedAt`, `isCurrent`, `changeNote`)
@@ -209,6 +239,7 @@ abstract class AppDatabase : RoomDatabase() {
                            'نسخه ایجادشده از داده‌های نصب قبلی؛ نیازمند تطبیق با سند اصلی'
                     FROM `taziehs`
                 """.trimIndent())
+
                 db.execSQL("""
                     UPDATE `roles`
                     SET `versionUid` = (
@@ -217,6 +248,7 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     WHERE EXISTS (SELECT 1 FROM `taziehs` WHERE `taziehs`.`id` = `roles`.`taziehId`)
                 """.trimIndent())
+
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS `source_documents` (
                         `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -234,6 +266,7 @@ abstract class AppDatabase : RoomDatabase() {
                         FOREIGN KEY(`versionUid`) REFERENCES `tazieh_versions`(`uid`) ON UPDATE NO ACTION ON DELETE RESTRICT
                     )
                 """.trimIndent())
+
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_source_documents_versionUid` ON `source_documents` (`versionUid`)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_source_documents_uid` ON `source_documents` (`uid`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_source_documents_sha256` ON `source_documents` (`sha256`)")
@@ -247,7 +280,7 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_tazieh_versions_parentVersionUid` ON `tazieh_versions` (`parentVersionUid`)")
                 db.execSQL("ALTER TABLE `dialogues` ADD COLUMN `versionUid` TEXT NOT NULL DEFAULT ''")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_dialogues_versionUid` ON `dialogues` (`versionUid`)")
-                // Backfill the version association through the dialogue's linked sections.
+
                 db.execSQL("""
                     UPDATE `dialogues`
                     SET `versionUid` = COALESCE((
@@ -269,12 +302,15 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("""CREATE TABLE IF NOT EXISTS `glossary_terms` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uid` TEXT NOT NULL, `headword` TEXT NOT NULL, `normalizedHeadword` TEXT NOT NULL, `partOfSpeech` TEXT NOT NULL, `pronunciation` TEXT NOT NULL, `etymology` TEXT NOT NULL, `notes` TEXT NOT NULL, `reviewStatus` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL)""")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_glossary_terms_normalizedHeadword` ON `glossary_terms` (`normalizedHeadword`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_glossary_terms_reviewStatus` ON `glossary_terms` (`reviewStatus`)")
+
                 db.execSQL("""CREATE TABLE IF NOT EXISTS `glossary_spellings` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `termId` INTEGER NOT NULL, `spelling` TEXT NOT NULL, `normalizedSpelling` TEXT NOT NULL, `spellingType` TEXT NOT NULL, FOREIGN KEY(`termId`) REFERENCES `glossary_terms`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)""")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_glossary_spellings_termId` ON `glossary_spellings` (`termId`)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_glossary_spellings_normalizedSpelling` ON `glossary_spellings` (`normalizedSpelling`)")
+
                 db.execSQL("""CREATE TABLE IF NOT EXISTS `glossary_meanings` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uid` TEXT NOT NULL, `termId` INTEGER NOT NULL, `meaning` TEXT NOT NULL, `sourceTitle` TEXT NOT NULL, `sourceAuthor` TEXT NOT NULL, `sourcePage` TEXT NOT NULL, `sourceUrl` TEXT NOT NULL, `usageTaziehUid` TEXT, `usageVersionUid` TEXT, `usageRoleUid` TEXT, `usageSectionUid` TEXT, `usageQuote` TEXT NOT NULL, `reviewStatus` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, FOREIGN KEY(`termId`) REFERENCES `glossary_terms`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)""")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_glossary_meanings_termId` ON `glossary_meanings` (`termId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_glossary_meanings_reviewStatus` ON `glossary_meanings` (`reviewStatus`)")
+
                 db.execSQL("""CREATE TABLE IF NOT EXISTS `glossary_history` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `termId` INTEGER NOT NULL, `action` TEXT NOT NULL, `beforeJson` TEXT NOT NULL, `afterJson` TEXT NOT NULL, `changedAt` INTEGER NOT NULL, `actor` TEXT NOT NULL, FOREIGN KEY(`termId`) REFERENCES `glossary_terms`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)""")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_glossary_history_termId` ON `glossary_history` (`termId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_glossary_history_changedAt` ON `glossary_history` (`changedAt`)")
@@ -289,6 +325,7 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_encyclopedia_records_reviewStatus` ON `encyclopedia_records` (`reviewStatus`)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_encyclopedia_records_kind_normalizedTitle` ON `encyclopedia_records` (`kind`, `normalizedTitle`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_encyclopedia_records_updatedAt` ON `encyclopedia_records` (`updatedAt`)")
+
                 db.execSQL("""CREATE TABLE IF NOT EXISTS `encyclopedia_links` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `recordId` INTEGER NOT NULL, `relationType` TEXT NOT NULL, `taziehUid` TEXT NOT NULL, `versionUid` TEXT NOT NULL, `roleUid` TEXT NOT NULL, `sectionUid` TEXT NOT NULL, `note` TEXT NOT NULL, FOREIGN KEY(`recordId`) REFERENCES `encyclopedia_records`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)""")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_encyclopedia_links_recordId` ON `encyclopedia_links` (`recordId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_encyclopedia_links_taziehUid` ON `encyclopedia_links` (`taziehUid`)")
@@ -296,6 +333,7 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_encyclopedia_links_roleUid` ON `encyclopedia_links` (`roleUid`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_encyclopedia_links_sectionUid` ON `encyclopedia_links` (`sectionUid`)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_encyclopedia_links_recordId_taziehUid_versionUid_roleUid_sectionUid` ON `encyclopedia_links` (`recordId`, `taziehUid`, `versionUid`, `roleUid`, `sectionUid`)")
+
                 db.execSQL("""CREATE TABLE IF NOT EXISTS `encyclopedia_history` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `recordId` INTEGER NOT NULL, `action` TEXT NOT NULL, `beforeJson` TEXT NOT NULL, `afterJson` TEXT NOT NULL, `changedAt` INTEGER NOT NULL, `actor` TEXT NOT NULL, FOREIGN KEY(`recordId`) REFERENCES `encyclopedia_records`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)""")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_encyclopedia_history_recordId` ON `encyclopedia_history` (`recordId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_encyclopedia_history_changedAt` ON `encyclopedia_history` (`changedAt`)")
@@ -309,11 +347,13 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_performance_groups_uid` ON `performance_groups` (`uid`)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_performance_groups_normalizedName` ON `performance_groups` (`normalizedName`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_performance_groups_updatedAt` ON `performance_groups` (`updatedAt`)")
+
                 db.execSQL("CREATE TABLE IF NOT EXISTS `group_members` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uid` TEXT NOT NULL, `groupId` INTEGER NOT NULL, `name` TEXT NOT NULL, `normalizedName` TEXT NOT NULL, `contact` TEXT NOT NULL, `vocalRange` TEXT NOT NULL, `notes` TEXT NOT NULL, `isActive` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, FOREIGN KEY(`groupId`) REFERENCES `performance_groups`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_group_members_uid` ON `group_members` (`uid`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_group_members_groupId` ON `group_members` (`groupId`)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_group_members_groupId_normalizedName` ON `group_members` (`groupId`, `normalizedName`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_group_members_isActive` ON `group_members` (`isActive`)")
+
                 db.execSQL("CREATE TABLE IF NOT EXISTS `performances` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uid` TEXT NOT NULL, `groupId` INTEGER NOT NULL, `title` TEXT NOT NULL, `taziehUid` TEXT NOT NULL, `versionUid` TEXT NOT NULL, `scheduledAt` INTEGER, `venue` TEXT NOT NULL, `status` TEXT NOT NULL, `notes` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, FOREIGN KEY(`groupId`) REFERENCES `performance_groups`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_performances_uid` ON `performances` (`uid`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_performances_groupId` ON `performances` (`groupId`)")
@@ -321,14 +361,171 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_performances_versionUid` ON `performances` (`versionUid`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_performances_scheduledAt` ON `performances` (`scheduledAt`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_performances_status` ON `performances` (`status`)")
+
                 db.execSQL("CREATE TABLE IF NOT EXISTS `performance_assignments` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `performanceId` INTEGER NOT NULL, `memberId` INTEGER NOT NULL, `roleUid` TEXT NOT NULL, `roleTitle` TEXT NOT NULL, `isAlternate` INTEGER NOT NULL, `orderIndex` INTEGER NOT NULL, `notes` TEXT NOT NULL, `assignedAt` INTEGER NOT NULL, FOREIGN KEY(`performanceId`) REFERENCES `performances`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE, FOREIGN KEY(`memberId`) REFERENCES `group_members`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_performance_assignments_performanceId` ON `performance_assignments` (`performanceId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_performance_assignments_memberId` ON `performance_assignments` (`memberId`)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_performance_assignments_performanceId_roleUid_memberId` ON `performance_assignments` (`performanceId`, `roleUid`, `memberId`)")
+
                 db.execSQL("CREATE TABLE IF NOT EXISTS `performance_notes` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `performanceId` INTEGER NOT NULL, `sectionUid` TEXT NOT NULL, `noteType` TEXT NOT NULL, `body` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, FOREIGN KEY(`performanceId`) REFERENCES `performances`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_performance_notes_performanceId` ON `performance_notes` (`performanceId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_performance_notes_sectionUid` ON `performance_notes` (`sectionUid`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_performance_notes_updatedAt` ON `performance_notes` (`updatedAt`)")
+            }
+        }
+
+        /**
+         * Version 16:
+         * Multi-role dialogue selection, verified turn metadata and stage cues.
+         *
+         * Existing dialogue turns are preserved.
+         * Their rehearsal order is initialized from the existing orderIndex.
+         * Their historical/source order is deliberately left unverified.
+         */
+        private val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+
+                // Roles selected for a dialogue, tied to one exact archive version.
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `dialogue_role_selections` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `dialogueId` INTEGER NOT NULL,
+                        `roleId` INTEGER NOT NULL,
+                        `versionUid` TEXT NOT NULL,
+                        `displayOrder` INTEGER NOT NULL,
+                        FOREIGN KEY(`dialogueId`)
+                            REFERENCES `dialogues`(`id`)
+                            ON UPDATE NO ACTION ON DELETE CASCADE,
+                        FOREIGN KEY(`roleId`)
+                            REFERENCES `roles`(`id`)
+                            ON UPDATE NO ACTION ON DELETE RESTRICT
+                    )
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS
+                    `index_dialogue_role_selections_dialogueId_roleId`
+                    ON `dialogue_role_selections` (`dialogueId`, `roleId`)
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE INDEX IF NOT EXISTS
+                    `index_dialogue_role_selections_roleId`
+                    ON `dialogue_role_selections` (`roleId`)
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE INDEX IF NOT EXISTS
+                    `index_dialogue_role_selections_versionUid`
+                    ON `dialogue_role_selections` (`versionUid`)
+                """.trimIndent())
+
+                // Explicit metadata for source sequence, rehearsal order and reply links.
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `dialogue_turn_metadata` (
+                        `turnId` INTEGER NOT NULL,
+                        `sourceSequenceIndex` INTEGER,
+                        `sourceSequenceStatus` TEXT NOT NULL,
+                        `rehearsalOrderIndex` INTEGER NOT NULL,
+                        `expectsResponse` INTEGER NOT NULL,
+                        `replyToTurnId` INTEGER,
+                        `expectedResponderRoleId` INTEGER,
+                        `sequenceEvidence` TEXT NOT NULL,
+                        `directorNote` TEXT NOT NULL,
+                        PRIMARY KEY(`turnId`),
+                        FOREIGN KEY(`turnId`)
+                            REFERENCES `dialogue_turns`(`id`)
+                            ON UPDATE NO ACTION ON DELETE CASCADE,
+                        FOREIGN KEY(`replyToTurnId`)
+                            REFERENCES `dialogue_turns`(`id`)
+                            ON UPDATE NO ACTION ON DELETE SET NULL,
+                        FOREIGN KEY(`expectedResponderRoleId`)
+                            REFERENCES `roles`(`id`)
+                            ON UPDATE NO ACTION ON DELETE SET NULL
+                    )
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE INDEX IF NOT EXISTS
+                    `index_dialogue_turn_metadata_replyToTurnId`
+                    ON `dialogue_turn_metadata` (`replyToTurnId`)
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE INDEX IF NOT EXISTS
+                    `index_dialogue_turn_metadata_expectedResponderRoleId`
+                    ON `dialogue_turn_metadata` (`expectedResponderRoleId`)
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE INDEX IF NOT EXISTS
+                    `index_dialogue_turn_metadata_sourceSequenceIndex`
+                    ON `dialogue_turn_metadata` (`sourceSequenceIndex`)
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE INDEX IF NOT EXISTS
+                    `index_dialogue_turn_metadata_rehearsalOrderIndex`
+                    ON `dialogue_turn_metadata` (`rehearsalOrderIndex`)
+                """.trimIndent())
+
+                // Stage directions and performance cues are stored separately
+                // so the original source text is never rewritten.
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `dialogue_stage_cues` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `turnId` INTEGER NOT NULL,
+                        `cueType` TEXT NOT NULL,
+                        `cueText` TEXT NOT NULL,
+                        `orderIndex` INTEGER NOT NULL,
+                        `sourceStartOffset` INTEGER,
+                        `sourceEndOffset` INTEGER,
+                        `origin` TEXT NOT NULL,
+                        `isVerified` INTEGER NOT NULL,
+                        FOREIGN KEY(`turnId`)
+                            REFERENCES `dialogue_turns`(`id`)
+                            ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE INDEX IF NOT EXISTS
+                    `index_dialogue_stage_cues_turnId_orderIndex`
+                    ON `dialogue_stage_cues` (`turnId`, `orderIndex`)
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE INDEX IF NOT EXISTS
+                    `index_dialogue_stage_cues_cueType`
+                    ON `dialogue_stage_cues` (`cueType`)
+                """.trimIndent())
+
+                // Preserve every existing turn and initialize rehearsal order.
+                // Do NOT claim that the old order is historically verified.
+                db.execSQL("""
+                    INSERT OR IGNORE INTO `dialogue_turn_metadata` (
+                        `turnId`,
+                        `sourceSequenceIndex`,
+                        `sourceSequenceStatus`,
+                        `rehearsalOrderIndex`,
+                        `expectsResponse`,
+                        `replyToTurnId`,
+                        `expectedResponderRoleId`,
+                        `sequenceEvidence`,
+                        `directorNote`
+                    )
+                    SELECT
+                        `id`,
+                        NULL,
+                        'UNVERIFIED',
+                        `orderIndex`,
+                        0,
+                        NULL,
+                        NULL,
+                        '',
+                        ''
+                    FROM `dialogue_turns`
+                """.trimIndent())
             }
         }
 
@@ -339,8 +536,21 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "bookapp.db"
                 )
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
+                    .addMigrations(
+                        MIGRATION_5_6,
+                        MIGRATION_6_7,
+                        MIGRATION_7_8,
+                        MIGRATION_8_9,
+                        MIGRATION_9_10,
+                        MIGRATION_10_11,
+                        MIGRATION_11_12,
+                        MIGRATION_12_13,
+                        MIGRATION_13_14,
+                        MIGRATION_14_15,
+                        MIGRATION_15_16
+                    )
                     .build()
+
                 INSTANCE = instance
                 instance
             }
@@ -348,61 +558,120 @@ abstract class AppDatabase : RoomDatabase() {
     }
 }
 
+// -----------------------------------------------------------------------------
+// Everything below this point is preserved from the previous AppDatabase.kt.
+// -----------------------------------------------------------------------------
+
 suspend fun syncLocalContentFiles(context: Context, db: AppDatabase): Int {
     val isProtectedViewer = com.example.bookapp.BuildConfig.PUBLIC_VIEWER
+
     val names = context.assets.list("content")
         ?.filter { name ->
-            if (isProtectedViewer) name.endsWith(".taz") else name.endsWith(".json") && name != "manifest.json"
+            if (isProtectedViewer) {
+                name.endsWith(".taz")
+            } else {
+                name.endsWith(".json") && name != "manifest.json"
+            }
         }
         ?.sorted() ?: emptyList()
+
     val allFiles = names.map { name ->
         val text = if (isProtectedViewer) {
             ContentProtectionHelper.readProtectedJson(context, name)
         } else {
-            context.assets.open("content/$name").bufferedReader(Charsets.UTF_8).use { it.readText() }
+            context.assets.open("content/$name")
+                .bufferedReader(Charsets.UTF_8)
+                .use { it.readText() }
         }
+
         FileWithKey(name, text, "$name:${sha256(text)}", "")
     }
 
     var processed = Prefs.getProcessedContentFiles(context)
     val hadContentBefore = db.fieldDao().getAll().isNotEmpty()
-    if (!hadContentBefore && processed.isNotEmpty()) processed = emptySet()
+
+    if (!hadContentBefore && processed.isNotEmpty()) {
+        processed = emptySet()
+    }
 
     val newOrChangedFiles = allFiles.filter { it.key !in processed }
+
     if (newOrChangedFiles.isEmpty()) return 0
 
     for (file in newOrChangedFiles) {
         val errors = ContentValidator.validate(file.text)
-        if (errors.isNotEmpty()) throw IllegalArgumentException("محتوای ${file.name} نامعتبر است: ${errors.take(3).joinToString("؛ ")}")
+
+        if (errors.isNotEmpty()) {
+            throw IllegalArgumentException(
+                "محتوای ${file.name} نامعتبر است: ${errors.take(3).joinToString("؛ ")}"
+            )
+        }
+
         mergeContentFromJson(db, file.text, ContentUid.source(file.name))
     }
+
     Prefs.setProcessedContentFiles(context, allFiles.map { it.key }.toSet())
 
     return newOrChangedFiles.size
 }
 
-private data class FileWithKey(val name: String, val text: String, val key: String, val legacyKey: String)
+private data class FileWithKey(
+    val name: String,
+    val text: String,
+    val key: String,
+    val legacyKey: String
+)
 
 suspend fun syncRemoteContent(
     db: AppDatabase,
     url: String
 ): Result<Unit> {
+
     if (com.example.bookapp.BuildConfig.PUBLIC_VIEWER) {
-        return Result.failure(IllegalStateException("نسخه عمومی اجازه دریافت محتوای آنلاین را ندارد"))
+        return Result.failure(
+            IllegalStateException("نسخه عمومی اجازه دریافت محتوای آنلاین را ندارد")
+        )
     }
+
     val trimmedUrl = url.trim()
+
     if (trimmedUrl.isBlank()) {
-        return Result.failure(IllegalStateException("ابتدا آدرس محتوا را در «بروزرسانی محتوا» وارد و ذخیره کنید."))
+        return Result.failure(
+            IllegalStateException("ابتدا آدرس محتوا را در «بروزرسانی محتوا» وارد و ذخیره کنید.")
+        )
     }
+
     if (!trimmedUrl.startsWith("https://")) {
-        return Result.failure(IllegalStateException("آدرس محتوا باید با https:// شروع شود."))
+        return Result.failure(
+            IllegalStateException("آدرس محتوا باید با https:// شروع شود.")
+        )
     }
+
     return try {
-        val jsonText = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { withHttpGet(trimmedUrl) }
+        val jsonText = kotlinx.coroutines.withContext(
+            kotlinx.coroutines.Dispatchers.IO
+        ) {
+            withHttpGet(trimmedUrl)
+        }
+
         val errors = ContentValidator.validate(jsonText)
-        if (errors.isNotEmpty()) return Result.failure(IllegalArgumentException("محتوای آنلاین نامعتبر است: ${errors.take(3).joinToString("؛ ")}"))
-        mergeContentFromJson(db, jsonText, ContentUid.source(trimmedUrl))
+
+        if (errors.isNotEmpty()) {
+            return Result.failure(
+                IllegalArgumentException(
+                    "محتوای آنلاین نامعتبر است: ${errors.take(3).joinToString("؛ ")}"
+                )
+            )
+        }
+
+        mergeContentFromJson(
+            db,
+            jsonText,
+            ContentUid.source(trimmedUrl)
+        )
+
         Result.success(Unit)
+
     } catch (e: Exception) {
         Result.failure(e)
     }
@@ -410,77 +679,188 @@ suspend fun syncRemoteContent(
 
 private fun withHttpGet(urlString: String): String {
     val connection = URL(urlString).openConnection() as HttpURLConnection
+
     connection.connectTimeout = 15000
     connection.readTimeout = 15000
     connection.requestMethod = "GET"
+
     return try {
-        connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+        connection.inputStream
+            .bufferedReader(Charsets.UTF_8)
+            .use { it.readText() }
     } finally {
         connection.disconnect()
     }
 }
 
 /**
- * Imports content by stable UID. Legacy JSON without UIDs remains supported by title matching.
- * A source UID lets us safely remove sections deleted from a particular content file without
- * touching sections supplied by other files.
+ * Imports content by stable UID.
+ *
+ * Legacy JSON without UIDs remains supported by title matching.
+ * A source UID lets us safely remove sections deleted from a particular
+ * content file without touching sections supplied by other files.
  */
-internal suspend fun mergeContentFromJson(db: AppDatabase, jsonText: String, sourceUid: String = ContentUid.source(jsonText), syncContext: Context? = null) {
+internal suspend fun mergeContentFromJson(
+    db: AppDatabase,
+    jsonText: String,
+    sourceUid: String = ContentUid.source(jsonText),
+    syncContext: Context? = null
+) {
     val fields = JSONArray(jsonText)
+
     db.withTransaction {
         for (fi in 0 until fields.length()) {
             val fieldObj = fields.getJSONObject(fi)
             val fieldTitle = fieldObj.getString("title")
             val explicitFieldUid = fieldObj.optString("uid").trim()
-            val fieldUid = explicitFieldUid.ifBlank { ContentUid.derived("field", "root", fieldTitle) }
+
+            val fieldUid = explicitFieldUid.ifBlank {
+                ContentUid.derived("field", "root", fieldTitle)
+            }
+
             val remoteFieldUpdatedAt = fieldObj.optString("updatedAt")
-            val applyField = syncContext == null || SyncMetaStore.shouldApplyRemote(syncContext, "fields", fieldUid, remoteFieldUpdatedAt)
+
+            val applyField = syncContext == null ||
+                SyncMetaStore.shouldApplyRemote(
+                    syncContext,
+                    "fields",
+                    fieldUid,
+                    remoteFieldUpdatedAt
+                )
+
             val existingField = db.fieldDao().getByUid(fieldUid)
-                ?: if (explicitFieldUid.isBlank()) db.fieldDao().getByTitle(fieldTitle) else null
-            val fieldId = if (existingField == null) {
-                val insertedId = db.fieldDao().insert(FieldEntity(title = fieldTitle, uid = fieldUid))
-                if (syncContext != null) {
-                    SyncMetaStore.baseline(syncContext, "fields", fieldUid, fieldObj, remoteFieldUpdatedAt, fieldObj.optString("createdAt"))
+                ?: if (explicitFieldUid.isBlank()) {
+                    db.fieldDao().getByTitle(fieldTitle)
+                } else {
+                    null
                 }
+
+            val fieldId = if (existingField == null) {
+                val insertedId = db.fieldDao().insert(
+                    FieldEntity(
+                        title = fieldTitle,
+                        uid = fieldUid
+                    )
+                )
+
+                if (syncContext != null) {
+                    SyncMetaStore.baseline(
+                        syncContext,
+                        "fields",
+                        fieldUid,
+                        fieldObj,
+                        remoteFieldUpdatedAt,
+                        fieldObj.optString("createdAt")
+                    )
+                }
+
                 insertedId
             } else {
-                if (applyField && (existingField.uid != fieldUid || existingField.title != fieldTitle)) {
-                    db.fieldDao().updateIdentity(existingField.id, fieldTitle, fieldUid)
+                if (
+                    applyField &&
+                    (existingField.uid != fieldUid || existingField.title != fieldTitle)
+                ) {
+                    db.fieldDao().updateIdentity(
+                        existingField.id,
+                        fieldTitle,
+                        fieldUid
+                    )
                 }
+
                 if (syncContext != null && applyField) {
-                    SyncMetaStore.baseline(syncContext, "fields", fieldUid, fieldObj, remoteFieldUpdatedAt, fieldObj.optString("createdAt"))
+                    SyncMetaStore.baseline(
+                        syncContext,
+                        "fields",
+                        fieldUid,
+                        fieldObj,
+                        remoteFieldUpdatedAt,
+                        fieldObj.optString("createdAt")
+                    )
                 }
+
                 existingField.id
             }
 
             val taziehs = fieldObj.getJSONArray("taziehs")
+
             for (ti in 0 until taziehs.length()) {
                 val taziehObj = taziehs.getJSONObject(ti)
                 val taziehTitle = taziehObj.getString("title")
                 val explicitTaziehUid = taziehObj.optString("uid").trim()
-                val taziehUid = explicitTaziehUid.ifBlank { ContentUid.derived("tazieh", fieldUid, taziehTitle) }
+
+                val taziehUid = explicitTaziehUid.ifBlank {
+                    ContentUid.derived("tazieh", fieldUid, taziehTitle)
+                }
+
                 val remoteTaziehUpdatedAt = taziehObj.optString("updatedAt")
-                val applyTazieh = syncContext == null || SyncMetaStore.shouldApplyRemote(syncContext, "taziehs", taziehUid, remoteTaziehUpdatedAt)
+
+                val applyTazieh = syncContext == null ||
+                    SyncMetaStore.shouldApplyRemote(
+                        syncContext,
+                        "taziehs",
+                        taziehUid,
+                        remoteTaziehUpdatedAt
+                    )
+
                 val existingTazieh = db.taziehDao().getByUid(taziehUid)
-                    ?: if (explicitTaziehUid.isBlank()) db.taziehDao().getByTitle(fieldId, taziehTitle) else null
-                val taziehId = if (existingTazieh == null) {
-                    val insertedId = db.taziehDao().insert(TaziehEntity(fieldId = fieldId, title = taziehTitle, uid = taziehUid))
-                    if (syncContext != null) {
-                        SyncMetaStore.baseline(syncContext, "taziehs", taziehUid, taziehObj, remoteTaziehUpdatedAt, taziehObj.optString("createdAt"))
+                    ?: if (explicitTaziehUid.isBlank()) {
+                        db.taziehDao().getByTitle(fieldId, taziehTitle)
+                    } else {
+                        null
                     }
+
+                val taziehId = if (existingTazieh == null) {
+                    val insertedId = db.taziehDao().insert(
+                        TaziehEntity(
+                            fieldId = fieldId,
+                            title = taziehTitle,
+                            uid = taziehUid
+                        )
+                    )
+
+                    if (syncContext != null) {
+                        SyncMetaStore.baseline(
+                            syncContext,
+                            "taziehs",
+                            taziehUid,
+                            taziehObj,
+                            remoteTaziehUpdatedAt,
+                            taziehObj.optString("createdAt")
+                        )
+                    }
+
                     insertedId
                 } else {
-                    if (applyTazieh && (existingTazieh.uid != taziehUid || existingTazieh.title != taziehTitle)) {
-                        db.taziehDao().updateIdentity(existingTazieh.id, fieldId, taziehTitle, taziehUid)
+                    if (
+                        applyTazieh &&
+                        (existingTazieh.uid != taziehUid ||
+                            existingTazieh.title != taziehTitle)
+                    ) {
+                        db.taziehDao().updateIdentity(
+                            existingTazieh.id,
+                            fieldId,
+                            taziehTitle,
+                            taziehUid
+                        )
                     }
+
                     if (syncContext != null && applyTazieh) {
-                        SyncMetaStore.baseline(syncContext, "taziehs", taziehUid, taziehObj, remoteTaziehUpdatedAt, taziehObj.optString("createdAt"))
+                        SyncMetaStore.baseline(
+                            syncContext,
+                            "taziehs",
+                            taziehUid,
+                            taziehObj,
+                            remoteTaziehUpdatedAt,
+                            taziehObj.optString("createdAt")
+                        )
                     }
+
                     existingTazieh.id
                 }
 
                 val author = taziehObj.optString("author", "").ifBlank { null }
                 val authorEmail = taziehObj.optString("authorEmail", "").ifBlank { null }
+
                 if (applyTazieh && (author != null || authorEmail != null)) {
                     db.taziehDao().updateAuthor(
                         taziehId,
@@ -489,73 +869,153 @@ internal suspend fun mergeContentFromJson(db: AppDatabase, jsonText: String, sou
                     )
                 }
 
-                // Every imported Tazieh gets a version container. Existing installations are
-                // backfilled by MIGRATION_10_11; this covers newly imported records as well.
-                var currentArchiveVersion = db.archiveDao().currentVersion(taziehUid)
+                // Every imported Tazieh gets a version container.
+                // Existing installations are backfilled by MIGRATION_10_11.
+                var currentArchiveVersion =
+                    db.archiveDao().currentVersion(taziehUid)
+
                 if (currentArchiveVersion == null) {
                     val now = System.currentTimeMillis()
-                    val version = com.example.bookapp.data.archive.TaziehVersionEntity(
-                        uid = "import-version-${ContentUid.new()}",
-                        taziehUid = taziehUid,
-                        versionNumber = db.archiveDao().maxVersionNumber(taziehUid) + 1,
-                        title = "نسخه واردشده اولیه",
-                        status = com.example.bookapp.data.archive.TaziehVersionEntity.STATUS_LEGACY_UNREVIEWED,
-                        createdAt = now,
-                        updatedAt = now,
-                        isCurrent = true,
-                        changeNote = "ایجاد خودکار هنگام ورود محتوا؛ نیازمند تطبیق با سند اصلی"
-                    )
+
+                    val version =
+                        com.example.bookapp.data.archive.TaziehVersionEntity(
+                            uid = "import-version-${ContentUid.new()}",
+                            taziehUid = taziehUid,
+                            versionNumber =
+                                db.archiveDao().maxVersionNumber(taziehUid) + 1,
+                            title = "نسخه واردشده اولیه",
+                            status = com.example.bookapp.data.archive.TaziehVersionEntity.STATUS_LEGACY_UNREVIEWED,
+                            createdAt = now,
+                            updatedAt = now,
+                            isCurrent = true,
+                            changeNote = "ایجاد خودکار هنگام ورود محتوا؛ نیازمند تطبیق با سند اصلی"
+                        )
+
                     db.archiveDao().insertVersion(version)
                     currentArchiveVersion = version
                 }
+
                 val currentVersionUid = currentArchiveVersion.uid
 
                 val roles = taziehObj.getJSONArray("roles")
+
                 for (ri in 0 until roles.length()) {
                     val roleObj = roles.getJSONObject(ri)
                     val roleTitle = roleObj.getString("title")
                     val explicitRoleUid = roleObj.optString("uid").trim()
-                    val roleUid = explicitRoleUid.ifBlank { ContentUid.derived("role", taziehUid, roleTitle) }
+
+                    val roleUid = explicitRoleUid.ifBlank {
+                        ContentUid.derived("role", taziehUid, roleTitle)
+                    }
+
                     val remoteRoleUpdatedAt = roleObj.optString("updatedAt")
-                    val applyRole = syncContext == null || SyncMetaStore.shouldApplyRemote(syncContext, "roles", roleUid, remoteRoleUpdatedAt)
+
+                    val applyRole = syncContext == null ||
+                        SyncMetaStore.shouldApplyRemote(
+                            syncContext,
+                            "roles",
+                            roleUid,
+                            remoteRoleUpdatedAt
+                        )
+
                     val roleOrder = ri
+
                     val existingRole = db.roleDao().getByUid(roleUid)
-                        ?: if (explicitRoleUid.isBlank()) db.roleDao().getByTitle(taziehId, roleTitle) else null
-                    val roleId = if (existingRole == null) {
-                        val insertedId = db.roleDao().insert(RoleEntity(taziehId = taziehId, title = roleTitle, orderIndex = roleOrder, uid = roleUid, versionUid = currentVersionUid))
-                        if (syncContext != null) {
-                            SyncMetaStore.baseline(syncContext, "roles", roleUid, roleObj, remoteRoleUpdatedAt, roleObj.optString("createdAt"))
+                        ?: if (explicitRoleUid.isBlank()) {
+                            db.roleDao().getByTitle(taziehId, roleTitle)
+                        } else {
+                            null
                         }
+
+                    val roleId = if (existingRole == null) {
+                        val insertedId = db.roleDao().insert(
+                            RoleEntity(
+                                taziehId = taziehId,
+                                title = roleTitle,
+                                orderIndex = roleOrder,
+                                uid = roleUid,
+                                versionUid = currentVersionUid
+                            )
+                        )
+
+                        if (syncContext != null) {
+                            SyncMetaStore.baseline(
+                                syncContext,
+                                "roles",
+                                roleUid,
+                                roleObj,
+                                remoteRoleUpdatedAt,
+                                roleObj.optString("createdAt")
+                            )
+                        }
+
                         insertedId
                     } else {
                         if (applyRole) {
-                            db.roleDao().updateFromContent(existingRole.id, taziehId, roleTitle, roleOrder, roleUid, currentVersionUid)
+                            db.roleDao().updateFromContent(
+                                existingRole.id,
+                                taziehId,
+                                roleTitle,
+                                roleOrder,
+                                roleUid,
+                                currentVersionUid
+                            )
                         }
+
                         if (syncContext != null && applyRole) {
-                            SyncMetaStore.baseline(syncContext, "roles", roleUid, roleObj, remoteRoleUpdatedAt, roleObj.optString("createdAt"))
+                            SyncMetaStore.baseline(
+                                syncContext,
+                                "roles",
+                                roleUid,
+                                roleObj,
+                                remoteRoleUpdatedAt,
+                                roleObj.optString("createdAt")
+                            )
                         }
+
                         existingRole.id
                     }
 
                     val sections = roleObj.getJSONArray("sections")
                     val seenSectionUids = mutableSetOf<String>()
+
                     for (si in 0 until sections.length()) {
                         val secObj = sections.getJSONObject(si)
                         val sectionTitle = secObj.getString("title")
                         val explicitSectionUid = secObj.optString("uid").trim()
+
                         val sectionUid = explicitSectionUid.ifBlank {
-                            ContentUid.derivedWithIndex("section", roleUid, sectionTitle, si)
+                            ContentUid.derivedWithIndex(
+                                "section",
+                                roleUid,
+                                sectionTitle,
+                                si
+                            )
                         }
+
                         val newContent = secObj.getString("content")
                         val newAudio = secObj.optString("audio", "").ifBlank { null }
                         val remoteSectionUpdatedAt = secObj.optString("updatedAt")
-                        val applySection = syncContext == null || SyncMetaStore.shouldApplyRemote(syncContext, "sections", sectionUid, remoteSectionUpdatedAt)
+
+                        val applySection = syncContext == null ||
+                            SyncMetaStore.shouldApplyRemote(
+                                syncContext,
+                                "sections",
+                                sectionUid,
+                                remoteSectionUpdatedAt
+                            )
+
                         seenSectionUids += sectionUid
 
                         val existingSection = db.sectionDao().getByUid(sectionUid)
-                            ?: if (explicitSectionUid.isBlank()) db.sectionDao().getByTitle(roleId, sectionTitle) else null
+                            ?: if (explicitSectionUid.isBlank()) {
+                                db.sectionDao().getByTitle(roleId, sectionTitle)
+                            } else {
+                                null
+                            }
+
                         if (existingSection == null) {
-                            val insertedId = db.sectionDao().insert(
+                            db.sectionDao().insert(
                                 SectionEntity(
                                     roleId = roleId,
                                     orderIndex = si,
@@ -566,10 +1026,17 @@ internal suspend fun mergeContentFromJson(db: AppDatabase, jsonText: String, sou
                                     sourceUid = sourceUid
                                 )
                             )
+
                             if (syncContext != null) {
-                                SyncMetaStore.baseline(syncContext, "sections", sectionUid, secObj, remoteSectionUpdatedAt, secObj.optString("createdAt"))
+                                SyncMetaStore.baseline(
+                                    syncContext,
+                                    "sections",
+                                    sectionUid,
+                                    secObj,
+                                    remoteSectionUpdatedAt,
+                                    secObj.optString("createdAt")
+                                )
                             }
-                            insertedId
                         } else {
                             if (applySection) {
                                 db.sectionDao().updateFromContent(
@@ -582,8 +1049,16 @@ internal suspend fun mergeContentFromJson(db: AppDatabase, jsonText: String, sou
                                     uid = sectionUid,
                                     sourceUid = sourceUid
                                 )
+
                                 if (syncContext != null) {
-                                    SyncMetaStore.baseline(syncContext, "sections", sectionUid, secObj, remoteSectionUpdatedAt, secObj.optString("createdAt"))
+                                    SyncMetaStore.baseline(
+                                        syncContext,
+                                        "sections",
+                                        sectionUid,
+                                        secObj,
+                                        remoteSectionUpdatedAt,
+                                        secObj.optString("createdAt")
+                                    )
                                 }
                             }
                         }
@@ -591,7 +1066,8 @@ internal suspend fun mergeContentFromJson(db: AppDatabase, jsonText: String, sou
 
                     // Only sections owned by this source are candidates for removal.
                     if (syncContext == null) {
-                        db.sectionDao().getBySourceAndRole(sourceUid, roleId)
+                        db.sectionDao()
+                            .getBySourceAndRole(sourceUid, roleId)
                             .filter { it.uid !in seenSectionUids }
                             .forEach { db.sectionDao().delete(it.id) }
                     }
