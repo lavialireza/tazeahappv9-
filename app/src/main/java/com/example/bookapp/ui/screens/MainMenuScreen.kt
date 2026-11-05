@@ -2,154 +2,131 @@ package com.example.bookapp.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.bookapp.data.SearchResult
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainMenuScreen(
-    randomVerse: SearchResult?,
-    recentItems: List<SearchResult>,
+    onOpenLibrary: () -> Unit,
     onOpenActivityCenter: () -> Unit,
-    onOpenTaziehList: () -> Unit,
+    onOpenNotes: () -> Unit,
     onOpenSearch: () -> Unit,
-    onOpenMyRole: () -> Unit,
-    onItemClick: (SearchResult) -> Unit,
-    featureEnabled: (String) -> Boolean = { true }
+    onOpenBookmarks: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenAbout: () -> Unit
 ) {
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("تعزیه و شبیه‌خوانی") }) }
-    ) { padding ->
+    val items = listOf(
+        HomeMenuItem("دفتر یادداشت", Icons.Filled.Edit, Color(0xFFE8EDF8), Color(0xFF344B80), onOpenNotes),
+        HomeMenuItem("جستجو", Icons.Filled.Search, Color(0xFFF8EBDD), Color(0xFF89552D), onOpenSearch),
+        HomeMenuItem("علاقه‌مندی‌ها", Icons.Filled.Favorite, Color(0xFFF4E5EC), Color(0xFF87415F), onOpenBookmarks),
+        HomeMenuItem("تنظیمات", Icons.Filled.Settings, Color(0xFFE8ECEE), Color(0xFF46545B), onOpenSettings),
+        HomeMenuItem("درباره ما", Icons.Filled.Info, Color(0xFFF0EADB), Color(0xFF725C35), onOpenAbout)
+    )
+
+    Scaffold(topBar = { CenterAlignedTopAppBar(title = { Text("تعزیه و شبیه‌خوانی", fontWeight = FontWeight.Bold) }) }) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // کتابخانه، مقصد اصلی برنامه است و عمداً برجسته‌تر از سایر امکانات نمایش داده می‌شود.
-            Card(
-                modifier = Modifier.fillMaxWidth().clickable(enabled = featureEnabled("read.view")) {
-                    if (featureEnabled("read.view")) onOpenTaziehList()
-                },
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(42.dp))
-                    Spacer(Modifier.width(16.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("کتابخانه تعزیه", style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Spacer(Modifier.height(4.dp))
-                        Text("زمینه‌ها، تعزیه‌ها، نسخه‌ها، نقش‌ها و متن مجالس",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
-                }
-            }
-
-            if (randomVerse != null) {
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable { onItemClick(randomVerse) },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(Modifier.padding(14.dp)) {
-                        Text("بیت امروز", style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(5.dp))
-                        Text(randomVerse.sectionTitle, style = MaterialTheme.typography.bodyLarge,
-                            fontStyle = FontStyle.Italic)
-                        Text("${randomVerse.taziehTitle} ← ${randomVerse.roleTitle}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (featureEnabled("search.basic")) {
-                    QuickActionCard("جستجو", Icons.Filled.Search, onOpenSearch, Modifier.weight(1f))
-                }
-                if (featureEnabled("myRole.view")) {
-                    QuickActionCard("نقش من", Icons.Filled.School, onOpenMyRole, Modifier.weight(1f))
-                }
-            }
-
-            Card(
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenActivityCenter),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Storage, contentDescription = null)
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("مرکز فعالیت‌ها", style = MaterialTheme.typography.titleMedium)
-                        Text("پژوهش، اجرا، مدیریت و ابزارهای برنامه",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Text("ورود", color = MaterialTheme.colorScheme.primary)
-                }
-            }
-
-            if (recentItems.isNotEmpty()) {
-                Text("ادامه مطالعه و موارد اخیر", style = MaterialTheme.typography.titleSmall)
-                recentItems.take(3).forEach { item ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().clickable { onItemClick(item) },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.History, contentDescription = null)
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(item.sectionTitle, style = MaterialTheme.typography.bodyLarge)
-                                Text("${item.taziehTitle} ← ${item.roleTitle}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+            HomeFeatureCard(
+                title = "کتابخانه تعزیه",
+                subtitle = "دسترسی به مجموعه تعزیه‌ها، نسخه‌ها و متن مجالس",
+                icon = Icons.AutoMirrored.Filled.MenuBook,
+                background = Color(0xFFE8E1D2),
+                foreground = Color(0xFF654B2D),
+                onClick = onOpenLibrary,
+                prominent = true
+            )
+            HomeFeatureCard(
+                title = "مرکز فعالیت‌ها",
+                subtitle = "پژوهش، اجرا، مدیریت گروه و نگهداری محتوا",
+                icon = Icons.Filled.Apps,
+                background = Color(0xFFDCE9E4),
+                foreground = Color(0xFF285C4B),
+                onClick = onOpenActivityCenter,
+                prominent = true
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items.chunked(2).forEach { rowItems ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        rowItems.forEach { item ->
+                            HomeSmallCard(item, Modifier.weight(1f))
                         }
+                        if (rowItems.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
             }
-            Spacer(Modifier.height(8.dp))
         }
     }
 }
 
+private data class HomeMenuItem(
+    val title: String,
+    val icon: ImageVector,
+    val background: Color,
+    val foreground: Color,
+    val onClick: () -> Unit
+)
 
 @Composable
-private fun QuickActionCard(title: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Card(modifier = modifier.clickable(onClick = onClick), shape = RoundedCornerShape(14.dp)) {
-        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null)
-            Spacer(Modifier.width(9.dp))
-            Text(title, style = MaterialTheme.typography.titleSmall)
+private fun HomeFeatureCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    background: Color,
+    foreground: Color,
+    onClick: () -> Unit,
+    prominent: Boolean
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = background)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(if (prominent) 18.dp else 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = foreground, modifier = Modifier.size(if (prominent) 34.dp else 26.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(title, style = if (prominent) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium, color = foreground, fontWeight = FontWeight.Bold)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = foreground)
+            }
         }
     }
 }
 
+@Composable
+private fun HomeSmallCard(item: HomeMenuItem, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.heightIn(min = 88.dp).clickable(onClick = item.onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = item.background)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Icon(item.icon, contentDescription = null, tint = item.foreground, modifier = Modifier.size(25.dp))
+            Text(item.title, color = item.foreground, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}

@@ -20,11 +20,21 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.weight
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,14 +43,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.bookapp.data.AppDatabase
 import com.example.bookapp.data.NoteEntity
@@ -57,7 +70,12 @@ private const val ROUTE_SPLASH = "splash"
 private const val ROUTE_ONBOARDING = "onboarding"
 private const val ROUTE_LOGIN = "login"
 private const val ROUTE_MAIN_MENU = "main_menu"
+private const val ROUTE_LIBRARY_HOME = "library_home"
 private const val ROUTE_ACTIVITY_CENTER = "activity_center"
+private const val ROUTE_RESEARCH_CENTER = "research_center"
+private const val ROUTE_EXECUTION_CENTER = "execution_center"
+private const val ROUTE_MANAGEMENT_CENTER = "management_center"
+private const val ROUTE_TOOLS_CENTER = "tools_center"
 private const val ROUTE_VIEWER_CONTENT = "viewer_content"
 private const val ROUTE_SEARCH = "search"
 private const val ROUTE_BOOKMARKS = "bookmarks"
@@ -91,6 +109,17 @@ private const val ROUTE_TAZIEH_GALLERY = "tazieh_gallery/{taziehId}"
 private const val ROUTE_TEXT = "text/{sectionId}"
 private const val ROUTE_TEXT_PAGER = "text_pager/{roleId}/{startIndex}"
 private const val ROUTE_COMPARE = "compare/{taziehId}"
+
+private fun concreteNavigationRoute(entry: NavBackStackEntry?): String? {
+    entry ?: return null
+    var route = entry.destination.route ?: return null
+    val args = entry.arguments ?: return route
+    args.keySet().forEach { key ->
+        val value = args.get(key)?.toString() ?: return@forEach
+        route = route.replace("{$key}", android.net.Uri.encode(value))
+    }
+    return route
+}
 
 @Composable
 fun AppNavigation(
@@ -155,7 +184,84 @@ fun AppNavigation(
 
     // انیمیشن سریع و سبک بین صفحات (نه کند/سنگین)، تا هم نرم باشد و هم سرعت استفاده از برنامه افت نکند
     val navAnimDuration = 220
-    NavHost(
+    val currentEntry by navController.currentBackStackEntryAsState()
+    val navigationHistory = remember { mutableStateListOf<String>() }
+    var historyIndex by remember { mutableIntStateOf(-1) }
+    var lastEntryId by remember { mutableStateOf<String?>(null) }
+    var lastPreviousEntryId by remember { mutableStateOf<String?>(null) }
+    var skipHistoryTracking by remember { mutableStateOf(false) }
+    var pendingHistoryIndex by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(currentEntry?.id) {
+        val entry = currentEntry
+        val entryId = entry?.id
+        if (entry != null && entryId != null) {
+            if (skipHistoryTracking) {
+                if (pendingHistoryIndex >= 0) historyIndex = pendingHistoryIndex
+                skipHistoryTracking = false
+                pendingHistoryIndex = -1
+            } else if (entryId == lastPreviousEntryId) {
+                historyIndex = (historyIndex - 1).coerceAtLeast(0)
+            } else {
+                val route = concreteNavigationRoute(entry)
+                if (route != null && (navigationHistory.getOrNull(historyIndex) != route || entryId != lastEntryId)) {
+                    while (navigationHistory.size > historyIndex + 1) navigationHistory.removeAt(navigationHistory.lastIndex)
+                    navigationHistory.add(route)
+                    historyIndex = navigationHistory.lastIndex
+                }
+            }
+            lastPreviousEntryId = navController.previousBackStackEntry?.id
+            lastEntryId = entryId
+        }
+    }
+    val currentRoute = currentEntry?.destination?.route
+    val showGlobalNavigation = currentRoute != null && currentRoute !in setOf(ROUTE_SPLASH, ROUTE_ONBOARDING, ROUTE_LOGIN, ROUTE_MAIN_MENU)
+
+    Column(Modifier.fillMaxSize()) {
+        if (showGlobalNavigation) {
+            Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+                Row(Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    IconButton(onClick = {
+                        val mainIndex = navigationHistory.indexOfLast { it == ROUTE_MAIN_MENU }
+                        val returnedHome = navController.popBackStack(ROUTE_MAIN_MENU, false)
+                        if (returnedHome && mainIndex >= 0) {
+                            skipHistoryTracking = true
+                            pendingHistoryIndex = mainIndex
+                        } else if (!returnedHome) {
+                            navigationHistory.clear()
+                            navigationHistory.add(ROUTE_MAIN_MENU)
+                            historyIndex = 0
+                            skipHistoryTracking = true
+                            pendingHistoryIndex = 0
+                            navController.navigate(ROUTE_MAIN_MENU) { launchSingleTop = true }
+                        }
+                    }) { Icon(Icons.Filled.Home, contentDescription = "خانه") }
+                    Row {
+                        IconButton(onClick = {
+                            if (historyIndex > 0 && navController.previousBackStackEntry != null) {
+                                skipHistoryTracking = true
+                                pendingHistoryIndex = historyIndex - 1
+                                navController.popBackStack()
+                            }
+                        }, enabled = historyIndex > 0 && navController.previousBackStackEntry != null) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "صفحه قبلی")
+                        }
+                        IconButton(onClick = {
+                            val targetIndex = historyIndex + 1
+                            val target = navigationHistory.getOrNull(targetIndex)
+                            if (target != null) {
+                                skipHistoryTracking = true
+                                pendingHistoryIndex = targetIndex
+                                navController.navigate(target) { launchSingleTop = true }
+                            }
+                        }, enabled = historyIndex >= 0 && historyIndex < navigationHistory.lastIndex) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "صفحه بعدی")
+                        }
+                    }
+                }
+            }
+        }
+        NavHost(
+        modifier = Modifier.weight(1f),
         navController = navController,
         startDestination = ROUTE_SPLASH,
         enterTransition = {
@@ -199,9 +305,20 @@ fun AppNavigation(
         }
 
         composable(ROUTE_MAIN_MENU) {
+            MainMenuScreen(
+                onOpenLibrary = { navController.navigate(ROUTE_LIBRARY_HOME) },
+                onOpenActivityCenter = { navController.navigate(ROUTE_ACTIVITY_CENTER) },
+                onOpenNotes = { navigateIfAllowed("notes", ROUTE_NOTES) },
+                onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
+                onOpenBookmarks = { navigateIfAllowed("bookmarks", ROUTE_BOOKMARKS) },
+                onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+                onOpenAbout = { navController.navigate(ROUTE_ABOUT) }
+            )
+        }
+
+        if (featureEnabled("read.view")) composable(ROUTE_LIBRARY_HOME) {
             var randomVerse by remember { mutableStateOf<SearchResult?>(null) }
             var recentItems by remember { mutableStateOf(listOf<SearchResult>()) }
-
             LaunchedEffect(Unit) {
                 randomVerse = db.searchDao().getRandomSection()
                 val ids = Prefs.getRecent(context)
@@ -211,46 +328,82 @@ fun AppNavigation(
                     recentItems = ids.mapNotNull { byId[it] }
                 }
             }
-
-            MainMenuScreen(
+            LibraryHomeScreen(
                 randomVerse = randomVerse,
                 recentItems = recentItems,
-                onOpenActivityCenter = { navController.navigate(ROUTE_ACTIVITY_CENTER) },
                 onOpenTaziehList = { navController.navigate(ROUTE_FIELDS) },
                 onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
                 onOpenMyRole = { navigateIfAllowed("myRole", ROUTE_MY_ROLE) },
+                onOpenRehearsal = { navigateIfAllowed("myRole.view", ROUTE_MY_ROLE) },
+                onOpenGlossary = { navigateIfAllowed("dictionary.view", ROUTE_GLOSSARY) },
+                onOpenGallery = { navigateIfAllowed("gallery.view", ROUTE_ALL_IMAGES) },
+                onOpenCompareGuide = { navController.navigate(ROUTE_FIELDS) },
                 onItemClick = { result -> navController.navigate("text/${result.sectionId}") },
-                featureEnabled = ::featureEnabled
+                showSearch = featureEnabled("search.basic"),
+                showMyRole = featureEnabled("myRole.view"),
+                showRehearsal = featureEnabled("training.rehearse"),
+                showGlossary = featureEnabled("dictionary.view"),
+                showGallery = featureEnabled("gallery.view"),
+                showCompare = featureEnabled("compare.view"),
+                onBack = { navController.popBackStack() }
             )
         }
 
         composable(ROUTE_ACTIVITY_CENTER) {
             ActivityCenterScreen(
-                isAdmin = !publicViewer,
-                canRead = featureEnabled("read.view"),
-                canSearch = featureEnabled("search.basic"),
-                canMyRole = featureEnabled("myRole.view"),
-                canDictionary = featureEnabled("dictionary.view"),
-                canEncyclopedia = featureEnabled("encyclopedia.view"),
-                canCorrections = featureEnabled("taziehCorrections.view"),
-                canAiResearch = featureEnabled("ai"),
-                canCalendar = featureEnabled("calendar.view"),
-                onOpenLibrary = { navController.navigate(ROUTE_FIELDS) },
-                onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
-                onOpenMyRole = { navigateIfAllowed("myRole", ROUTE_MY_ROLE) },
+                onOpenResearch = { navController.navigate(ROUTE_RESEARCH_CENTER) },
+                onOpenExecution = { navController.navigate(ROUTE_EXECUTION_CENTER) },
+                onOpenGroups = {
+                    if (!publicViewer) navController.navigate("performance_groups")
+                    else android.widget.Toast.makeText(context, "مدیریت گروه در نسخه مدیر در دسترس است.", android.widget.Toast.LENGTH_SHORT).show()
+                },
+                onOpenManagement = { if (!publicViewer) navController.navigate(ROUTE_MANAGEMENT_CENTER) else android.widget.Toast.makeText(context, "مرکز مدیریت فقط در نسخه مدیر فعال است.", android.widget.Toast.LENGTH_SHORT).show() },
+                onOpenTools = { navController.navigate(ROUTE_TOOLS_CENTER) },
+                showAdminSections = !publicViewer,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(ROUTE_TOOLS_CENTER) {
+            ToolsCenterScreen(
+                onOpenCalendar = { navigateIfAllowed("calendar.view", ROUTE_MUHARRAM_CALENDAR) },
+                onOpenVersion = { navController.navigate(ROUTE_VERSION) },
+                onOpenChangelog = { navController.navigate(ROUTE_CHANGELOG) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(ROUTE_RESEARCH_CENTER) {
+            ResearchCenterScreen(
+                showVersionComparison = !publicViewer,
+                showAi = featureEnabled("ai"),
+                showGlossary = featureEnabled("dictionary.view"),
+                showEncyclopedia = featureEnabled("encyclopedia.view"),
+                showCorrections = featureEnabled("taziehCorrections.view"),
+                onOpenAi = { navigateIfAllowed("ai", ROUTE_AI_RESEARCH) },
+                onOpenVersionComparison = { if (!publicViewer) navController.navigate("version_comparison") },
                 onOpenGlossary = { navigateIfAllowed("dictionary.view", ROUTE_GLOSSARY) },
                 onOpenEncyclopedia = { navigateIfAllowed("encyclopedia.view", ROUTE_ENCYCLOPEDIA) },
                 onOpenCorrections = { navigateIfAllowed("taziehCorrections.view", ROUTE_TAZIEH_CORRECTIONS) },
-                onOpenAiResearch = { navigateIfAllowed("ai", ROUTE_AI_RESEARCH) },
-                onOpenCalendar = { navController.navigate(ROUTE_MUHARRAM_CALENDAR) },
-                onOpenVersionComparison = { if (!publicViewer) navController.navigate("version_comparison") },
-                onOpenEncyclopediaManagement = { if (!publicViewer) navController.navigate("encyclopedia_management") },
-                onOpenPerformanceManagement = { if (!publicViewer) navController.navigate("execution_center") },
-                onOpenContentManagement = { if (!publicViewer) navController.navigate(ROUTE_CONTENT_MANAGEMENT) },
-                onOpenViewerAccess = { if (!publicViewer) navController.navigate(ROUTE_VIEWER_ACCESS) },
-                onOpenSpecialUsers = { if (!publicViewer) navController.navigate(ROUTE_SPECIAL_USERS) },
-                onOpenAccessAudit = { if (!publicViewer) navController.navigate(ROUTE_ACCESS_AUDIT) },
-                onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(ROUTE_EXECUTION_CENTER) {
+            ExecutionCenterScreen(
+                showAdminActions = !publicViewer,
+                onOpenGroups = { if (!publicViewer) navController.navigate("performance_groups") },
+                onOpenExecutionManagement = { if (!publicViewer) navController.navigate("performance_execution") },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        if (!publicViewer) composable(ROUTE_MANAGEMENT_CENTER) {
+            ManagementCenterScreen(
+                onOpenContent = { navController.navigate(ROUTE_CONTENT_MANAGEMENT) },
+                onOpenAccess = { navController.navigate(ROUTE_VIEWER_ACCESS) },
+                onOpenSpecialUsers = { navController.navigate(ROUTE_SPECIAL_USERS) },
+                onOpenAudit = { navController.navigate(ROUTE_ACCESS_AUDIT) },
                 onBack = { navController.popBackStack() }
             )
         }
@@ -1094,7 +1247,8 @@ fun AppNavigation(
                         Prefs.markSectionRead(context, id)
                     },
                     onOpenSearch = { navController.navigate(ROUTE_SEARCH) },
-                        onAttachAudio = { sectionId, uri ->
+                    onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+                    onAttachAudio = { sectionId, uri ->
                         scope.launch {
                             val path = com.example.bookapp.data.copyAudioToAppStorage(context, uri)
                             if (path != null) {
@@ -1282,6 +1436,7 @@ fun AppNavigation(
                     }.onFailure { footnoteError = "حذف پاورقی انجام نشد: ${it.message ?: "خطای نامشخص"}" }
                 } },
                 onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
+                onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
                 fieldTitle = breadcrumb.first,
                 taziehTitle = breadcrumb.second,
                 roleTitle = breadcrumb.third,
@@ -1317,6 +1472,7 @@ fun AppNavigation(
                 },
                 onBack = { navController.popBackStack() }
             )
+        }
         }
     }
 }
