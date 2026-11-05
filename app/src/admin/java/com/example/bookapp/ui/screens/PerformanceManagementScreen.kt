@@ -20,7 +20,7 @@ import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PerformanceManagementScreen(db: AppDatabase, onBack: () -> Unit) {
+fun PerformanceManagementScreen(db: AppDatabase, onBack: () -> Unit, initialTab: Int = 0) {
     val dao = db.performanceDao()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -31,7 +31,7 @@ fun PerformanceManagementScreen(db: AppDatabase, onBack: () -> Unit) {
     var notes by remember { mutableStateOf(emptyList<PerformanceNoteEntity>()) }
     var groupId by remember { mutableStateOf<Long?>(null) }
     var performanceId by remember { mutableStateOf<Long?>(null) }
-    var tab by remember { mutableStateOf(0) }
+    var tab by remember { mutableStateOf(initialTab.coerceIn(0, 5)) }
     var message by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var editingGroupId by remember { mutableStateOf<Long?>(null) }; var editingMemberId by remember { mutableStateOf<Long?>(null) }; var editingPerformanceId by remember { mutableStateOf<Long?>(null) }

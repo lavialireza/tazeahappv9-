@@ -37,6 +37,10 @@ fun ContentManagementScreen(
     onExportWord: () -> Unit,
     onImportWord: () -> Unit,
     onArchiveSourceIntake: () -> Unit,
+    onOpenVersionComparison: () -> Unit,
+    onOpenGlossary: () -> Unit,
+    onOpenEncyclopedia: () -> Unit,
+    onOpenPerformanceManagement: () -> Unit,
     onDetailedHealthCheck: () -> Unit,
     onExportHealthReport: () -> Unit,
     busy: Boolean,
@@ -130,6 +134,18 @@ fun ContentManagementScreen(
                         Spacer(Modifier.height(8.dp))
                         Button(onClick = onArchiveSourceIntake, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                             Text("ثبت سند اصلی Word / PDF در آرشیو پژوهشی")
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(onClick = onOpenVersionComparison, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                            Text("مقایسه دو نسخه مستقل یک تعزیه")
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(onClick = onOpenEncyclopedia, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                            Text("مدیریت دانشنامه: اشخاص، وقایع، مکان‌ها و منابع")
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Button(onClick = onOpenPerformanceManagement, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                            Text("مدیریت گروه‌ها، شبیه‌خوان‌ها و برنامه اجرا")
                         }
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(onClick = onExportJson, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
