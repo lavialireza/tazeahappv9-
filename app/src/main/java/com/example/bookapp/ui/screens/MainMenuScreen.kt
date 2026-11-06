@@ -112,65 +112,90 @@ fun MainMenuScreen(
     Scaffold(
         containerColor = HomeBackground,
 
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(11.dp)
-                    ) {
-                        // لوگوی موقت برنامه
-                        TaziehLogo()
+      
+topBar = {
+    Surface(
+        color = HomeBackground
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            TaziehLogo()
 
-                        Column(
-                            horizontalAlignment = Alignment.Start
-                        ) {
-                            Text(
-                                text = "تعزیه و شبیه‌خوانی",
-                                fontWeight = FontWeight.Bold,
-                                color = NavyDark,
-                                style = MaterialTheme.typography.titleLarge
-                            )
+            Spacer(modifier = Modifier.width(13.dp))
 
-                            Text(
-                                text = "میراثی برای شناخت، پژوهش و ماندگاری",
-                                color = BlueDark,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-                    }
-                },
+            Column(
+                horizontalAlignment = Alignment.Start,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "تعزیه و شبیه‌خوانی",
+                    fontWeight = FontWeight.Bold,
+                    color = NavyDark,
+                    style = MaterialTheme.typography.titleLarge
+                )
+
+                Text(
+                    text = "میراثی برای شناخت، پژوهش و ماندگاری",
+                    color = BlueDark,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+    }
+},
+
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = HomeBackground
                 )
             )
         },
 
-        bottomBar = {
-            Surface(
-                color = HomeBackground,
-                shadowElevation = 4.dp
+      
+bottomBar = {
+    Surface(
+        color = HomeBackground,
+        shadowElevation = 4.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .padding(top = 5.dp, bottom = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            OutlinedButton(
+                onClick = { showExitDialog = true },
+                modifier = Modifier
+                    .width(190.dp)
+                    .height(44.dp),
+                shape = CircleShape,
+                border = BorderStroke(1.6.dp, RoseDark),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = RoseDark
+                ),
+                contentPadding = PaddingValues(
+                    horizontal = 18.dp,
+                    vertical = 6.dp
+                )
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = 20.dp, vertical = 5.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    TextButton(
-                        onClick = { showExitDialog = true },
-                        modifier = Modifier.height(38.dp)
-                    ) {
-                        Text(
-                            text = "خروج از برنامه",
-                            color = RoseDark,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+                Text(
+                    text = "خروج از برنامه",
+                    color = RoseDark,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleSmall
+                )
             }
         }
+    }
+}
+
     ) { padding ->
 
         Column(
@@ -179,7 +204,7 @@ fun MainMenuScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
-                .padding(top = 8.dp, bottom = 12.dp),
+                .padding(top = 12.dp, bottom = 12.dp),
 
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -328,7 +353,7 @@ fun MainMenuScreen(
 @Composable
 private fun TaziehLogo() {
     Surface(
-        modifier = Modifier.size(58.dp),
+        modifier = Modifier.size(72.dp),
         shape = CircleShape,
         color = Color(0xFFF2E7CB),
         border = BorderStroke(1.dp, GoldBorder),
