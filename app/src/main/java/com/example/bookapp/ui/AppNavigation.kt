@@ -1,5 +1,9 @@
 package com.example.bookapp.ui
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+
 import android.content.Intent
 import com.example.bookapp.BuildConfig
 import com.example.bookapp.data.ViewerPermissionEngine
@@ -119,6 +123,23 @@ private fun concreteNavigationRoute(entry: NavBackStackEntry?): String? {
         route = route.replace("{$key}", android.net.Uri.encode(value))
     }
     return route
+}
+private fun Context.findActivity(): Activity? {
+    var current: Context? = this
+
+    while (current != null) {
+        if (current is Activity) {
+            return current
+        }
+
+        current = if (current is ContextWrapper) {
+            current.baseContext
+        } else {
+            null
+        }
+    }
+
+    return null
 }
 
 @Composable
@@ -313,6 +334,9 @@ fun AppNavigation(
                 onOpenBookmarks = { navigateIfAllowed("bookmarks", ROUTE_BOOKMARKS) },
                 onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
                 onOpenAbout = { navController.navigate(ROUTE_ABOUT) }
+                onExit = {
+    context.findActivity()?.finish()
+}
             )
         }
 
