@@ -1,6 +1,7 @@
 
 package com.example.bookapp.ui.screens
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,26 +21,48 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.BorderStroke
 
-// رنگ‌های اصلی صفحه
-private val HomeBackground = Color(0xFFF5F8F4)
-private val SpringGreen = Color(0xFFE5F1E5)
-private val SpringGreenDark = Color(0xFF426B50)
+// -----------------------------------------------------
+// تنظیمات قابل تغییر صفحه اصلی
+// -----------------------------------------------------
 
-private val NavyBackground = Color(0xFFE8EDF5)
-private val NavyDark = Color(0xFF354B68)
+private const val SHOW_UTILITY_HEADING = false
+private const val UTILITY_HEADING = "ابزارهای کاربردی"
 
-private val GoldBackground = Color(0xFFF2EDDF)
-private val GoldDark = Color(0xFF806A3D)
+// -----------------------------------------------------
+// رنگ‌بندی صفحه اصلی
+// -----------------------------------------------------
 
-private val BlueBackground = Color(0xFFE5EFF5)
-private val BlueDark = Color(0xFF45677D)
+private val HomeBackground = Color(0xFFF5F5EF)
 
-private val RoseBackground = Color(0xFFF5E9E9)
-private val RoseDark = Color(0xFF955D5D)
+private val GoldBackground = Color(0xFFF3E5C3)
+private val GoldDark = Color(0xFF624515)
+
+private val GreenBackground = Color(0xFFE1EEDC)
+private val GreenDark = Color(0xFF174D35)
+
+private val BlueBackground = Color(0xFFE0EAF3)
+private val BlueDark = Color(0xFF173E5B)
+
+private val RoseBackground = Color(0xFFF3E0E0)
+private val RoseDark = Color(0xFF873333)
+
+private val NavyBackground = Color(0xFFE5E8F1)
+private val NavyDark = Color(0xFF263B5B)
+
+private val GoldBorder = Color(0xFFB99A58)
+private val GreenBorder = Color(0xFF7C9D76)
+private val BlueBorder = Color(0xFF829BB5)
+
+// -----------------------------------------------------
+// صفحه اصلی
+// -----------------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,8 +82,8 @@ fun MainMenuScreen(
         HomeMenuItem(
             title = "دفتر یادداشت",
             icon = Icons.Filled.Edit,
-            background = SpringGreen,
-            foreground = SpringGreenDark,
+            background = GreenBackground,
+            foreground = GreenDark,
             onClick = onOpenNotes
         ),
         HomeMenuItem(
@@ -92,20 +115,29 @@ fun MainMenuScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(11.dp)
                     ) {
-                        Text(
-                            text = "تعزیه و شبیه‌خوانی",
-                            fontWeight = FontWeight.Bold,
-                            color = NavyDark,
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        Text(
-                            text = "میراثی برای شناخت، پژوهش و ماندگاری",
-                            color = Color(0xFF788477),
-                            style = MaterialTheme.typography.labelSmall
-                        )
+                        // لوگوی موقت برنامه
+                        TaziehLogo()
+
+                        Column(
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            Text(
+                                text = "تعزیه و شبیه‌خوانی",
+                                fontWeight = FontWeight.Bold,
+                                color = NavyDark,
+                                style = MaterialTheme.typography.titleLarge
+                            )
+
+                            Text(
+                                text = "میراثی برای شناخت، پژوهش و ماندگاری",
+                                color = BlueDark,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -117,24 +149,23 @@ fun MainMenuScreen(
         bottomBar = {
             Surface(
                 color = HomeBackground,
-                shadowElevation = 5.dp
+                shadowElevation = 4.dp
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                        .padding(horizontal = 20.dp, vertical = 5.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     TextButton(
                         onClick = { showExitDialog = true },
-                        modifier = Modifier
-                            .height(42.dp)
+                        modifier = Modifier.height(38.dp)
                     ) {
                         Text(
                             text = "خروج از برنامه",
                             color = RoseDark,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -148,9 +179,9 @@ fun MainMenuScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
-                .padding(top = 10.dp, bottom = 18.dp),
+                .padding(top = 8.dp, bottom = 12.dp),
 
-            verticalArrangement = Arrangement.spacedBy(13.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
 
             // کارت اول: کتابخانه
@@ -160,6 +191,7 @@ fun MainMenuScreen(
                 icon = Icons.AutoMirrored.Filled.MenuBook,
                 background = GoldBackground,
                 foreground = GoldDark,
+                borderColor = GoldBorder,
                 onClick = onOpenLibrary
             )
 
@@ -168,8 +200,9 @@ fun MainMenuScreen(
                 title = "مرکز فعالیت‌ها",
                 subtitle = "پژوهش، اجرا، مدیریت گروه و فعالیت‌های تخصصی",
                 icon = Icons.Filled.Apps,
-                background = SpringGreen,
-                foreground = SpringGreenDark,
+                background = GreenBackground,
+                foreground = GreenDark,
+                borderColor = GreenBorder,
                 onClick = onOpenActivityCenter
             )
 
@@ -178,28 +211,31 @@ fun MainMenuScreen(
                 title = "درباره برنامه",
                 subtitle = "معرفی سامانه، اهداف و اطلاعات برنامه",
                 icon = Icons.Filled.Info,
-                background = NavyBackground,
-                foreground = NavyDark,
+                background = BlueBackground,
+                foreground = BlueDark,
+                borderColor = BlueBorder,
                 onClick = onOpenAbout
             )
 
-            // عنوان بخش ابزارها
-            Text(
-                text = "ابزارهای کاربردی",
-                color = NavyDark,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(
-                    top = 5.dp,
-                    bottom = 1.dp,
-                    start = 4.dp
+            // عنوان ابزارها حفظ شده و با یک تنظیم قابل فعال‌سازی است.
+            if (SHOW_UTILITY_HEADING) {
+                Text(
+                    text = UTILITY_HEADING,
+                    color = NavyDark,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(
+                        top = 3.dp,
+                        bottom = 1.dp,
+                        start = 4.dp
+                    )
                 )
-            )
+            }
 
-            // ردیف اول کارت‌های متوسط
+            // ردیف اول ابزارها
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(11.dp)
             ) {
                 HomeSmallCard(
                     item = smallItems[0],
@@ -212,10 +248,10 @@ fun MainMenuScreen(
                 )
             }
 
-            // ردیف دوم کارت‌های متوسط
+            // ردیف دوم ابزارها
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(11.dp)
             ) {
                 HomeSmallCard(
                     item = smallItems[2],
@@ -279,11 +315,70 @@ fun MainMenuScreen(
                 }
             },
 
-            shape = RoundedCornerShape(22.dp),
+            shape = RoundedCornerShape(20.dp),
             containerColor = Color.White
         )
     }
 }
+
+// -----------------------------------------------------
+// لوگوی موقت تعزیه و شبیه‌خوانی
+// -----------------------------------------------------
+
+@Composable
+private fun TaziehLogo() {
+    Surface(
+        modifier = Modifier.size(58.dp),
+        shape = CircleShape,
+        color = Color(0xFFF2E7CB),
+        border = BorderStroke(1.dp, GoldBorder),
+        shadowElevation = 2.dp
+    ) {
+        Box(
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                contentDescription = "لوگوی تعزیه و شبیه‌خوانی",
+                tint = NavyDark,
+                modifier = Modifier.size(34.dp)
+            )
+
+            // میله و پرچم قرمز کوچک
+            Canvas(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                val poleX = size.width * 0.76f
+                val poleTop = size.height * 0.08f
+                val poleBottom = size.height * 0.48f
+
+                drawLine(
+                    color = GoldDark,
+                    start = Offset(poleX, poleTop),
+                    end = Offset(poleX, poleBottom),
+                    strokeWidth = 2.5f
+                )
+
+                val flag = Path().apply {
+                    moveTo(poleX, poleTop)
+                    lineTo(size.width * 0.96f, size.height * 0.16f)
+                    lineTo(size.width * 0.84f, size.height * 0.25f)
+                    lineTo(poleX, size.height * 0.22f)
+                    close()
+                }
+
+                drawPath(
+                    path = flag,
+                    color = Color(0xFFB83232)
+                )
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------
+// اطلاعات کارت‌ها
+// -----------------------------------------------------
 
 private data class HomeMenuItem(
     val title: String,
@@ -293,7 +388,10 @@ private data class HomeMenuItem(
     val onClick: () -> Unit
 )
 
+// -----------------------------------------------------
 // کارت‌های بزرگ
+// -----------------------------------------------------
+
 @Composable
 private fun HomeFeatureCard(
     title: String,
@@ -301,38 +399,40 @@ private fun HomeFeatureCard(
     icon: ImageVector,
     background: Color,
     foreground: Color,
+    borderColor: Color,
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 96.dp)
+            .heightIn(min = 84.dp)
             .clickable(onClick = onClick),
 
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(19.dp),
 
         colors = CardDefaults.cardColors(
             containerColor = background
         ),
 
+        border = BorderStroke(1.dp, borderColor.copy(alpha = 0.75f)),
+
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 3.dp
+            defaultElevation = 2.dp
         )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 17.dp, vertical = 17.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
 
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(15.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
 
-            // کادر دایره‌ای آیکون
             Surface(
                 shape = CircleShape,
-                color = Color.White.copy(alpha = 0.72f),
-                modifier = Modifier.size(53.dp)
+                color = Color.White.copy(alpha = 0.82f),
+                modifier = Modifier.size(46.dp)
             ) {
                 Box(
                     contentAlignment = Alignment.Center
@@ -341,14 +441,14 @@ private fun HomeFeatureCard(
                         imageVector = icon,
                         contentDescription = title,
                         tint = foreground,
-                        modifier = Modifier.size(29.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
             }
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(5.dp)
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Text(
                     text = title,
@@ -359,7 +459,7 @@ private fun HomeFeatureCard(
 
                 Text(
                     text = subtitle,
-                    color = foreground.copy(alpha = 0.85f),
+                    color = foreground,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -367,7 +467,10 @@ private fun HomeFeatureCard(
     }
 }
 
-// کارت‌های متوسط
+// -----------------------------------------------------
+// کارت‌های کوچک
+// -----------------------------------------------------
+
 @Composable
 private fun HomeSmallCard(
     item: HomeMenuItem,
@@ -375,10 +478,10 @@ private fun HomeSmallCard(
 ) {
     Card(
         modifier = modifier
-            .heightIn(min = 108.dp)
+            .heightIn(min = 91.dp)
             .clickable(onClick = item.onClick),
 
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(17.dp),
 
         colors = CardDefaults.cardColors(
             containerColor = item.background
@@ -391,15 +494,15 @@ private fun HomeSmallCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 15.dp, vertical = 15.dp),
+                .padding(horizontal = 12.dp, vertical = 11.dp),
 
             horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.spacedBy(11.dp)
+            verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             Surface(
                 shape = CircleShape,
-                color = Color.White.copy(alpha = 0.75f),
-                modifier = Modifier.size(39.dp)
+                color = Color.White.copy(alpha = 0.85f),
+                modifier = Modifier.size(34.dp)
             ) {
                 Box(
                     contentAlignment = Alignment.Center
@@ -408,7 +511,7 @@ private fun HomeSmallCard(
                         imageVector = item.icon,
                         contentDescription = item.title,
                         tint = item.foreground,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -416,7 +519,7 @@ private fun HomeSmallCard(
             Text(
                 text = item.title,
                 color = item.foreground,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleSmall
             )
         }
