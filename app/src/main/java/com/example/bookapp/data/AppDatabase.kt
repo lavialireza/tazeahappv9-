@@ -65,6 +65,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun footnoteDao(): FootnoteDao
     abstract fun dialogueDao(): DialogueDao
     abstract fun dialogueTurnDao(): DialogueTurnDao
+    abstract fun dialogueRoleSelectionDao(): DialogueRoleSelectionDao
+    abstract fun dialogueTurnMetadataDao(): DialogueTurnMetadataDao
+    abstract fun dialogueStageCueDao(): DialogueStageCueDao
     abstract fun taziehImageDao(): TaziehImageDao
     abstract fun userDataDao(): UserDataDao
     abstract fun archiveDao(): com.example.bookapp.data.archive.ArchiveDao
