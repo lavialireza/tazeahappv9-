@@ -3,9 +3,11 @@ package com.example.bookapp.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
@@ -31,6 +33,7 @@ fun TaziehCatalogScreen(
     items: List<TaziehCatalogItem>,
     onOpen: (TaziehCatalogItem) -> Unit,
     onOpenGallery: (TaziehCatalogItem) -> Unit = {},
+    onOpenDialogues: (TaziehCatalogItem) -> Unit = {},
     showGallery: Boolean = true,
     onBack: () -> Unit,
     initialFieldId: Long? = null
@@ -86,7 +89,7 @@ fun TaziehCatalogScreen(
             )
             if (fields.isNotEmpty()) {
                 Text("دسته‌بندی / زمینه", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
-                androidx.compose.foundation.lazy.LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     item { FilterChip(selectedField == null, { selectedField = null }, label = { Text("همه") }) }
                     items(fields) { f -> FilterChip(selectedField == f.fieldId, { selectedField = f.fieldId }, label = { Text(f.fieldTitle) }) }
                 }
@@ -104,6 +107,9 @@ fun TaziehCatalogScreen(
                                         Text(item.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                         Text(item.fieldTitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                                     }
+                                    IconButton(onClick = { onOpenDialogues(item) }) {
+                                        Icon(Icons.Filled.Groups, contentDescription = "گفت‌وگوهای ${item.title}")
+                                    }
                                     if (showGallery) {
                                         IconButton(onClick = { onOpenGallery(item) }) {
                                             Icon(Icons.Filled.PhotoLibrary, contentDescription = "گالری تصاویر ${item.title}")
@@ -112,12 +118,17 @@ fun TaziehCatalogScreen(
                                 }
                                 if (!item.author.isNullOrBlank()) Text("نویسنده: ${item.author}", style = MaterialTheme.typography.bodySmall)
                                 Text("${item.roleCount} نقش${if (item.hasAudio) "  •  صوت دارد" else ""}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                if (showGallery) {
-                                    Spacer(Modifier.height(6.dp))
-                                    TextButton(onClick = { onOpenGallery(item) }) {
+                                Spacer(Modifier.height(6.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    TextButton(onClick = { onOpenDialogues(item) }) {
+                                        Icon(Icons.Filled.Groups, contentDescription = null)
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("گفت‌وگوهای چندنقشی")
+                                    }
+                                    if (showGallery) TextButton(onClick = { onOpenGallery(item) }) {
                                         Icon(Icons.Filled.PhotoLibrary, contentDescription = null)
                                         Spacer(Modifier.width(4.dp))
-                                        Text("گالری تصاویر همین تعزیه")
+                                        Text("گالری تصاویر")
                                     }
                                 }
                             }
