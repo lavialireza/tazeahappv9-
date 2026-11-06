@@ -325,18 +325,36 @@ fun AppNavigation(
             })
         }
 
-        composable(ROUTE_MAIN_MENU) {
-            MainMenuScreen(
-                onOpenLibrary = { navController.navigate(ROUTE_LIBRARY_HOME) },
-                onOpenActivityCenter = { navController.navigate(ROUTE_ACTIVITY_CENTER) },
-                onOpenNotes = { navigateIfAllowed("notes", ROUTE_NOTES) },
-                onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
-                onOpenBookmarks = { navigateIfAllowed("bookmarks", ROUTE_BOOKMARKS) },
-                onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
-                onOpenAbout = { navController.navigate(ROUTE_ABOUT) }
-                onExit = {
-    context.findActivity()?.finish()
+        
+composable(ROUTE_MAIN_MENU) {
+    MainMenuScreen(
+        onOpenLibrary = {
+            navController.navigate(ROUTE_LIBRARY_HOME)
+        },
+        onOpenActivityCenter = {
+            navController.navigate(ROUTE_ACTIVITY_CENTER)
+        },
+        onOpenNotes = {
+            navigateIfAllowed("notes", ROUTE_NOTES)
+        },
+        onOpenSearch = {
+            navigateIfAllowed("search", ROUTE_SEARCH)
+        },
+        onOpenBookmarks = {
+            navigateIfAllowed("bookmarks", ROUTE_BOOKMARKS)
+        },
+        onOpenSettings = {
+            navController.navigate(ROUTE_SETTINGS)
+        },
+        onOpenAbout = {
+            navController.navigate(ROUTE_ABOUT)
+        },
+        onExit = {
+            context.findActivity()?.finish()
+        }
+    )
 }
+
             )
         }
 
