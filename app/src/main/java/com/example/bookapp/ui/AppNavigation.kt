@@ -351,15 +351,34 @@ fun AppNavigation(
 
         composable(ROUTE_ACTIVITY_CENTER) {
             ActivityCenterScreen(
-                onOpenResearch = { navController.navigate(ROUTE_RESEARCH_CENTER) },
-                onOpenExecution = { navController.navigate(ROUTE_EXECUTION_CENTER) },
-                onOpenGroups = {
-                    if (!publicViewer) navController.navigate("performance_groups")
-                    else android.widget.Toast.makeText(context, "مدیریت گروه در نسخه مدیر در دسترس است.", android.widget.Toast.LENGTH_SHORT).show()
+                isAdmin = !publicViewer,
+                canRead = featureEnabled("read.view"),
+                canSearch = featureEnabled("search.basic"),
+                canMyRole = featureEnabled("myRole.view"),
+                canDictionary = featureEnabled("dictionary.view"),
+                canEncyclopedia = featureEnabled("encyclopedia.view"),
+                canCorrections = featureEnabled("taziehCorrections.view"),
+                canAiResearch = featureEnabled("ai"),
+                canCalendar = featureEnabled("calendar.view"),
+                onOpenLibrary = { navController.navigate(ROUTE_FIELDS) },
+                onOpenSearch = { navigateIfAllowed("search.basic", ROUTE_SEARCH) },
+                onOpenMyRole = { navigateIfAllowed("myRole.view", ROUTE_MY_ROLE) },
+                onOpenGlossary = { navigateIfAllowed("dictionary.view", ROUTE_GLOSSARY) },
+                onOpenEncyclopedia = { navigateIfAllowed("encyclopedia.view", ROUTE_ENCYCLOPEDIA) },
+                onOpenCorrections = { navigateIfAllowed("taziehCorrections.view", ROUTE_TAZIEH_CORRECTIONS) },
+                onOpenAiResearch = { navigateIfAllowed("ai", ROUTE_AI_RESEARCH) },
+                onOpenCalendar = { navigateIfAllowed("calendar.view", ROUTE_MUHARRAM_CALENDAR) },
+                onOpenVersionComparison = { if (!publicViewer) navController.navigate("version_comparison") },
+                onOpenEncyclopediaManagement = { if (!publicViewer) navController.navigate("encyclopedia_management") },
+                onOpenPerformanceManagement = { if (!publicViewer) navController.navigate("performance_management") },
+                onOpenContentManagement = { if (!publicViewer) navController.navigate(ROUTE_CONTENT_MANAGEMENT) },
+                onOpenViewerAccess = { if (!publicViewer) navController.navigate(ROUTE_VIEWER_ACCESS) },
+                onOpenSpecialUsers = { if (!publicViewer) navController.navigate(ROUTE_SPECIAL_USERS) },
+                onOpenAccessAudit = { if (!publicViewer) navController.navigate(ROUTE_ACCESS_AUDIT) },
+                onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+                onOpenMultiRoleDialogue = {
+                    if (featureEnabled("read.view")) navController.navigate(ROUTE_FIELDS)
                 },
-                onOpenManagement = { if (!publicViewer) navController.navigate(ROUTE_MANAGEMENT_CENTER) else android.widget.Toast.makeText(context, "مرکز مدیریت فقط در نسخه مدیر فعال است.", android.widget.Toast.LENGTH_SHORT).show() },
-                onOpenTools = { navController.navigate(ROUTE_TOOLS_CENTER) },
-                showAdminSections = !publicViewer,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -827,6 +846,11 @@ fun AppNavigation(
                 onOpenGallery = { item ->
                     if (featureEnabled("gallery.view")) navController.navigate("tazieh_gallery/${item.id}")
                 },
+                onOpenDialogues = { item ->
+                    if (featureEnabled("read.view")) {
+                        navController.navigate("dialogues/${item.id}/${java.net.URLEncoder.encode(item.title, "UTF-8")}")
+                    }
+                },
                 showGallery = featureEnabled("gallery.view"),
                 onBack = { navController.popBackStack() }
             )
@@ -943,7 +967,7 @@ fun AppNavigation(
             )
         }
 
-        composable(ROUTE_DIALOGUES) { backStackEntry ->
+        if (featureEnabled("read.view")) composable(ROUTE_DIALOGUES) { backStackEntry ->
             val taziehId = backStackEntry.arguments?.getString("taziehId")?.toLongOrNull() ?: 0L
             val taziehTitle = backStackEntry.arguments?.getString("taziehTitle") ?: ""
             var dialogues by remember { mutableStateOf(listOf<DialogueSummary>()) }
@@ -976,7 +1000,7 @@ fun AppNavigation(
         }
 
 
-composable(ROUTE_DIALOGUE_READER) { backStackEntry ->
+if (featureEnabled("read.view")) composable(ROUTE_DIALOGUE_READER) { backStackEntry ->
     val dialogueId = backStackEntry.arguments
         ?.getString("dialogueId")?.toLongOrNull() ?: 0L
 
