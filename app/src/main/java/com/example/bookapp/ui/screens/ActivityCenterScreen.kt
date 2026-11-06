@@ -65,6 +65,7 @@ fun ActivityCenterScreen(
     onOpenSpecialUsers: () -> Unit,
     onOpenAccessAudit: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenMultiRoleDialogue: () -> Unit,
     onBack: () -> Unit
 ) {
     Scaffold(
@@ -96,6 +97,11 @@ fun ActivityCenterScreen(
                     if (canRead) CenterAction("کتابخانه تعزیه", Icons.AutoMirrored.Filled.MenuBook, onOpenLibrary)
                     if (canSearch) CenterAction("جستجوی سراسری", Icons.Filled.Search, onOpenSearch)
                     if (canMyRole) CenterAction("نقش من", Icons.Filled.Bookmarks, onOpenMyRole)
+                }
+            }
+            if (canRead) item {
+                CenterCategory("مرکز گفت‌وگو و تمرین", "ورود مستقل به گفت‌وگوهای چندنقشی هر تعزیه") {
+                    CenterAction("گفت‌وگوی چندنقشی", Icons.Filled.Groups, onOpenMultiRoleDialogue)
                 }
             }
             if (canDictionary || canEncyclopedia || canCorrections || canAiResearch || isAdmin) item {
