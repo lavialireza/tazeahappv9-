@@ -113,6 +113,7 @@ fun MainMenuScreen(
         containerColor = HomeBackground,
 
       
+
 topBar = {
     Surface(
         color = HomeBackground
@@ -150,13 +151,7 @@ topBar = {
     }
 },
 
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = HomeBackground
-                )
-            )
-        },
 
-      
 bottomBar = {
     Surface(
         color = HomeBackground,
