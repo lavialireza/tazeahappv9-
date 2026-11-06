@@ -1,6 +1,8 @@
+
 package com.example.bookapp.ui.screens
 
 import com.example.bookapp.data.DialogueStageCueEntity
+import com.example.bookapp.data.DialogueTurnMetadataEntity
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -218,7 +220,7 @@ fun DialogueReaderScreen(
                 }
 
                 Text(
-                    "در این حالت فقط نوبت‌های نقش انتخاب‌شده نمایش داده می‌شوند. نوبت مرتبط با پاسخ فقط در صورت ثبت رابطه صریح نمایش داده خواهد شد.",
+                    "در این حالت نوبت‌های نقش انتخاب‌شده نمایش داده می‌شوند. نوبت مرتبط با پاسخ فقط در صورت ثبت رابطه صریح نمایش داده خواهد شد.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -285,6 +287,7 @@ fun DialogueReaderScreen(
                                     "نوبت مرتبط با پاسخ — ${responseSource.roleTitle}",
                                     fontWeight = FontWeight.Bold
                                 )
+                                Text(responseSource.sectionTitle)
                                 Text(responseSource.content)
                             }
                         }
@@ -325,7 +328,9 @@ fun DialogueReaderScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("نوبت ${if (turns.isEmpty()) 0 else activeIndex + 1} از ${turns.size}")
+                Text(
+                    "نوبت ${if (turns.isEmpty()) 0 else activeIndex + 1} از ${turns.size}"
+                )
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -333,7 +338,8 @@ fun DialogueReaderScreen(
                     OutlinedButton(
                         enabled = activeIndex > 0,
                         onClick = {
-                            activeTurnId = turns.getOrNull(activeIndex - 1)?.turnId
+                            activeTurnId =
+                                turns.getOrNull(activeIndex - 1)?.turnId
                         }
                     ) {
                         Text("قبلی")
@@ -342,7 +348,8 @@ fun DialogueReaderScreen(
                     Button(
                         enabled = activeIndex < turns.lastIndex,
                         onClick = {
-                            activeTurnId = turns.getOrNull(activeIndex + 1)?.turnId
+                            activeTurnId =
+                                turns.getOrNull(activeIndex + 1)?.turnId
                         }
                     ) {
                         Text("نوبت بعد")
@@ -367,6 +374,14 @@ fun DialogueReaderScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(current.sectionTitle)
+
+                        if (current.expectsResponse) {
+                            Text(
+                                current.expectedResponderRoleTitle?.let {
+                                    "پاسخ مورد انتظار: $it"
+                                } ?: "پاسخ مورد انتظار ثبت شده، اما نقش پاسخ‌دهنده مشخص نشده است."
+                            )
+                        }
                     }
                 }
             }
@@ -401,8 +416,12 @@ fun DialogueReaderScreen(
             },
             onAdd = { type, text ->
                 onAddStageCue(turn, type, text)
+                cueEditorTurn = null
             },
-            onDelete = onDeleteStageCue
+            onDelete = { cue ->
+                onDeleteStageCue(cue)
+                cueEditorTurn = null
+            }
         )
     }
 }
@@ -499,26 +518,35 @@ private fun TurnCard(
 
             turn.replyToTurnId?.let { replyId ->
                 Text(
-                    "این نوبت پاسخ نوبت شماره ${replyId} است.",
+                    "شناسه نوبت مرجع پاسخ: $replyId",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
 
-            if (turn.sourceSequenceStatus ==
-                DialogueStageCueEntity.ORIGIN_SOURCE_TEXT
-            ) {
-                Text(
-                    "منبع ترتیب: متن اصلی",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
+            when (turn.sourceSequenceStatus) {
+                DialogueTurnMetadataEntity.SOURCE_DOCUMENTED -> {
+                    Text(
+                        "وضعیت ترتیب: مستند به منبع",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
 
-            if (turn.sourceSequenceStatus == "UNVERIFIED") {
-                Text(
-                    "ترتیب اجرای مستند این نوبت هنوز تأیید نشده است.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
+                DialogueTurnMetadataEntity.SOURCE_DIRECTOR_CONFIRMED -> {
+                    Text(
+                        "وضعیت ترتیب: تأییدشده توسط کارگردان",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                DialogueTurnMetadataEntity.SOURCE_UNVERIFIED -> {
+                    Text(
+                        "ترتیب اجرای مستند این نوبت هنوز تأیید نشده است.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
 
             if (turn.sequenceEvidence.isNotBlank()) {
@@ -548,27 +576,23 @@ private fun TurnCard(
                         .firstOrNull { it.type == cue.cueType }
                         ?.title ?: "نشانه اجرایی"
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            if (cue.cueText.isBlank()) {
-                                "• $title"
-                            } else {
-                                "• $title: ${cue.cueText}"
-                            },
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-
-                        if (canEdit) {
-                            IconButton(
-                                onClick = { }
-                            ) {
-                                // حذف از طریق دکمه جداگانه پایین کارت انجام می‌شود.
-                            }
+                    val sourceLabel =
+                        if (cue.origin ==
+                            DialogueStageCueEntity.ORIGIN_SOURCE_TEXT
+                        ) {
+                            " (متن منبع)"
+                        } else {
+                            " (افزوده‌شده)"
                         }
-                    }
+
+                    Text(
+                        if (cue.cueText.isBlank()) {
+                            "• $title$sourceLabel"
+                        } else {
+                            "• $title: ${cue.cueText}$sourceLabel"
+                        },
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
 
@@ -655,9 +679,7 @@ private fun ResponseRelationDialog(
 
                 HorizontalDivider()
 
-                Text(
-                    "آیا این نوبت انتظار پاسخ دارد؟"
-                )
+                Text("آیا این نوبت انتظار پاسخ دارد؟")
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically
@@ -677,6 +699,10 @@ private fun ResponseRelationDialog(
                         "نقش پاسخ‌دهنده مورد انتظار:",
                         fontWeight = FontWeight.Bold
                     )
+
+                    if (roles.isEmpty()) {
+                        Text("نقشی برای انتخاب وجود ندارد.")
+                    }
 
                     roles.forEach { (id, title) ->
                         Row(
@@ -762,11 +788,11 @@ private fun StageCueDialog(
     onAdd: (String, String) -> Unit,
     onDelete: (DialogueStageCueEntity) -> Unit
 ) {
-    var selectedType by remember {
+    var selectedType by remember(turn.turnId) {
         mutableStateOf(DialogueStageCueEntity.STAGE_DIRECTION)
     }
 
-    var cueText by remember {
+    var cueText by remember(turn.turnId) {
         mutableStateOf("")
     }
 
@@ -801,20 +827,38 @@ private fun StageCueDialog(
                         .firstOrNull { it.type == cue.cueType }
                         ?.title ?: "سایر"
 
+                    val isDirectorAdded =
+                        cue.origin ==
+                            DialogueStageCueEntity.ORIGIN_DIRECTOR_ADDED
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            "$title: ${cue.cueText}",
+                        Column(
                             modifier = Modifier.weight(1f)
-                        )
-
-                        TextButton(
-                            onClick = {
-                                onDelete(cue)
-                            }
                         ) {
-                            Text("حذف")
+                            Text(
+                                "$title: ${cue.cueText}"
+                            )
+                            Text(
+                                if (isDirectorAdded) {
+                                    "افزوده‌شده توسط کارگردان"
+                                } else {
+                                    "استخراج‌شده از متن منبع"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        if (isDirectorAdded) {
+                            TextButton(
+                                onClick = {
+                                    onDelete(cue)
+                                }
+                            ) {
+                                Text("حذف")
+                            }
                         }
                     }
                 }
@@ -865,7 +909,6 @@ private fun StageCueDialog(
                     selectedType != DialogueStageCueEntity.STAGE_DIRECTION,
                 onClick = {
                     onAdd(selectedType, cueText.trim())
-                    cueText = ""
                 }
             ) {
                 Text("ثبت نشانه")
