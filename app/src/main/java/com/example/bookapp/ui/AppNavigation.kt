@@ -355,8 +355,6 @@ composable(ROUTE_MAIN_MENU) {
     )
 }
 
-            )
-        }
 
         if (featureEnabled("read.view")) composable(ROUTE_LIBRARY_HOME) {
             var randomVerse by remember { mutableStateOf<SearchResult?>(null) }
@@ -1839,3 +1837,4 @@ if (featureEnabled("read.view")) composable(ROUTE_DIALOGUE_READER) { backStackEn
         }
     }
 }
+ 
