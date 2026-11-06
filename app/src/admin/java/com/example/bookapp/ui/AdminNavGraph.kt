@@ -1,3 +1,4 @@
+
 package com.example.bookapp.ui
 
 // این فایل فقط در بیلد Admin کامپایل می‌شود (app/src/admin/java).
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
+import androidx.room.withTransaction
 import com.example.bookapp.data.AppDatabase
 import com.example.bookapp.data.ContentImportPreview
 import com.example.bookapp.data.ContentHealthReport
@@ -76,404 +78,885 @@ fun NavGraphBuilder.adminOnlyRoutes(
     db: AppDatabase,
     context: android.content.Context
 ) {
-        composable(ROUTE_ENCYCLOPEDIA) {
-            EncyclopediaManagementScreen(db = db, onBack = { navController.popBackStack() }, onOpenGraph = { navController.navigate(ROUTE_ENCYCLOPEDIA_GRAPH) })
-        }
-        composable(ROUTE_ENCYCLOPEDIA_GRAPH) {
-            EncyclopediaGraphScreen(db = db, onBack = { navController.popBackStack() })
+    composable(ROUTE_ENCYCLOPEDIA) {
+        EncyclopediaManagementScreen(
+            db = db,
+            onBack = { navController.popBackStack() },
+            onOpenGraph = { navController.navigate(ROUTE_ENCYCLOPEDIA_GRAPH) }
+        )
+    }
+
+    composable(ROUTE_ENCYCLOPEDIA_GRAPH) {
+        EncyclopediaGraphScreen(
+            db = db,
+            onBack = { navController.popBackStack() }
+        )
+    }
+
+    composable(ROUTE_PERFORMANCE_MANAGEMENT) {
+        PerformanceManagementScreen(
+            db = db,
+            onBack = { navController.popBackStack() },
+            initialTab = 0
+        )
+    }
+
+    composable(ROUTE_PERFORMANCE_GROUPS) {
+        PerformanceManagementScreen(
+            db = db,
+            onBack = { navController.popBackStack() },
+            initialTab = 0
+        )
+    }
+
+    composable(ROUTE_PERFORMANCE_EXECUTION) {
+        PerformanceManagementScreen(
+            db = db,
+            onBack = { navController.popBackStack() },
+            initialTab = 2
+        )
+    }
+
+    composable(ROUTE_GLOSSARY_MANAGEMENT) {
+        GlossaryManagementScreen(
+            db = db,
+            onBack = { navController.popBackStack() }
+        )
+    }
+
+    composable(ROUTE_VERSION_COMPARISON) {
+        VersionComparisonScreen(
+            db = db,
+            onBack = { navController.popBackStack() }
+        )
+    }
+
+    composable(ROUTE_ARCHIVE_SOURCE_INTAKE) {
+        ArchiveSourceIntakeScreen(
+            repository = com.example.bookapp.data.archive.RoomArchiveRepository(db),
+            db = db,
+            context = context,
+            onBack = { navController.popBackStack() }
+        )
+    }
+
+    composable(ROUTE_VIEWER_ACCESS) {
+        ViewerAccessManagementScreen(
+            onBack = { navController.popBackStack() }
+        )
+    }
+
+    composable(ROUTE_SPECIAL_USERS) {
+        SpecialUsersManagementScreen(
+            onBack = { navController.popBackStack() }
+        )
+    }
+
+    composable(ROUTE_ACCESS_AUDIT) {
+        AccessAuditLogScreen(
+            onBack = { navController.popBackStack() }
+        )
+    }
+
+    composable(ROUTE_CONTENT_MANAGEMENT) {
+        var fieldsCount by remember { mutableIntStateOf(0) }
+        var taziehsCount by remember { mutableIntStateOf(0) }
+        var rolesCount by remember { mutableIntStateOf(0) }
+        var sectionsCount by remember { mutableIntStateOf(0) }
+        var imagesCount by remember { mutableIntStateOf(0) }
+        var dialoguesCount by remember { mutableIntStateOf(0) }
+        var processedFilesCount by remember { mutableIntStateOf(0) }
+        var warnings by remember { mutableStateOf(emptyList<String>()) }
+        var busy by remember { mutableStateOf(false) }
+        var message by remember { mutableStateOf<String?>(null) }
+        var importPreview by remember { mutableStateOf<ContentImportPreview?>(null) }
+        var pendingImportJson by remember { mutableStateOf<String?>(null) }
+        var wordPreview by remember { mutableStateOf<WordImportPreview?>(null) }
+        var pendingWordBytes by remember { mutableStateOf<ByteArray?>(null) }
+        var healthReport by remember { mutableStateOf<ContentHealthReport?>(null) }
+
+        val scope = rememberCoroutineScope()
+
+        val exportLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/json")
+        ) { uri ->
+            if (uri != null) scope.launch {
+                busy = true
+                try {
+                    val json = exportContentJson(db)
+                    context.contentResolver.openOutputStream(uri)
+                        ?.bufferedWriter(Charsets.UTF_8)
+                        ?.use { it.write(json) }
+                    message = "خروجی JSON سازگار با برنامه جانبی با موفقیت ذخیره شد."
+                } catch (e: Exception) {
+                    message = "خطا در خروجی JSON: ${e.message ?: "خطای نامشخص"}"
+                } finally {
+                    busy = false
+                }
+            }
         }
 
-        composable(ROUTE_PERFORMANCE_MANAGEMENT) {
-            PerformanceManagementScreen(db = db, onBack = { navController.popBackStack() }, initialTab = 0)
-        }
-        composable(ROUTE_PERFORMANCE_GROUPS) {
-            PerformanceManagementScreen(db = db, onBack = { navController.popBackStack() }, initialTab = 0)
-        }
-        composable(ROUTE_PERFORMANCE_EXECUTION) {
-            PerformanceManagementScreen(db = db, onBack = { navController.popBackStack() }, initialTab = 2)
+        val internalJsonLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/json")
+        ) { uri ->
+            if (uri != null) scope.launch {
+                busy = true
+                try {
+                    val json = exportInternalContentJson(db)
+                    context.contentResolver.openOutputStream(uri)
+                        ?.bufferedWriter(Charsets.UTF_8)
+                        ?.use { it.write(json) }
+                        ?: error("فایل خروجی باز نشد.")
+                    message = "خروجی JSON داخلی با شناسه‌های پایدار ذخیره شد."
+                } catch (e: Exception) {
+                    message = "خطا در خروجی JSON داخلی: ${e.message ?: "نامشخص"}"
+                } finally {
+                    busy = false
+                }
+            }
         }
 
-        composable(ROUTE_GLOSSARY_MANAGEMENT) {
-            GlossaryManagementScreen(db = db, onBack = { navController.popBackStack() })
-        }
-
-        composable(ROUTE_VERSION_COMPARISON) {
-            VersionComparisonScreen(db = db, onBack = { navController.popBackStack() })
-        }
-
-        composable(ROUTE_ARCHIVE_SOURCE_INTAKE) {
-            ArchiveSourceIntakeScreen(
-                repository = com.example.bookapp.data.archive.RoomArchiveRepository(db),
-                db = db,
-                context = context,
-                onBack = { navController.popBackStack() }
+        val wordExportLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument(
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
+        ) { uri ->
+            if (uri != null) scope.launch {
+                busy = true
+                try {
+                    context.contentResolver.openOutputStream(uri)
+                        ?.use { exportContentDocx(db, it) }
+                        ?: error("فایل Word باز نشد.")
+                    message = "فایل Word با ساختار زمینه، تعزیه، نقش و بخش ذخیره شد."
+                } catch (e: Exception) {
+                    message = "خطا در خروجی Word: ${e.message ?: "نامشخص"}"
+                } finally {
+                    busy = false
+                }
+            }
         }
 
-        composable(ROUTE_VIEWER_ACCESS) {
-            ViewerAccessManagementScreen(onBack = { navController.popBackStack() })
+        val importLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            if (uri != null) scope.launch {
+                busy = true
+                try {
+                    val json = readJsonFromUri(context, uri)
+                    val preview = previewContentImport(db, json)
+                    pendingImportJson = if (preview.valid) json else null
+                    importPreview = preview
+                } catch (e: Exception) {
+                    pendingImportJson = null
+                    importPreview = ContentImportPreview(
+                        false,
+                        listOf("خطا در خواندن فایل: ${e.message ?: "خطای نامشخص"}")
+                    )
+                } finally {
+                    busy = false
+                }
+            }
         }
 
-        composable(ROUTE_SPECIAL_USERS) {
-            SpecialUsersManagementScreen(onBack = { navController.popBackStack() })
+        val wordImportLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            if (uri != null) scope.launch {
+                busy = true
+                try {
+                    val bytes = readWordFromUri(context, uri)
+                    val (preview, _) = previewWordImport(db, bytes)
+                    pendingWordBytes = if (preview.valid) bytes else null
+                    wordPreview = preview
+                } catch (e: Exception) {
+                    pendingWordBytes = null
+                    wordPreview = WordImportPreview(
+                        false,
+                        listOf("خطا در خواندن فایل Word: ${e.message ?: "خطای نامشخص"}")
+                    )
+                } finally {
+                    busy = false
+                }
+            }
         }
 
-        composable(ROUTE_ACCESS_AUDIT) {
-            AccessAuditLogScreen(onBack = { navController.popBackStack() })
+        suspend fun reload() {
+            val fields = db.fieldDao().getAll()
+            val taziehs = db.taziehDao().getAll()
+            val roles = taziehs.flatMap {
+                db.roleDao().getByTazieh(it.id)
+            }
+            val sections = db.sectionDao().getAll()
+            val images = taziehs.sumOf {
+                db.taziehImageDao().getByTazieh(it.id).size
+            }
+            val dialogues = taziehs.sumOf {
+                db.dialogueDao().getByTazieh(it.id).size
+            }
+
+            fieldsCount = fields.size
+            taziehsCount = taziehs.size
+            rolesCount = roles.size
+            sectionsCount = sections.size
+            imagesCount = images
+            dialoguesCount = dialogues
+            processedFilesCount = Prefs.getProcessedContentFiles(context).size
+
+            warnings = buildList {
+                if (fields.any { it.title.isBlank() }) {
+                    add("یک یا چند زمینه بدون عنوان است")
+                }
+                if (taziehs.any { it.title.isBlank() }) {
+                    add("یک یا چند تعزیه بدون عنوان است")
+                }
+                if (roles.any { it.title.isBlank() }) {
+                    add("یک یا چند نقش بدون عنوان است")
+                }
+                if (sections.any { it.content.isBlank() }) {
+                    add("یک یا چند بخش بدون متن است")
+                }
+                if (
+                    fields.any { it.uid.isBlank() } ||
+                    taziehs.any { it.uid.isBlank() } ||
+                    roles.any { it.uid.isBlank() } ||
+                    sections.any { it.uid.isBlank() }
+                ) {
+                    add("یک یا چند رکورد شناسه پایدار ندارد")
+                }
+            }
         }
 
-        composable(ROUTE_CONTENT_MANAGEMENT) {
-            var fieldsCount by remember { mutableIntStateOf(0) }
-            var taziehsCount by remember { mutableIntStateOf(0) }
-            var rolesCount by remember { mutableIntStateOf(0) }
-            var sectionsCount by remember { mutableIntStateOf(0) }
-            var imagesCount by remember { mutableIntStateOf(0) }
-            var dialoguesCount by remember { mutableIntStateOf(0) }
-            var processedFilesCount by remember { mutableIntStateOf(0) }
-            var warnings by remember { mutableStateOf(emptyList<String>()) }
-            var busy by remember { mutableStateOf(false) }
-            var message by remember { mutableStateOf<String?>(null) }
-            var importPreview by remember { mutableStateOf<ContentImportPreview?>(null) }
-            var pendingImportJson by remember { mutableStateOf<String?>(null) }
-            var wordPreview by remember { mutableStateOf<WordImportPreview?>(null) }
-            var pendingWordBytes by remember { mutableStateOf<ByteArray?>(null) }
-            var healthReport by remember { mutableStateOf<ContentHealthReport?>(null) }
-            val scope = androidx.compose.runtime.rememberCoroutineScope()
-            val exportLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.CreateDocument("application/json")
-            ) { uri ->
-                if (uri != null) scope.launch {
-                    busy = true
-                    try {
-                        val json = exportContentJson(db)
-                        context.contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use { it.write(json) }
-                        message = "خروجی JSON سازگار با برنامه جانبی با موفقیت ذخیره شد."
-                    } catch (e: Exception) {
-                        message = "خطا در خروجی JSON: ${e.message ?: "خطای نامشخص"}"
-                    } finally { busy = false }
-                }
-            }
-            val internalJsonLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.CreateDocument("application/json")
-            ) { uri ->
-                if (uri != null) scope.launch {
-                    busy = true
-                    try {
-                        val json = exportInternalContentJson(db)
-                        context.contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use { it.write(json) }
-                            ?: error("فایل خروجی باز نشد.")
-                        message = "خروجی JSON داخلی با شناسه‌های پایدار ذخیره شد."
-                    } catch (e: Exception) { message = "خطا در خروجی JSON داخلی: ${e.message ?: "نامشخص"}" }
-                    finally { busy = false }
-                }
-            }
-            val wordExportLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-            ) { uri ->
-                if (uri != null) scope.launch {
-                    busy = true
-                    try {
-                        context.contentResolver.openOutputStream(uri)?.use { exportContentDocx(db, it) }
-                            ?: error("فایل Word باز نشد.")
-                        message = "فایل Word با ساختار زمینه، تعزیه، نقش و بخش ذخیره شد."
-                    } catch (e: Exception) { message = "خطا در خروجی Word: ${e.message ?: "نامشخص"}" }
-                    finally { busy = false }
-                }
-            }
-            val importLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.OpenDocument()
-            ) { uri ->
-                if (uri != null) scope.launch {
-                    busy = true
-                    try {
-                        val json = readJsonFromUri(context, uri)
-                        val preview = previewContentImport(db, json)
-                        pendingImportJson = if (preview.valid) json else null
-                        importPreview = preview
-                    } catch (e: Exception) {
-                        pendingImportJson = null
-                        importPreview = ContentImportPreview(false, listOf("خطا در خواندن فایل: ${e.message ?: "خطای نامشخص"}"))
-                    } finally { busy = false }
-                }
-            }
-            val wordImportLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.OpenDocument()
-            ) { uri ->
-                if (uri != null) scope.launch {
-                    busy = true
-                    try {
-                        val bytes = readWordFromUri(context, uri)
-                        val (preview, _) = previewWordImport(db, bytes)
-                        pendingWordBytes = if (preview.valid) bytes else null
-                        wordPreview = preview
-                    } catch (e: Exception) {
-                        pendingWordBytes = null
-                        wordPreview = WordImportPreview(false, listOf("خطا در خواندن فایل Word: ${e.message ?: "خطای نامشخص"}"))
-                    } finally { busy = false }
-                }
-            }
+        LaunchedEffect(Unit) {
+            reload()
+        }
 
-            suspend fun reload() {
-                val fields = db.fieldDao().getAll()
-                val taziehs = db.taziehDao().getAll()
-                val roles = taziehs.flatMap { db.roleDao().getByTazieh(it.id) }
-                val sections = db.sectionDao().getAll()
-                val images = taziehs.sumOf { db.taziehImageDao().getByTazieh(it.id).size }
-                val dialogues = taziehs.sumOf { db.dialogueDao().getByTazieh(it.id).size }
-                fieldsCount = fields.size
-                taziehsCount = taziehs.size
-                rolesCount = roles.size
-                sectionsCount = sections.size
-                imagesCount = images
-                dialoguesCount = dialogues
-                processedFilesCount = Prefs.getProcessedContentFiles(context).size
-                warnings = buildList {
-                    if (fields.any { it.title.isBlank() }) add("یک یا چند زمینه بدون عنوان است")
-                    if (taziehs.any { it.title.isBlank() }) add("یک یا چند تعزیه بدون عنوان است")
-                    if (roles.any { it.title.isBlank() }) add("یک یا چند نقش بدون عنوان است")
-                    if (sections.any { it.content.isBlank() }) add("یک یا چند بخش بدون متن است")
-                    if (fields.any { it.uid.isBlank() } || taziehs.any { it.uid.isBlank() } || roles.any { it.uid.isBlank() } || sections.any { it.uid.isBlank() }) add("یک یا چند رکورد شناسه پایدار ندارد")
-                }
-            }
-            LaunchedEffect(Unit) { reload() }
-
-            ContentManagementScreen(
-                fieldsCount = fieldsCount,
-                taziehsCount = taziehsCount,
-                rolesCount = rolesCount,
-                sectionsCount = sectionsCount,
-                imagesCount = imagesCount,
-                dialoguesCount = dialoguesCount,
-                healthWarnings = warnings,
-                processedFilesCount = processedFilesCount,
-                busy = busy,
-                message = message,
-                onRefresh = { scope.launch { reload() } },
-                onSyncLocal = {
-                    scope.launch {
-                        busy = true
-                        message = null
-                        try {
-                            val count = syncLocalContentFiles(context, db)
-                            reload()
-                            message = if (count == 0) "محتوای جدیدی برای اضافه‌کردن وجود ندارد." else "$count فایل محتوایی بررسی و به‌روزرسانی شد."
-                        } catch (e: Exception) {
-                            message = "خطا در به‌روزرسانی محتوا: ${e.message ?: "خطای نامشخص"}"
-                        } finally { busy = false }
-                    }
-                },
-                onSyncRemote = {
-                    scope.launch {
-                        busy = true
-                        message = null
-                        try {
-                            val result = syncRemoteContent(db, com.example.bookapp.data.Prefs.getContentSourceUrl(context))
-                            reload()
-                            message = result.fold({ "محتوای آنلاین با موفقیت همگام شد." }, { "خطا در همگام‌سازی آنلاین: ${it.message ?: "خطای نامشخص"}" })
-                        } finally { busy = false }
-                    }
-                },
-                onOpenEditor = { navController.navigate(ROUTE_CONTENT_EDITOR) },
-                onImportJson = { importLauncher.launch(arrayOf("application/json", "text/json", "text/plain")) },
-                onExportJson = { exportLauncher.launch("tazieh-content-compatible.json") },
-                onExportInternalJson = { internalJsonLauncher.launch("tazieh-content-internal-v1.json") },
-                onExportWord = { wordExportLauncher.launch("Majmooe-Tazieh.docx") },
-                onImportWord = { wordImportLauncher.launch(arrayOf("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/octet-stream")) },
-                onArchiveSourceIntake = { navController.navigate(ROUTE_ARCHIVE_SOURCE_INTAKE) },
-                onOpenVersionComparison = { navController.navigate(ROUTE_VERSION_COMPARISON) },
-                onOpenGlossary = { navController.navigate(ROUTE_GLOSSARY_MANAGEMENT) },
-                onOpenEncyclopedia = { navController.navigate(ROUTE_ENCYCLOPEDIA) },
-                onOpenPerformanceManagement = { navController.navigate(ROUTE_PERFORMANCE_MANAGEMENT) },
-                onDetailedHealthCheck = { scope.launch { busy = true; try { healthReport = buildDetailedContentHealthReport(db) } finally { busy = false } } },
-                onExportHealthReport = {
-                    scope.launch {
-                        busy = true
-                        try {
-                            val report = healthReport ?: buildDetailedContentHealthReport(db).also { healthReport = it }
-                            val text = report.toPersianText()
-                            context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, text)
-                                putExtra(Intent.EXTRA_SUBJECT, "گزارش سلامت محتوا")
-                            }, "اشتراک‌گذاری گزارش"))
-                        } finally {
-                            busy = false
-                        }
-                    }
-                },
-                onBack = { navController.popBackStack() }
-            )
-
-            val preview = importPreview
-            if (preview != null) {
-                AlertDialog(
-                    onDismissRequest = { importPreview = null; pendingImportJson = null },
-                    title = { Text(if (preview.valid) "پیش‌نمایش ورود JSON" else "فایل JSON نامعتبر") },
-                    text = {
-                        if (!preview.valid) {
-                            Column { preview.errors.take(10).forEach { Text("• $it") } }
+        ContentManagementScreen(
+            fieldsCount = fieldsCount,
+            taziehsCount = taziehsCount,
+            rolesCount = rolesCount,
+            sectionsCount = sectionsCount,
+            imagesCount = imagesCount,
+            dialoguesCount = dialoguesCount,
+            healthWarnings = warnings,
+            processedFilesCount = processedFilesCount,
+            busy = busy,
+            message = message,
+            onRefresh = {
+                scope.launch { reload() }
+            },
+            onSyncLocal = {
+                scope.launch {
+                    busy = true
+                    message = null
+                    try {
+                        val count = syncLocalContentFiles(context, db)
+                        reload()
+                        message = if (count == 0) {
+                            "محتوای جدیدی برای اضافه‌کردن وجود ندارد."
                         } else {
-                            Column {
-                                Text("قالب دقیق برنامه جانبی تأیید شد.")
-                                Spacer(Modifier.height(8.dp))
-                                Text("زمینه: ${preview.fields}")
-                                Text("تعزیه: ${preview.taziehs}")
-                                Text("نقش: ${preview.roles}")
-                                Text("بخش: ${preview.sections}")
-                                Spacer(Modifier.height(8.dp))
-                                Text("موجود/قابل‌به‌روزرسانی: ${preview.existingItems}")
-                                Text("جدید: ${preview.newItems}")
-                                Spacer(Modifier.height(8.dp))
-                                Text("فقط ساختار محتوا و متن بخش‌ها وارد می‌شود؛ اطلاعات شخصی، یادداشت‌ها، بوکمارک‌ها، تصاویر و گفتگوهای محلی دست‌کاری نمی‌شوند.")
+                            "$count فایل محتوایی بررسی و به‌روزرسانی شد."
+                        }
+                    } catch (e: Exception) {
+                        message = "خطا در به‌روزرسانی محتوا: ${e.message ?: "خطای نامشخص"}"
+                    } finally {
+                        busy = false
+                    }
+                }
+            },
+            onSyncRemote = {
+                scope.launch {
+                    busy = true
+                    message = null
+                    try {
+                        val result = syncRemoteContent(
+                            db,
+                            com.example.bookapp.data.Prefs.getContentSourceUrl(context)
+                        )
+                        reload()
+                        message = result.fold(
+                            { "محتوای آنلاین با موفقیت همگام شد." },
+                            { "خطا در همگام‌سازی آنلاین: ${it.message ?: "خطای نامشخص"}" }
+                        )
+                    } finally {
+                        busy = false
+                    }
+                }
+            },
+            onOpenEditor = {
+                navController.navigate(ROUTE_CONTENT_EDITOR)
+            },
+            onImportJson = {
+                importLauncher.launch(
+                    arrayOf("application/json", "text/json", "text/plain")
+                )
+            },
+            onExportJson = {
+                exportLauncher.launch("tazieh-content-compatible.json")
+            },
+            onExportInternalJson = {
+                internalJsonLauncher.launch("tazieh-content-internal-v1.json")
+            },
+            onExportWord = {
+                wordExportLauncher.launch("Majmooe-Tazieh.docx")
+            },
+            onImportWord = {
+                wordImportLauncher.launch(
+                    arrayOf(
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "application/octet-stream"
+                    )
+                )
+            },
+            onArchiveSourceIntake = {
+                navController.navigate(ROUTE_ARCHIVE_SOURCE_INTAKE)
+            },
+            onOpenVersionComparison = {
+                navController.navigate(ROUTE_VERSION_COMPARISON)
+            },
+            onOpenGlossary = {
+                navController.navigate(ROUTE_GLOSSARY_MANAGEMENT)
+            },
+            onOpenEncyclopedia = {
+                navController.navigate(ROUTE_ENCYCLOPEDIA)
+            },
+            onOpenPerformanceManagement = {
+                navController.navigate(ROUTE_PERFORMANCE_MANAGEMENT)
+            },
+            onDetailedHealthCheck = {
+                scope.launch {
+                    busy = true
+                    try {
+                        healthReport = buildDetailedContentHealthReport(db)
+                    } finally {
+                        busy = false
+                    }
+                }
+            },
+            onExportHealthReport = {
+                scope.launch {
+                    busy = true
+                    try {
+                        val report = healthReport
+                            ?: buildDetailedContentHealthReport(db)
+                                .also { healthReport = it }
+
+                        val text = report.toPersianText()
+
+                        context.startActivity(
+                            Intent.createChooser(
+                                Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, text)
+                                    putExtra(
+                                        Intent.EXTRA_SUBJECT,
+                                        "گزارش سلامت محتوا"
+                                    )
+                                },
+                                "اشتراک‌گذاری گزارش"
+                            )
+                        )
+                    } finally {
+                        busy = false
+                    }
+                }
+            },
+            onBack = {
+                navController.popBackStack()
+            }
+        )
+
+        val preview = importPreview
+        if (preview != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    importPreview = null
+                    pendingImportJson = null
+                },
+                title = {
+                    Text(
+                        if (preview.valid) {
+                            "پیش‌نمایش ورود JSON"
+                        } else {
+                            "فایل JSON نامعتبر"
+                        }
+                    )
+                },
+                text = {
+                    if (!preview.valid) {
+                        Column {
+                            preview.errors.take(10).forEach {
+                                Text("• $it")
                             }
                         }
-                    },
-                    confirmButton = {
-                        if (preview.valid && pendingImportJson != null) {
-                            TextButton(onClick = {
+                    } else {
+                        Column {
+                            Text("قالب دقیق برنامه جانبی تأیید شد.")
+                            Spacer(Modifier.height(8.dp))
+                            Text("زمینه: ${preview.fields}")
+                            Text("تعزیه: ${preview.taziehs}")
+                            Text("نقش: ${preview.roles}")
+                            Text("بخش: ${preview.sections}")
+                            Spacer(Modifier.height(8.dp))
+                            Text("موجود/قابل‌به‌روزرسانی: ${preview.existingItems}")
+                            Text("جدید: ${preview.newItems}")
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "فقط ساختار محتوا و متن بخش‌ها وارد می‌شود؛ " +
+                                    "اطلاعات شخصی، یادداشت‌ها، بوکمارک‌ها، تصاویر " +
+                                    "و گفتگوهای محلی دست‌کاری نمی‌شوند."
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    if (preview.valid && pendingImportJson != null) {
+                        TextButton(
+                            onClick = {
                                 val json = pendingImportJson
                                 importPreview = null
                                 pendingImportJson = null
+
                                 if (json != null) scope.launch {
                                     busy = true
                                     try {
                                         val result = importContentJson(db, json)
                                         reload()
-                                        message = "ورود JSON با موفقیت انجام شد: ${result.newItems} مورد جدید و ${result.existingItems} مورد موجود/قابل‌به‌روزرسانی."
+                                        message =
+                                            "ورود JSON با موفقیت انجام شد: " +
+                                                "${result.newItems} مورد جدید و " +
+                                                "${result.existingItems} مورد موجود/قابل‌به‌روزرسانی."
                                     } catch (e: Exception) {
-                                        message = "خطا در ورود JSON: ${e.message ?: "خطای نامشخص"}"
-                                    } finally { busy = false }
+                                        message =
+                                            "خطا در ورود JSON: ${e.message ?: "خطای نامشخص"}"
+                                    } finally {
+                                        busy = false
+                                    }
                                 }
-                            }) { Text("تأیید و ورود") }
+                            }
+                        ) {
+                            Text("تأیید و ورود")
                         }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { importPreview = null; pendingImportJson = null }) { Text("انصراف") }
                     }
-                )
-            }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            importPreview = null
+                            pendingImportJson = null
+                        }
+                    ) {
+                        Text("انصراف")
+                    }
+                }
+            )
+        }
 
-            val wp = wordPreview
-            if (wp != null) {
-                AlertDialog(
-                    onDismissRequest = { wordPreview = null; pendingWordBytes = null },
-                    title = { Text(if (wp.valid) "پیش‌نمایش ورود Word" else "فایل Word نامعتبر") },
-                    text = {
-                        if (!wp.valid) {
-                            Column { wp.errors.take(10).forEach { Text("• $it") } }
+        val wp = wordPreview
+        if (wp != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    wordPreview = null
+                    pendingWordBytes = null
+                },
+                title = {
+                    Text(
+                        if (wp.valid) {
+                            "پیش‌نمایش ورود Word"
                         } else {
-                            Column {
-                                Text("ساختار Word مطابق قرارداد ورود محتوای برنامه شناسایی شد.")
-                                Spacer(Modifier.height(8.dp))
-                                Text("Heading 1 → زمینه")
-                                Text("Heading 2 → تعزیه")
-                                Text("Heading 3 → نقش")
-                                Text("Heading 4 → بخش")
-                                Text("پاراگراف‌های معمولی زیر Heading 4 → متن بخش")
-                                Spacer(Modifier.height(8.dp))
-                                Text("زمینه: ${wp.fields} | تعزیه: ${wp.taziehs}")
-                                Text("نقش: ${wp.roles} | بخش: ${wp.sections}")
-                                Text("پاراگراف‌های متن: ${wp.paragraphs}")
-                                Text("موجود/قابل‌به‌روزرسانی: ${wp.existingItems}")
-                                Text("جدید: ${wp.newItems}")
-                                Spacer(Modifier.height(8.dp))
-                                Text("فقط ساختار محتوا و متن وارد می‌شود؛ یادداشت‌ها، نشانک‌ها، تصاویر، گفتگوها و اطلاعات شخصی تغییر نمی‌کنند.")
+                            "فایل Word نامعتبر"
+                        }
+                    )
+                },
+                text = {
+                    if (!wp.valid) {
+                        Column {
+                            wp.errors.take(10).forEach {
+                                Text("• $it")
                             }
                         }
-                    },
-                    confirmButton = {
-                        if (wp.valid && pendingWordBytes != null) {
-                            TextButton(onClick = {
+                    } else {
+                        Column {
+                            Text("ساختار Word مطابق قرارداد ورود محتوای برنامه شناسایی شد.")
+                            Spacer(Modifier.height(8.dp))
+                            Text("Heading 1 → زمینه")
+                            Text("Heading 2 → تعزیه")
+                            Text("Heading 3 → نقش")
+                            Text("Heading 4 → بخش")
+                            Text("پاراگراف‌های معمولی زیر Heading 4 → متن بخش")
+                            Spacer(Modifier.height(8.dp))
+                            Text("زمینه: ${wp.fields} | تعزیه: ${wp.taziehs}")
+                            Text("نقش: ${wp.roles} | بخش: ${wp.sections}")
+                            Text("پاراگراف‌های متن: ${wp.paragraphs}")
+                            Text("موجود/قابل‌به‌روزرسانی: ${wp.existingItems}")
+                            Text("جدید: ${wp.newItems}")
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "فقط ساختار محتوا و متن وارد می‌شود؛ یادداشت‌ها، " +
+                                    "نشانک‌ها، تصاویر، گفتگوها و اطلاعات شخصی تغییر نمی‌کنند."
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    if (wp.valid && pendingWordBytes != null) {
+                        TextButton(
+                            onClick = {
                                 val bytes = pendingWordBytes
                                 wordPreview = null
                                 pendingWordBytes = null
+
                                 if (bytes != null) scope.launch {
                                     busy = true
                                     try {
                                         val result = importWordContent(db, bytes)
                                         reload()
-                                        message = "ورود Word با موفقیت انجام شد: ${result.newItems} مورد جدید و ${result.existingItems} مورد موجود/قابل‌به‌روزرسانی."
+                                        message =
+                                            "ورود Word با موفقیت انجام شد: " +
+                                                "${result.newItems} مورد جدید و " +
+                                                "${result.existingItems} مورد موجود/قابل‌به‌روزرسانی."
                                     } catch (e: Exception) {
-                                        message = "خطا در ورود Word: ${e.message ?: "خطای نامشخص"}"
-                                    } finally { busy = false }
+                                        message =
+                                            "خطا در ورود Word: ${e.message ?: "خطای نامشخص"}"
+                                    } finally {
+                                        busy = false
+                                    }
                                 }
-                            }) { Text("تأیید و ورود") }
+                            }
+                        ) {
+                            Text("تأیید و ورود")
                         }
-                    },
-                    dismissButton = { TextButton(onClick = { wordPreview = null; pendingWordBytes = null }) { Text("انصراف") } }
-                )
-            }
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            wordPreview = null
+                            pendingWordBytes = null
+                        }
+                    ) {
+                        Text("انصراف")
+                    }
+                }
+            )
+        }
 
-            val hr = healthReport
-            if (hr != null) {
-                AlertDialog(
-                    onDismissRequest = { healthReport = null },
-                    title = { Text("گزارش عمیق سلامت محتوا") },
-                    text = {
-                        Column(Modifier.heightIn(max = 520.dp)) {
-                            Text("بررسی‌شده: ${hr.checkedFields} زمینه، ${hr.checkedTaziehs} تعزیه، ${hr.checkedRoles} نقش، ${hr.checkedSections} بخش")
-                            Spacer(Modifier.height(8.dp))
-                            Text("بدون عنوان: ${hr.emptyTitles} | بدون متن: ${hr.emptyTexts}")
-                            Text("عنوان تکراری: ${hr.duplicateTitles} | مشکل ترتیب: ${hr.orderIssues}")
-                            Text("آدرس صوت مشکوک: ${hr.invalidAudio}")
-                            Spacer(Modifier.height(10.dp))
-                            if (hr.errors.isEmpty() && hr.warnings.isEmpty()) {
-                                Text("✓ هیچ مورد قابل‌توجهی پیدا نشد.", color = androidx.compose.material3.MaterialTheme.colorScheme.primary)
-                            } else {
-                                if (hr.errors.isNotEmpty()) {
-                                    Text("خطاها", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                                    hr.errors.take(12).forEach { Text("• $it", style = androidx.compose.material3.MaterialTheme.typography.bodySmall) }
+        val hr = healthReport
+        if (hr != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    healthReport = null
+                },
+                title = {
+                    Text("گزارش عمیق سلامت محتوا")
+                },
+                text = {
+                    Column(Modifier.heightIn(max = 520.dp)) {
+                        Text(
+                            "بررسی‌شده: ${hr.checkedFields} زمینه، " +
+                                "${hr.checkedTaziehs} تعزیه، " +
+                                "${hr.checkedRoles} نقش، " +
+                                "${hr.checkedSections} بخش"
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "بدون عنوان: ${hr.emptyTitles} | " +
+                                "بدون متن: ${hr.emptyTexts}"
+                        )
+                        Text(
+                            "عنوان تکراری: ${hr.duplicateTitles} | " +
+                                "مشکل ترتیب: ${hr.orderIssues}"
+                        )
+                        Text("آدرس صوت مشکوک: ${hr.invalidAudio}")
+                        Spacer(Modifier.height(10.dp))
+
+                        if (hr.errors.isEmpty() && hr.warnings.isEmpty()) {
+                            Text(
+                                "✓ هیچ مورد قابل‌توجهی پیدا نشد.",
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        } else {
+                            if (hr.errors.isNotEmpty()) {
+                                Text(
+                                    "خطاها",
+                                    fontWeight = FontWeight.Bold
+                                )
+                                hr.errors.take(12).forEach {
+                                    Text(
+                                        "• $it",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
                                 }
-                                if (hr.warnings.isNotEmpty()) {
-                                    Spacer(Modifier.height(6.dp))
-                                    Text("هشدارها", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                                    hr.warnings.take(16).forEach { Text("• $it", style = androidx.compose.material3.MaterialTheme.typography.bodySmall) }
+                            }
+
+                            if (hr.warnings.isNotEmpty()) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    "هشدارها",
+                                    fontWeight = FontWeight.Bold
+                                )
+                                hr.warnings.take(16).forEach {
+                                    Text(
+                                        "• $it",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
                                 }
                             }
                         }
-                    },
-                    confirmButton = { TextButton(onClick = { healthReport = null }) { Text("بستن") } }
-                )
-            }
-        }
-
-        composable(ROUTE_CONTENT_EDITOR) {
-            ContentEditorScreen(
-                db = db,
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(ROUTE_DIALOGUE_BUILDER) { backStackEntry ->
-            val taziehId = backStackEntry.arguments?.getString("taziehId")?.toLongOrNull() ?: 0L
-            val taziehTitle = backStackEntry.arguments?.getString("taziehTitle") ?: ""
-            var allSections by remember { mutableStateOf(listOf<SectionPickerItem>()) }
-            val scope = androidx.compose.runtime.rememberCoroutineScope()
-
-            LaunchedEffect(taziehId) {
-                val roles = db.roleDao().getByTazieh(taziehId)
-                allSections = roles.flatMap { role ->
-                    db.sectionDao().getByRole(role.id).map { section ->
-                        SectionPickerItem(section.id, role.title, section.title, role.id)
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { healthReport = null }) {
+                        Text("بستن")
                     }
                 }
-            }
+            )
+        }
+    }
 
+    composable(ROUTE_CONTENT_EDITOR) {
+        ContentEditorScreen(
+            db = db,
+            onBack = { navController.popBackStack() }
+        )
+    }
+
+    // ---------------------------------------------------------
+    // ساخت گفت‌وگوی چندنقشی با اتصال دقیق به نسخه جاری آرشیو
+    // ---------------------------------------------------------
+    composable(ROUTE_DIALOGUE_BUILDER) { backStackEntry ->
+
+        val taziehId = backStackEntry.arguments
+            ?.getString("taziehId")
+            ?.toLongOrNull() ?: 0L
+
+        var allSections by remember {
+            mutableStateOf(listOf<SectionPickerItem>())
+        }
+
+        var currentVersionUid by remember {
+            mutableStateOf<String?>(null)
+        }
+
+        var loading by remember {
+            mutableStateOf(true)
+        }
+
+        var builderError by remember {
+            mutableStateOf<String?>(null)
+        }
+
+        var saveError by remember {
+            mutableStateOf<String?>(null)
+        }
+
+        val scope = rememberCoroutineScope()
+
+        LaunchedEffect(taziehId) {
+            loading = true
+            builderError = null
+            currentVersionUid = null
+            allSections = emptyList()
+
+            try {
+                val tazieh = db.taziehDao().getById(taziehId)
+                    ?: error("تعزیه انتخاب‌شده پیدا نشد.")
+
+                val currentVersion = db.archiveDao()
+                    .currentVersion(tazieh.uid)
+                    ?: error("برای این تعزیه نسخه جاری آرشیو ثبت نشده است.")
+
+                currentVersionUid = currentVersion.uid
+
+                // فقط نقش‌های متعلق به نسخه جاری خوانده می‌شوند.
+                val roles = db.roleDao()
+                    .getByVersionUid(currentVersion.uid)
+                    .filter { it.taziehId == taziehId }
+
+                allSections = roles.flatMap { role ->
+                    db.sectionDao().getByRole(role.id).map { section ->
+                        SectionPickerItem(
+                            sectionId = section.id,
+                            roleTitle = role.title,
+                            sectionTitle = section.title,
+                            roleId = role.id
+                        )
+                    }
+                }
+
+                if (allSections.isEmpty()) {
+                    builderError =
+                        "در نسخه جاری این تعزیه بخشی برای ساخت گفتگو وجود ندارد."
+                }
+            } catch (e: Exception) {
+                builderError = e.message
+                    ?: "بارگذاری اطلاعات ساخت گفتگو ناموفق بود."
+            } finally {
+                loading = false
+            }
+        }
+
+        if (loading) {
+            Column {
+                Text("در حال بارگذاری اطلاعات نسخه تعزیه...")
+            }
+        } else if (builderError != null) {
+            Column {
+                Text(
+                    builderError.orEmpty(),
+                    color = MaterialTheme.colorScheme.error
+                )
+                Spacer(Modifier.height(12.dp))
+                TextButton(
+                    onClick = { navController.popBackStack() }
+                ) {
+                    Text("بازگشت")
+                }
+            }
+        } else {
             DialogueBuilderScreen(
                 allSections = allSections,
                 onSave = { title, orderedSectionIds ->
-                    scope.launch {
-                        val dialogueId = db.dialogueDao().insert(com.example.bookapp.data.DialogueEntity(taziehId = taziehId, title = title))
-                        orderedSectionIds.forEachIndexed { index, sectionId ->
-                            db.dialogueTurnDao().insert(
-                                com.example.bookapp.data.DialogueTurnEntity(dialogueId = dialogueId, sectionId = sectionId, orderIndex = index)
-                            )
+                    val expectedVersionUid = currentVersionUid
+
+                    if (expectedVersionUid != null) {
+                        scope.launch {
+                            try {
+                                db.withTransaction {
+                                    val tazieh = db.taziehDao()
+                                        .getById(taziehId)
+                                        ?: error("تعزیه انتخاب‌شده دیگر وجود ندارد.")
+
+                                    val latestVersion = db.archiveDao()
+                                        .currentVersion(tazieh.uid)
+                                        ?: error("نسخه جاری آرشیو پیدا نشد.")
+
+                                    check(latestVersion.uid == expectedVersionUid) {
+                                        "نسخه جاری تعزیه هنگام ساخت گفتگو تغییر کرده است. صفحه را دوباره باز کنید."
+                                    }
+
+                                    require(orderedSectionIds.size >= 2) {
+                                        "برای ساخت گفتگو حداقل دو نوبت لازم است."
+                                    }
+
+                                    require(
+                                        orderedSectionIds.distinct().size ==
+                                            orderedSectionIds.size
+                                    ) {
+                                        "یک بخش بیش از یک بار انتخاب شده است."
+                                    }
+
+                                    val selectedSections = orderedSectionIds.map {
+                                        db.sectionDao().getById(it)
+                                    }
+
+                                    val selectedRoles = selectedSections.map {
+                                        db.roleDao().getById(it.roleId)
+                                    }
+
+                                    check(
+                                        selectedRoles.all { role ->
+                                            role.taziehId == taziehId &&
+                                                role.versionUid == expectedVersionUid
+                                        }
+                                    ) {
+                                        "همه نقش‌ها و بخش‌ها باید متعلق به همان نسخه جاری تعزیه باشند."
+                                    }
+
+                                    val distinctRoles = selectedRoles.distinctBy {
+                                        it.id
+                                    }
+
+                                    require(distinctRoles.size in 2..4) {
+                                        "گفتگو باید شامل ۲ تا ۴ نقش متفاوت باشد."
+                                    }
+
+                                    // گفت‌وگو به نسخه جاری متصل می‌شود.
+                                    val dialogueId = db.dialogueDao().insert(
+                                        com.example.bookapp.data.DialogueEntity(
+                                            taziehId = taziehId,
+                                            title = title.trim(),
+                                            versionUid = expectedVersionUid
+                                        )
+                                    )
+
+                                    // نقش‌های انتخاب‌شده و ترتیب نمایشی آن‌ها ثبت می‌شود.
+                                    distinctRoles.forEachIndexed { index, role ->
+                                        val insertedId =
+                                            db.dialogueRoleSelectionDao().insert(
+                                                com.example.bookapp.data.DialogueRoleSelectionEntity(
+                                                    dialogueId = dialogueId,
+                                                    roleId = role.id,
+                                                    versionUid = expectedVersionUid,
+                                                    displayOrder = index
+                                                )
+                                            )
+
+                                        check(insertedId > 0L) {
+                                            "ثبت یکی از نقش‌های گفتگو ناموفق بود."
+                                        }
+                                    }
+
+                                    // نوبت‌ها و metadata اولیه هر نوبت ثبت می‌شوند.
+                                    selectedSections.forEachIndexed { index, section ->
+                                        val turnId = db.dialogueTurnDao().insert(
+                                            com.example.bookapp.data.DialogueTurnEntity(
+                                                dialogueId = dialogueId,
+                                                sectionId = section.id,
+                                                orderIndex = index
+                                            )
+                                        )
+
+                                        db.dialogueTurnMetadataDao().upsert(
+                                            com.example.bookapp.data.DialogueTurnMetadataEntity(
+                                                turnId = turnId,
+                                                sourceSequenceIndex = null,
+                                                sourceSequenceStatus =
+                                                    com.example.bookapp.data.DialogueTurnMetadataEntity
+                                                        .SOURCE_UNVERIFIED,
+                                                rehearsalOrderIndex = index,
+                                                expectsResponse = false,
+                                                replyToTurnId = null,
+                                                expectedResponderRoleId = null
+                                            )
+                                        )
+                                    }
+                                }
+
+                                navController.popBackStack()
+                            } catch (e: Exception) {
+                                saveError = e.message
+                                    ?: "ذخیره گفتگو ناموفق بود."
+                            }
                         }
-                        navController.popBackStack()
+                    } else {
+                        saveError = "نسخه جاری تعزیه مشخص نیست. صفحه را دوباره باز کنید."
                     }
                 },
-                onBack = { navController.popBackStack() }
+                onBack = {
+                    navController.popBackStack()
+                }
             )
         }
 
+        if (saveError != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    saveError = null
+                },
+                title = {
+                    Text("خطا در ذخیره گفتگو")
+                },
+                text = {
+                    Text(saveError.orEmpty())
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = { saveError = null }
+                    ) {
+                        Text("متوجه شدم")
+                    }
+                }
+            )
+        }
+    }
 }
