@@ -201,7 +201,7 @@ bottomBar = {
                 .padding(horizontal = 16.dp)
                 .padding(top = 12.dp, bottom = 12.dp),
 
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
 
             // کارت اول: کتابخانه
@@ -434,29 +434,34 @@ private fun HomeFeatureCard(
             containerColor = background
         ),
 
-        border = BorderStroke(1.dp, borderColor.copy(alpha = 0.75f)),
+        border = BorderStroke(
+            0.8.dp,
+            borderColor.copy(alpha = 0.55f)
+        ),
 
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
+            defaultElevation = 1.5.dp,
+            pressedElevation = 3.dp
         )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 15.dp, vertical = 12.dp),
 
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(13.dp)
         ) {
-
             Surface(
                 shape = CircleShape,
-                color = Color.White.copy(alpha = 0.82f),
+                color = Color.White.copy(alpha = 0.88f),
+                border = BorderStroke(
+                    0.6.dp,
+                    foreground.copy(alpha = 0.12f)
+                ),
                 modifier = Modifier.size(46.dp)
             ) {
-                Box(
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = icon,
                         contentDescription = title,
@@ -468,7 +473,7 @@ private fun HomeFeatureCard(
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = title,
@@ -479,7 +484,7 @@ private fun HomeFeatureCard(
 
                 Text(
                     text = subtitle,
-                    color = foreground,
+                    color = foreground.copy(alpha = 0.88f),
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -490,7 +495,6 @@ private fun HomeFeatureCard(
 // -----------------------------------------------------
 // کارت‌های کوچک
 // -----------------------------------------------------
-
 @Composable
 private fun HomeSmallCard(
     item: HomeMenuItem,
@@ -498,35 +502,43 @@ private fun HomeSmallCard(
 ) {
     Card(
         modifier = modifier
-            .heightIn(min = 91.dp)
+            .heightIn(min = 94.dp)
             .clickable(onClick = item.onClick),
 
-        shape = RoundedCornerShape(17.dp),
+        shape = RoundedCornerShape(18.dp),
 
         colors = CardDefaults.cardColors(
             containerColor = item.background
         ),
 
+        border = BorderStroke(
+            0.8.dp,
+            item.foreground.copy(alpha = 0.22f)
+        ),
+
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
+            defaultElevation = 1.5.dp,
+            pressedElevation = 3.dp
         )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 11.dp),
+                .padding(horizontal = 13.dp, vertical = 12.dp),
 
             horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.spacedBy(7.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Surface(
                 shape = CircleShape,
-                color = Color.White.copy(alpha = 0.85f),
-                modifier = Modifier.size(34.dp)
+                color = Color.White.copy(alpha = 0.88f),
+                border = BorderStroke(
+                    0.6.dp,
+                    item.foreground.copy(alpha = 0.12f)
+                ),
+                modifier = Modifier.size(35.dp)
             ) {
-                Box(
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = item.icon,
                         contentDescription = item.title,
