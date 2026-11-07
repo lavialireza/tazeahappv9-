@@ -1,15 +1,22 @@
+
 package com.example.bookapp.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -27,73 +34,279 @@ fun FieldsScreen(
     onBack: () -> Unit
 ) {
     var query by remember { mutableStateOf("") }
+
+    val ink = Color(0xFF263B5B)
+    val muted = Color(0xFF647184)
+    val green = Color(0xFFE8F2E9)
+    val gold = Color(0xFFF4EBD7)
+    val paper = Color(0xFFF7F8F5)
+
     val filtered = remember(items, query) {
         val q = normalizePersianSearch(query)
-        items.filter { q.isBlank() || normalizePersianSearch(it.title).contains(q) }
-            .sortedBy { normalizePersianSearch(it.title) }
+        items.filter {
+            q.isBlank() || normalizePersianSearch(it.title).contains(q)
+        }.sortedBy {
+            normalizePersianSearch(it.title)
+        }
     }
 
     Scaffold(
+        containerColor = paper,
         topBar = {
             TopAppBar(
-                title = { Text("زمینه‌های تعزیه (${filtered.size})") },
+                title = {
+                    Text(
+                        "زمینه‌های تعزیه",
+                        color = ink,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "بازگشت")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "بازگشت",
+                            tint = ink
+                        )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = paper
+                )
             )
         }
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            Text(
-                "زمینه‌های ثبت‌شده تعزیه",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
-            )
-            Text(
-                "از اینجا می‌توانید زمینه موردنظر را انتخاب و تعزیه‌های آن را ببینید.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-            )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = green
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = 0.dp
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(15.dp),
+                        color = Color.White
+                    ) {
+                        Icon(
+                            Icons.Filled.Category,
+                            contentDescription = null,
+                            modifier = Modifier.padding(12.dp).size(28.dp),
+                            tint = Color(0xFF315B45)
+                        )
+                    }
+
+                    Spacer(Modifier.width(14.dp))
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            "گنجینه زمینه‌های تعزیه",
+                            color = ink,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            "زمینه موردنظر را انتخاب کنید و به مجموعه تعزیه‌های آن بروید.",
+                            color = muted,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "فهرست زمینه‌ها",
+                    color = ink,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                Spacer(Modifier.weight(1f))
+
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = gold
+                ) {
+                    Text(
+                        "${filtered.size} زمینه",
+                        modifier = Modifier.padding(
+                            horizontal = 12.dp,
+                            vertical = 6.dp
+                        ),
+                        color = Color(0xFF735A2A),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 singleLine = true,
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                placeholder = { Text("جستجوی زمینه تعزیه") }
+                shape = RoundedCornerShape(16.dp),
+                leadingIcon = {
+                    Icon(
+                        Icons.Filled.Search,
+                        contentDescription = null,
+                        tint = ink
+                    )
+                },
+                placeholder = {
+                    Text("جستجوی زمینه تعزیه")
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = green,
+                    focusedContainerColor = Color.White,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = Color(0xFF789A7D)
+                )
             )
 
             if (filtered.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(if (items.isEmpty()) "هنوز زمینه‌ای ثبت نشده است" else "زمینه‌ای با این نام پیدا نشد")
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.MenuBook,
+                            contentDescription = null,
+                            tint = muted,
+                            modifier = Modifier.size(42.dp)
+                        )
+                        Text(
+                            if (items.isEmpty())
+                                "هنوز زمینه‌ای ثبت نشده است"
+                            else
+                                "زمینه‌ای با این نام پیدا نشد",
+                            color = muted,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             } else {
                 LazyColumn(
-                    contentPadding = PaddingValues(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 8.dp,
+                        bottom = 20.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(filtered, key = { it.id }) { field ->
+
                         Card(
                             onClick = { onOpen(field) },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color.White
+                            ),
+                            elevation = CardDefaults.cardElevation(
+                                defaultElevation = 1.dp
+                            )
                         ) {
                             Row(
-                                Modifier.fillMaxWidth().padding(16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 15.dp, vertical = 14.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(field.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                    Text(
-                                        "${field.taziehCount} تعزیه",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary
+
+                                Surface(
+                                    shape = RoundedCornerShape(13.dp),
+                                    color = green
+                                ) {
+                                    Icon(
+                                        Icons.Filled.MenuBook,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .padding(10.dp)
+                                            .size(23.dp),
+                                        tint = Color(0xFF315B45)
                                     )
                                 }
-                                Text("مشاهده", style = MaterialTheme.typography.labelLarge)
+
+                                Spacer(Modifier.width(13.dp))
+
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                                ) {
+                                    Text(
+                                        field.title,
+                                        color = ink,
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+
+                                    Text(
+                                        "مجموعه تعزیه‌های این زمینه",
+                                        color = muted,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = gold
+                                ) {
+                                    Text(
+                                        "${field.taziehCount} تعزیه",
+                                        modifier = Modifier.padding(
+                                            horizontal = 10.dp,
+                                            vertical = 7.dp
+                                        ),
+                                        color = Color(0xFF735A2A),
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+
+                                Spacer(Modifier.width(5.dp))
+
+                                Icon(
+                                    Icons.Filled.ChevronLeft,
+                                    contentDescription = "مشاهده",
+                                    tint = ink
+                                )
                             }
                         }
                     }
