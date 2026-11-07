@@ -375,7 +375,10 @@ composable(ROUTE_MAIN_MENU) {
                 randomVerse = randomVerse,
                 recentItems = recentItems,
                 onOpenTaziehList = { navController.navigate(ROUTE_FIELDS) },
-                onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
+              onOpenSearch = { query ->
+    pendingSearchQuery = query
+    navigateIfAllowed("search", ROUTE_SEARCH)
+},
                 onOpenMyRole = { navigateIfAllowed("myRole", ROUTE_MY_ROLE) },
                 onOpenRehearsal = { navigateIfAllowed("myRole.view", ROUTE_MY_ROLE) },
                 onOpenGlossary = { navigateIfAllowed("dictionary.view", ROUTE_GLOSSARY) },
@@ -501,6 +504,7 @@ composable(ROUTE_MAIN_MENU) {
                 allTaziehs = allTaziehs,
                 allRoles = allRoles,
                 allSections = allSections,
+                initialQuery = pendingSearchQuery,
                 onSearch = { query, options ->
                     com.example.bookapp.data.AdvancedSearchEngine.search(searchCorpus, query, options)
                 },
