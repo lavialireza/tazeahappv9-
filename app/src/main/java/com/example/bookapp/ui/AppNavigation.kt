@@ -164,6 +164,9 @@ fun AppNavigation(
     val publicViewer = BuildConfig.PUBLIC_VIEWER
     var viewerPermissions by remember(publicViewer) { mutableStateOf(if (publicViewer) ViewerAccessPolicy.getEffectivePermissions(context) else ViewerAccessPolicy.permissionLabels.keys.associateWith { true }) }
     val navController: NavHostController = rememberNavController()
+    var pendingSearchQuery by remember {
+    mutableStateOf("")
+}
     fun featureEnabled(key: String): Boolean {
         if (!publicViewer) return true
         return ViewerPermissionEngine.can(context, key)
