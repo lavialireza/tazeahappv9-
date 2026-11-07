@@ -1,5 +1,9 @@
 package com.example.bookapp.ui.screens
 
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -39,9 +43,78 @@ fun CompareScreen(taziehTitle: String, roles: List<RoleEntity>, sections: List<C
     var sectionA by remember(sections) { mutableStateOf(sections.getOrNull(0)) }
     var sectionB by remember(sections) { mutableStateOf(sections.getOrNull(1)) }
     var compared by remember { mutableStateOf(false) }
-    val leftText = if (mode == "role") roleA?.let { roleSections[it.id].orEmpty().joinToString("\n\n") { s -> "【${s.title}】\n${s.content}" } }.orEmpty() else sectionA?.section?.content.orEmpty()
-    val rightText = if (mode == "role") roleB?.let { roleSections[it.id].orEmpty().joinToString("\n\n") { s -> "【${s.title}】\n${s.content}" } }.orEmpty() else sectionB?.section?.content.orEmpty()
-    val diff = remember(leftText, rightText) { TaziehTextDiff.compare(leftText, rightText) }
+  var leftText by remember { mutableStateOf("") }
+var rightText by remember { mutableStateOf("") }
+
+val emptyDiff = remember {
+    TaziehTextDiff.compare("", "")
+}
+var diff by remember { mutableStateOf(emptyDiff) }
+
+val emptyWordDiff = remember {
+    TaziehWordDiff.compare("", "")
+}
+var wordDiff by remember { mutableStateOf(emptyWordDiff) }
+
+var comparisonLoading by remember { mutableStateOf(false) }
+
+LaunchedEffect(
+    compared,
+    mode,
+    roleA?.id,
+    roleB?.id,
+    sectionA?.section?.id,
+    sectionB?.section?.id,
+    roleSections,
+    granularity
+) {
+    if (!compared) return@LaunchedEffect
+
+    comparisonLoading = true
+
+    try {
+        val result = withContext(Dispatchers.Default) {
+
+            val left = if (mode == "role") {
+                roleA?.let {
+                    roleSections[it.id].orEmpty().joinToString("\n\n") { s ->
+                        "【${s.title}】\n${s.content}"
+                    }
+                }.orEmpty()
+            } else {
+                sectionA?.section?.content.orEmpty()
+            }
+
+            val right = if (mode == "role") {
+                roleB?.let {
+                    roleSections[it.id].orEmpty().joinToString("\n\n") { s ->
+                        "【${s.title}】\n${s.content}"
+                    }
+                }.orEmpty()
+            } else {
+                sectionB?.section?.content.orEmpty()
+            }
+
+            val textDiff = TaziehTextDiff.compare(left, right)
+
+            val tokens = if (granularity == "word") {
+                TaziehWordDiff.compare(left, right)
+            } else {
+                TaziehWordDiff.compare("", "")
+            }
+
+            Triple(left, right, Pair(textDiff, tokens))
+        }
+
+        leftText = result.first
+        rightText = result.second
+        diff = result.third.first
+        wordDiff = result.third.second
+
+    } finally {
+        comparisonLoading = false
+    }
+}
 
     Scaffold(topBar = { TopAppBar(title = { Text("مقایسه — $taziehTitle") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "بازگشت") } }) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
@@ -76,18 +149,45 @@ fun CompareScreen(taziehTitle: String, roles: List<RoleEntity>, sections: List<C
                         FilterChip(granularity == "word", { granularity = "word" }, label = { Text("اختلاف واژه‌ای") })
                     }
                     if (granularity == "line") {
-                        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
-                            diff.lines.forEach { line ->
-                                val label = when (line.kind) { DiffKind.SAME -> "="; DiffKind.ADDED -> "+"; DiffKind.REMOVED -> "−" }
-                                val color = when (line.kind) { DiffKind.SAME -> MaterialTheme.colorScheme.surface; DiffKind.ADDED -> MaterialTheme.colorScheme.tertiaryContainer; DiffKind.REMOVED -> MaterialTheme.colorScheme.errorContainer }
-                                Row(Modifier.fillMaxWidth().background(color).padding(horizontal = 8.dp, vertical = 5.dp)) {
-                                    Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(24.dp))
-                                    Text(line.text.ifBlank { " " }, style = MaterialTheme.typography.bodyMedium)
-                                }
-                            }
-                        }
+                     LazyColumn(
+    modifier = Modifier
+        .weight(1f)
+        .fillMaxWidth()
+) {
+    items(diff.lines) { line ->
+
+        val label = when (line.kind) {
+            DiffKind.SAME -> "="
+            DiffKind.ADDED -> "+"
+            DiffKind.REMOVED -> "−"
+        }
+
+        val color = when (line.kind) {
+            DiffKind.SAME -> MaterialTheme.colorScheme.surface
+            DiffKind.ADDED -> MaterialTheme.colorScheme.tertiaryContainer
+            DiffKind.REMOVED -> MaterialTheme.colorScheme.errorContainer
+        }
+
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(color)
+                .padding(horizontal = 8.dp, vertical = 5.dp)
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.width(24.dp)
+            )
+
+            Text(
+                line.text.ifBlank { " " },
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
                     } else {
-                        val wordDiff = remember(leftText, rightText) { TaziehWordDiff.compare(leftText, rightText) }
                         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(8.dp)) {
                             wordDiff.forEach { token ->
                                 val color = when (token.change) { WordChange.SAME -> MaterialTheme.colorScheme.onSurface; WordChange.ADDED -> MaterialTheme.colorScheme.primary; WordChange.REMOVED -> MaterialTheme.colorScheme.error }
