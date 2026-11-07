@@ -125,11 +125,16 @@ val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardContr
                 }
             }
 
-         if (showSearch) {
+if (showSearch) {
     OutlinedTextField(
-        value = librarySearchQuery,
-        onValueChange = { librarySearchQuery = it },
-        modifier = Modifier.fillMaxWidth(),
+        value = "",
+        onValueChange = {},
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                onOpenSearch("")
+            },
+        readOnly = true,
         singleLine = true,
         shape = RoundedCornerShape(16.dp),
         placeholder = {
@@ -143,36 +148,11 @@ val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardContr
             )
         },
         trailingIcon = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (librarySearchQuery.isNotBlank()) {
-                    IconButton(
-                        onClick = {
-                            librarySearchQuery = ""
-                        }
-                    ) {
-                        Icon(
-                            Icons.Filled.Close,
-                            contentDescription = "پاک کردن"
-                        )
-                    }
-                }
-
-                IconButton(
-                    onClick = {
-                        val query = librarySearchQuery.trim()
-                        if (query.isNotEmpty()) {
-                            keyboardController?.hide()
-                            onOpenSearch(query)
-                        }
-                    }
-                ) {
-                    Icon(
-                        Icons.Filled.ArrowBack,
-                        contentDescription = "اجرای جستجو",
-                        tint = ink
-                    )
-                }
-            }
+            Icon(
+                Icons.Filled.Tune,
+                contentDescription = "جستجوی پیشرفته",
+                tint = muted
+            )
         },
         colors = OutlinedTextFieldDefaults.colors(
             unfocusedContainerColor = Color.White,
@@ -181,6 +161,7 @@ val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardContr
         )
     )
 }
+     
             if (randomVerse != null) {
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable { onItemClick(randomVerse) },
