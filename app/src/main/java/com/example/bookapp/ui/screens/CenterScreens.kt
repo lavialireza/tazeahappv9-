@@ -125,43 +125,48 @@ val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardContr
                 }
             }
 
-if (showSearch) {
-    OutlinedTextField(
-        value = "",
-        onValueChange = {},
+  if (showSearch) {
+    Card(
         modifier = Modifier
             .fillMaxWidth()
+            .height(58.dp)
             .clickable {
                 onOpenSearch("")
             },
-        readOnly = true,
-        singleLine = true,
         shape = RoundedCornerShape(16.dp),
-        placeholder = {
-            Text("جستجو در تعزیه‌ها، نقش‌ها و متن مجالس")
-        },
-        leadingIcon = {
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Icon(
                 Icons.Filled.Search,
                 contentDescription = "جستجو",
                 tint = ink
             )
-        },
-        trailingIcon = {
+
+            Spacer(Modifier.width(12.dp))
+
+            Text(
+                "جستجو در تعزیه‌ها، نقش‌ها و متن مجالس",
+                color = muted,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium
+            )
+
             Icon(
                 Icons.Filled.Tune,
                 contentDescription = "جستجوی پیشرفته",
-                tint = muted
+                tint = ink
             )
-        },
-        colors = OutlinedTextFieldDefaults.colors(
-            unfocusedContainerColor = Color.White,
-            focusedContainerColor = Color.White,
-            unfocusedBorderColor = Color(0xFFD9DFE3)
-        )
-    )
-}
-     
+        }
+    }
+}   
             if (randomVerse != null) {
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable { onItemClick(randomVerse) },
