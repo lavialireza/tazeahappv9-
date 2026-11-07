@@ -1,5 +1,12 @@
 package com.example.bookapp.ui.screens
 
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -35,6 +42,7 @@ fun SearchScreen(
     allTaziehs: List<TaziehEntity>,
     allRoles: List<RoleEntity>,
     allSections: List<SectionEntity>,
+    initialQuery: String = "",
     onSearch: suspend (query: String, options: AdvancedSearchOptions) -> List<AdvancedSearchResult>,
     onSearchDialogues: suspend (query: String) -> List<DialogueSearchResult> = { emptyList() },
     onSearchGlossary: suspend (query: String) -> List<GlossarySearchHit> = { emptyList() },
@@ -46,7 +54,19 @@ fun SearchScreen(
     advancedEnabled: Boolean = true,
     onBack: () -> Unit
 ) {
-    var query by remember { mutableStateOf("") }
+   var query by remember(initialQuery) {
+    mutableStateOf(initialQuery)
+}
+
+val focusRequester = remember { FocusRequester() }
+val keyboardController = LocalSoftwareKeyboardController.current
+val focusManager = LocalFocusManager.current
+
+LaunchedEffect(Unit) {
+    focusRequester.requestFocus()
+    keyboardController?.show()
+}
+    
     var results by remember { mutableStateOf(emptyList<AdvancedSearchResult>()) }
     var dialogueResults by remember { mutableStateOf(emptyList<DialogueSearchResult>()) }
     var glossaryResults by remember { mutableStateOf(emptyList<GlossarySearchHit>()) }
@@ -156,15 +176,38 @@ fun SearchScreen(
             }
 
             OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                label = { Text("عبارت جستجو") },
-                placeholder = { Text("مثلاً: علی اکبر یا یا حسین") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                trailingIcon = { if (searching) CircularProgressIndicator(Modifier.size(20.dp)) }
+    value = query,
+    onValueChange = { query = it },
+    label = { Text("عبارت جستجو") },
+    placeholder = { Text("مثلاً: علی اکبر یا یا حسین") },
+    leadingIcon = {
+        Icon(
+            Icons.Filled.Search,
+            contentDescription = "جستجو"
+        )
+    },
+    singleLine = true,
+    modifier = Modifier
+        .fillMaxWidth()
+        .padding(16.dp)
+        .focusRequester(focusRequester),
+    keyboardOptions = KeyboardOptions(
+        imeAction = ImeAction.Search
+    ),
+    keyboardActions = KeyboardActions(
+        onSearch = {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+        }
+    ),
+    trailingIcon = {
+        if (searching) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp)
             )
+        }
+    }
+)
 
             if (advancedEnabled) Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = { showAdvanced = true }) { Text("تنظیمات جستجوی پیشرفته ⚙") }
