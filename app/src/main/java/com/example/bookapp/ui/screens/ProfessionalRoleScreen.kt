@@ -1,6 +1,7 @@
 
 package com.example.bookapp.ui.screens
 
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -294,21 +295,25 @@ fun ProfessionalRoleScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(
-                        items = filtered,
-                        key = { it.id }
-                    ) { role ->
+                   itemsIndexed(
+                    items = filtered,
+                    key = { _, role -> role.id }
+                ) { index, role ->
 
                         Card(
                             onClick = { onOpen(role) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(18.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color.White
-                            ),
-                            elevation = CardDefaults.cardElevation(
-                                defaultElevation = 1.dp
-                            )
+                           colors = CardDefaults.cardColors(
+                        containerColor = if (index % 2 == 0)
+                          Color.White
+                          else
+                          Color(0xFFE8F2E9)
+                         ),
+                        elevation = CardDefaults.cardElevation(
+                      defaultElevation = 1.dp
+                     )
+                  )
                         ) {
                             Column(
                                 modifier = Modifier.padding(15.dp)
