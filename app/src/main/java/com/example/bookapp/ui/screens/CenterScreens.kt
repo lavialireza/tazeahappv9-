@@ -25,7 +25,7 @@ fun LibraryHomeScreen(
     randomVerse: SearchResult?,
     recentItems: List<SearchResult>,
     onOpenTaziehList: () -> Unit,
-    onOpenSearch: () -> Unit,
+    onOpenSearch: (String) -> Unit,
     onOpenMyRole: () -> Unit,
     onOpenRehearsal: () -> Unit,
     onOpenGlossary: () -> Unit,
@@ -47,7 +47,12 @@ fun LibraryHomeScreen(
     val gold = Color(0xFFF4EBD7)
     val rose = Color(0xFFF4E7E6)
     val paper = Color(0xFFF7F7F2)
+    
+var librarySearchQuery by remember {
+    mutableStateOf("")
+}
 
+val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     Scaffold(
         containerColor = paper,
         topBar = {
@@ -120,25 +125,62 @@ fun LibraryHomeScreen(
                 }
             }
 
-            if (showSearch) {
-                OutlinedTextField(
-                    value = "",
-                    onValueChange = {},
-                    modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenSearch),
-                    readOnly = true,
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    placeholder = { Text("جستجو در تعزیه‌ها، نقش‌ها و متن مجالس") },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = ink) },
-                    trailingIcon = { Icon(Icons.Filled.Tune, contentDescription = null, tint = muted) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = Color.White,
-                        focusedContainerColor = Color.White,
-                        unfocusedBorderColor = Color(0xFFD9DFE3)
-                    )
-                )
-            }
+         if (showSearch) {
+    OutlinedTextField(
+        value = librarySearchQuery,
+        onValueChange = { librarySearchQuery = it },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        shape = RoundedCornerShape(16.dp),
+        placeholder = {
+            Text("جستجو در تعزیه‌ها، نقش‌ها و متن مجالس")
+        },
+        leadingIcon = {
+            Icon(
+                Icons.Filled.Search,
+                contentDescription = "جستجو",
+                tint = ink
+            )
+        },
+        trailingIcon = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (librarySearchQuery.isNotBlank()) {
+                    IconButton(
+                        onClick = {
+                            librarySearchQuery = ""
+                        }
+                    ) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = "پاک کردن"
+                        )
+                    }
+                }
 
+                IconButton(
+                    onClick = {
+                        val query = librarySearchQuery.trim()
+                        if (query.isNotEmpty()) {
+                            keyboardController?.hide()
+                            onOpenSearch(query)
+                        }
+                    }
+                ) {
+                    Icon(
+                        Icons.Filled.ArrowBack,
+                        contentDescription = "اجرای جستجو",
+                        tint = ink
+                    )
+                }
+            }
+        },
+        colors = OutlinedTextFieldDefaults.colors(
+            unfocusedContainerColor = Color.White,
+            focusedContainerColor = Color.White,
+            unfocusedBorderColor = Color(0xFFD9DFE3)
+        )
+    )
+}
             if (randomVerse != null) {
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable { onItemClick(randomVerse) },
