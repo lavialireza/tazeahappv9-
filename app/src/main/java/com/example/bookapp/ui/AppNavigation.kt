@@ -1512,11 +1512,21 @@ if (featureEnabled("read.view")) composable(ROUTE_DIALOGUE_READER) { backStackEn
                 val tazieh = db.taziehDao().getById(taziehId)
                 taziehTitle = tazieh?.title.orEmpty()
                 roles = db.roleDao().getByTazieh(taziehId)
-                val loadedSections = roles.associate { role -> role.id to db.sectionDao().getByRole(role.id) }
-                roleSections = loadedSections
-                compareSections = roles.flatMap { role ->
-                    loadedSections[role.id].orEmpty().map { section -> CompareSectionItem(section, role.title) }
-                }
+            val allSections = if (roles.isEmpty()) {
+    emptyList()
+} else {
+    db.sectionDao().getByRoles(roles.map { it.id })
+}
+
+val loadedSections = allSections.groupBy { it.roleId }
+
+roleSections = loadedSections
+
+compareSections = roles.flatMap { role ->
+    loadedSections[role.id].orEmpty().map { section ->
+        CompareSectionItem(section, role.title)
+    }
+}   
             }
             CompareScreen(
                 taziehTitle = taziehTitle.ifBlank { "تعزیه" },
