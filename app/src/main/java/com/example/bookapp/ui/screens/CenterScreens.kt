@@ -135,7 +135,7 @@ val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardContr
             },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = Color(0xFFE8F2E9)
         )
     ) {
         Row(
