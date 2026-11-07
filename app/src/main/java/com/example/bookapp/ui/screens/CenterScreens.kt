@@ -40,63 +40,222 @@ fun LibraryHomeScreen(
     showCompare: Boolean = true,
     onBack: () -> Unit
 ) {
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("کتابخانه تعزیه") }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "بازگشت") }
-        })
-    }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (randomVerse != null) {
-                Card(Modifier.fillMaxWidth().clickable { onItemClick(randomVerse) }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), shape = RoundedCornerShape(18.dp)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("بیت امروز", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
-                        Text(randomVerse.sectionTitle, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Text("${randomVerse.taziehTitle} ← ${randomVerse.roleTitle}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+    val ink = Color(0xFF263B5B)
+    val muted = Color(0xFF647184)
+    val green = Color(0xFFE5F0E2)
+    val blue = Color(0xFFE5EDF5)
+    val gold = Color(0xFFF4EBD7)
+    val rose = Color(0xFFF4E7E6)
+    val paper = Color(0xFFF7F7F2)
+
+    Scaffold(
+        containerColor = paper,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("کتابخانه تعزیه", fontWeight = FontWeight.Bold, color = ink)
+                        Text("گنجینهٔ متن‌ها، نسخه‌ها و نقش‌ها", style = MaterialTheme.typography.labelSmall, color = muted)
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "بازگشت", tint = ink)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = paper)
+            )
+        }
+    ) { padding ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // معرفی کتابخانه و مسیر اصلی ورود به مجموعه
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EEE7)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Surface(shape = RoundedCornerShape(16.dp), color = Color(0xFFD5E4D3)) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.MenuBook,
+                                contentDescription = null,
+                                modifier = Modifier.padding(12.dp).size(30.dp),
+                                tint = Color(0xFF28543D)
+                            )
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("گنجینهٔ تعزیه", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = ink)
+                            Text("مطالعه، شناخت و بررسی میراث مکتوب تعزیه", style = MaterialTheme.typography.bodySmall, color = muted)
+                        }
+                    }
+                    Text(
+                        "از زمینه و مجلس تا نسخه، نقش و متن؛ مجموعه را مرحله‌به‌مرحله دنبال کنید.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ink
+                    )
+                    Button(
+                        onClick = onOpenTaziehList,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(15.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF315B45), contentColor = Color.White)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null)
+                        Spacer(Modifier.width(9.dp))
+                        Text("ورود به فهرست زمینه‌ها و تعزیه‌ها", fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.weight(1f))
+                        Icon(Icons.Filled.ChevronLeft, contentDescription = null)
                     }
                 }
             }
-            if (showSearch) OutlinedTextField(
-                value = "",
-                onValueChange = {},
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenSearch),
-                readOnly = true,
-                singleLine = true,
-                placeholder = { Text("جستجو در کتابخانه، تعزیه‌ها و متن مجالس") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) }
-            )
-            LibraryActionCard("فهرست زمینه‌ها و تعزیه‌ها", "زمینه ← تعزیه ← نسخه ← نقش ← متن مجلس", Icons.AutoMirrored.Filled.MenuBook, onOpenTaziehList, Color(0xFFE8E1D2))
-            Text("ابزارهای مطالعه و پژوهش", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            if (showMyRole) LibraryActionCard("نقش من", "نقش‌های انتخاب‌شده و اطلاعات مرتبط با کاربر", Icons.Filled.School, onOpenMyRole, Color(0xFFDCE9E4))
-            if (showRehearsal) LibraryActionCard("حالت تمرین", "ورود به تمرین حفظ متن نقش‌های انتخاب‌شده", Icons.Filled.School, onOpenRehearsal, Color(0xFFE8E1D2))
-            if (showGlossary) LibraryActionCard("دیکشنری و فرهنگ اصطلاحات", "جستجو و مطالعه واژه‌ها و اصطلاحات تعزیه", Icons.AutoMirrored.Filled.MenuBook, onOpenGlossary, Color(0xFFE8EDF8))
-            if (showGallery) LibraryActionCard("گالری تصاویر", "مشاهده تصاویر مرتبط با مجموعه و مجالس", Icons.Filled.PhotoLibrary, onOpenGallery, Color(0xFFF4E5EC))
-            if (showCompare) LibraryActionCard("مقایسه نقش‌ها", "برای انتخاب تعزیه و مقایسه نقش‌های آن وارد فهرست تعزیه‌ها شوید", Icons.Filled.Search, onOpenCompareGuide, Color(0xFFF8EBDD))
-            if (recentItems.isNotEmpty()) {
-                Text("اخیراً مشاهده‌شده", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                recentItems.forEach { item ->
-                    ListItem(
-                        headlineContent = { Text(item.sectionTitle) },
-                        supportingContent = { Text("${item.taziehTitle} ← ${item.roleTitle}") },
-                        leadingContent = { Icon(Icons.Filled.History, contentDescription = null) },
-                        modifier = Modifier.fillMaxWidth().clickable { onItemClick(item) }
+
+            if (showSearch) {
+                OutlinedTextField(
+                    value = "",
+                    onValueChange = {},
+                    modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenSearch),
+                    readOnly = true,
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    placeholder = { Text("جستجو در تعزیه‌ها، نقش‌ها و متن مجالس") },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = ink) },
+                    trailingIcon = { Icon(Icons.Filled.Tune, contentDescription = null, tint = muted) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = Color.White,
+                        focusedContainerColor = Color.White,
+                        unfocusedBorderColor = Color(0xFFD9DFE3)
                     )
-                    HorizontalDivider()
+                )
+            }
+
+            if (randomVerse != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { onItemClick(randomVerse) },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = gold)
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Surface(shape = RoundedCornerShape(13.dp), color = Color(0xFFE9DDBE)) {
+                            Icon(Icons.Filled.AutoStories, contentDescription = null, modifier = Modifier.padding(10.dp).size(25.dp), tint = Color(0xFF735A2A))
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("برگی از گنجینه", style = MaterialTheme.typography.labelLarge, color = Color(0xFF735A2A), fontWeight = FontWeight.Bold)
+                            Text(randomVerse.sectionTitle, style = MaterialTheme.typography.titleSmall, color = ink, fontWeight = FontWeight.Bold)
+                            Text("${randomVerse.taziehTitle}  ←  ${randomVerse.roleTitle}", style = MaterialTheme.typography.bodySmall, color = muted)
+                        }
+                        Icon(Icons.Filled.ChevronLeft, contentDescription = null, tint = ink)
+                    }
                 }
             }
+
+            Text("ابزارهای کتابخانه", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = ink)
+
+            if (showMyRole || showRehearsal) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (showMyRole) {
+                        LibraryCompactCard("نقش من", "نقش‌های منتخب", Icons.Filled.Person, green, Color(0xFF28543D), onOpenMyRole, Modifier.weight(1f))
+                    }
+                    if (showRehearsal) {
+                        LibraryCompactCard("حالت تمرین", "مرور و حفظ متن", Icons.Filled.School, blue, ink, onOpenRehearsal, Modifier.weight(1f))
+                    }
+                }
+            }
+            if (showGlossary || showGallery) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (showGlossary) {
+                        LibraryCompactCard("فرهنگ اصطلاحات", "واژه‌ها و معناها", Icons.AutoMirrored.Filled.MenuBook, gold, Color(0xFF735A2A), onOpenGlossary, Modifier.weight(1f))
+                    }
+                    if (showGallery) {
+                        LibraryCompactCard("گالری تصاویر", "آثار و مستندات تصویری", Icons.Filled.PhotoLibrary, rose, Color(0xFF873F49), onOpenGallery, Modifier.weight(1f))
+                    }
+                }
+            }
+            if (showCompare) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenCompareGuide),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE9EAF1))
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.CompareArrows, contentDescription = null, tint = ink, modifier = Modifier.size(27.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("مقایسه نقش‌ها و نسخه‌ها", fontWeight = FontWeight.Bold, color = ink)
+                            Text("بررسی تفاوت‌ها برای مطالعه و پژوهش دقیق‌تر", style = MaterialTheme.typography.bodySmall, color = muted)
+                        }
+                        Icon(Icons.Filled.ChevronLeft, contentDescription = null, tint = ink)
+                    }
+                }
+            }
+
+            if (recentItems.isNotEmpty()) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("ادامهٔ مطالعه", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = ink)
+                    Spacer(Modifier.weight(1f))
+                    Text("${recentItems.size} مورد", style = MaterialTheme.typography.labelSmall, color = muted)
+                }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    recentItems.forEachIndexed { index, item ->
+                        ListItem(
+                            headlineContent = { Text(item.sectionTitle, fontWeight = FontWeight.SemiBold, color = ink) },
+                            supportingContent = { Text("${item.taziehTitle}  ←  ${item.roleTitle}", color = muted) },
+                            leadingContent = {
+                                Surface(shape = RoundedCornerShape(11.dp), color = blue) {
+                                    Icon(Icons.Filled.History, contentDescription = null, modifier = Modifier.padding(9.dp), tint = ink)
+                                }
+                            },
+                            trailingContent = { Icon(Icons.Filled.ChevronLeft, contentDescription = null, tint = muted) },
+                            modifier = Modifier.fillMaxWidth().clickable { onItemClick(item) },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+                        if (index != recentItems.lastIndex) HorizontalDivider(color = Color(0xFFEEF0F1))
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
 
 @Composable
-private fun LibraryActionCard(title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit, tint: Color) {
-    Card(Modifier.fillMaxWidth().clickable(onClick = onClick), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = tint)) {
-        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(27.dp), tint = MaterialTheme.colorScheme.onSurface)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall)
-            }
-            Icon(Icons.Filled.ChevronLeft, contentDescription = null)
+private fun LibraryCompactCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    background: Color,
+    foreground: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.heightIn(min = 112.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = background),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = foreground, modifier = Modifier.size(25.dp))
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = foreground)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = foreground.copy(alpha = 0.82f))
         }
     }
 }
