@@ -422,12 +422,13 @@ composable(ROUTE_MAIN_MENU) {
                 onOpenViewerAccess = { if (!publicViewer) navController.navigate(ROUTE_VIEWER_ACCESS) },
                 onOpenSpecialUsers = { if (!publicViewer) navController.navigate(ROUTE_SPECIAL_USERS) },
                 onOpenAccessAudit = { if (!publicViewer) navController.navigate(ROUTE_ACCESS_AUDIT) },
-               onOpenSettings = {
+              onOpenSettings = {
     navController.navigate(ROUTE_SETTINGS)
 }
 )
-              
-        composable(ROUTE_TOOLS_CENTER) {
+}
+
+composable(ROUTE_TOOLS_CENTER) {
             ToolsCenterScreen(
                 onOpenCalendar = { navigateIfAllowed("calendar.view", ROUTE_MUHARRAM_CALENDAR) },
                 onOpenVersion = { navController.navigate(ROUTE_VERSION) },
