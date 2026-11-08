@@ -2,7 +2,6 @@
 package com.example.bookapp.ui.screens
 
 import androidx.compose.foundation.layout.*
-
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -140,7 +139,7 @@ fun MultiRoleDialogueScreen(
                 if (roles.isEmpty()) {
                     Box(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
                             .weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
@@ -149,7 +148,6 @@ fun MultiRoleDialogueScreen(
                             color = MaterialTheme.colorScheme.onBackground
                         )
                     }
-               
                 } else {
                     val roleCardColors = listOf(
                         MaterialTheme.colorScheme.primaryContainer,
@@ -186,12 +184,17 @@ fun MultiRoleDialogueScreen(
                                     Column(
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                            .padding(
+                                                horizontal = 10.dp,
+                                                vertical = 6.dp
+                                            )
                                     ) {
                                         Text(
                                             text = role.roleTitle,
                                             style = MaterialTheme.typography.titleSmall,
-                                            color = roleTitleColors[index % roleTitleColors.size],
+                                            color = roleTitleColors[
+                                                index % roleTitleColors.size
+                                            ],
                                             fontWeight = FontWeight.Bold
                                         )
 
@@ -204,7 +207,9 @@ fun MultiRoleDialogueScreen(
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .fillMaxWidth()
-                                                .verticalScroll(rememberScrollState())
+                                                .verticalScroll(
+                                                    rememberScrollState()
+                                                )
                                         ) {
                                             Column {
                                                 if (role.sections.isEmpty()) {
@@ -223,16 +228,21 @@ fun MultiRoleDialogueScreen(
                                                             fontWeight = FontWeight.Bold
                                                         )
 
-                                                        Spacer(Modifier.height(5.dp))
+                                                        Spacer(
+                                                            Modifier.height(5.dp)
+                                                        )
                                                     }
 
                                                     Text(
                                                         text = section.content,
                                                         fontFamily = selectedFontFamily,
-                                                        fontWeight = if (fontChoice == "b_titr")
+                                                        fontWeight = if (
+                                                            fontChoice == "b_titr"
+                                                        ) {
                                                             FontWeight.Bold
-                                                        else
-                                                            FontWeight.Normal,
+                                                        } else {
+                                                            FontWeight.Normal
+                                                        },
                                                         fontSize = (20f * fontScale).sp,
                                                         lineHeight = (
                                                             20f * fontScale * lineSpacing
@@ -240,7 +250,9 @@ fun MultiRoleDialogueScreen(
                                                         color = MaterialTheme.colorScheme.onSurface
                                                     )
 
-                                                    Spacer(Modifier.height(16.dp))
+                                                    Spacer(
+                                                        Modifier.height(16.dp)
+                                                    )
                                                 }
                                             }
                                         }
@@ -250,81 +262,10 @@ fun MultiRoleDialogueScreen(
                         }
                     }
                 }
-
-
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor =
-                                        if (index % 2 == 0)
-                                            MaterialTheme.colorScheme.surfaceVariant
-                                        else
-                                            MaterialTheme.colorScheme.surface
-                                )
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(14.dp)
-                                ) {
-                                    Text(
-                                        text = role.roleTitle,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold
-                                    )
-
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(
-                                            top = 8.dp,
-                                            bottom = 10.dp
-                                        ),
-                                        color = MaterialTheme.colorScheme.outlineVariant
-                                    )
-
-                                    if (role.sections.isEmpty()) {
-                                        Text(
-                                            text = "برای این نقش بخشی ثبت نشده است.",
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-
-                                    role.sections.forEach { section ->
-                                        if (section.title.isNotBlank()) {
-                                            Text(
-                                                text = section.title,
-                                                style = MaterialTheme.typography.titleSmall,
-                                                color = MaterialTheme.colorScheme.secondary,
-                                                fontWeight = FontWeight.Bold
-                                            )
-
-                                            Spacer(Modifier.height(5.dp))
-                                        }
-
-                                        Text(
-                                            text = section.content,
-                                            fontFamily = selectedFontFamily,
-                                            fontWeight = if (fontChoice == "b_titr")
-                                                FontWeight.Bold
-                                            else
-                                                FontWeight.Normal,
-                                            fontSize = (20f * fontScale).sp,
-                                            lineHeight = (
-                                                20f * fontScale * lineSpacing
-                                            ).sp,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-
-                                        Spacer(Modifier.height(16.dp))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
 
-        // پنجره تنظیمات؛ فقط با انتخاب گزینه تنظیمات از منوی سه‌نقطه باز می‌شود.
+        // پنجره تنظیمات نمایش
         if (showSettings) {
             AlertDialog(
                 onDismissRequest = {
