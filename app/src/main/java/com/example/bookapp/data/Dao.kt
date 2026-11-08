@@ -115,7 +115,7 @@ interface SectionDao {
     @Query("SELECT * FROM sections ORDER BY roleId, orderIndex, id")
     suspend fun getAll(): List<SectionEntity>
 
-    @Query("SELECT * FROM sections WHERE roleId = :roleId ORDER BY orderIndex")
+    @Query("SELECT * FROM sections WHERE roleId = :roleId ORDER BY orderIndex, id")
     suspend fun getByRole(roleId: Long): List<SectionEntity>
 
     @Query("""
