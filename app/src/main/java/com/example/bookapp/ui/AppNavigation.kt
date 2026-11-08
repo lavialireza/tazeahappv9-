@@ -422,25 +422,11 @@ composable(ROUTE_MAIN_MENU) {
                 onOpenViewerAccess = { if (!publicViewer) navController.navigate(ROUTE_VIEWER_ACCESS) },
                 onOpenSpecialUsers = { if (!publicViewer) navController.navigate(ROUTE_SPECIAL_USERS) },
                 onOpenAccessAudit = { if (!publicViewer) navController.navigate(ROUTE_ACCESS_AUDIT) },
-                onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
-              
-onOpenMultiRoleDialogue = { selectedRoles ->
-
-    val selectedIds = selectedRoles
-        .map { it.id }
-        .distinct()
-        .joinToString(",")
-
-    navController.currentBackStackEntry
-        ?.savedStateHandle
-        ?.set("multi_role_selected_ids", selectedIds)
-
-    navController.navigate(
-        "multi_role_dialogue/$taziehId/${java.net.URLEncoder.encode(taziehTitle, "UTF-8")}"
-    )
+               onOpenSettings = {
+    navController.navigate(ROUTE_SETTINGS)
 }
-
-
+)
+              
         composable(ROUTE_TOOLS_CENTER) {
             ToolsCenterScreen(
                 onOpenCalendar = { navigateIfAllowed("calendar.view", ROUTE_MUHARRAM_CALENDAR) },
