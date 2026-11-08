@@ -422,8 +422,9 @@ composable(ROUTE_MAIN_MENU) {
         onOpenViewerAccess = { if (!publicViewer) navController.navigate(ROUTE_VIEWER_ACCESS) },
         onOpenSpecialUsers = { if (!publicViewer) navController.navigate(ROUTE_SPECIAL_USERS) },
         onOpenAccessAudit = { if (!publicViewer) navController.navigate(ROUTE_ACCESS_AUDIT) },
-        onOpenSettings = { navController.navigate(ROUTE_SETTINGS) }
-    )
+        onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+        onOpenMultiRoleDialogue = { navController.navigate(ROUTE_FIELDS) },
+        onBack = { navController.popBackStack() }    )
 }
 
 composable(ROUTE_TOOLS_CENTER) {
