@@ -944,7 +944,19 @@ composable(ROUTE_MAIN_MENU) {
                 onBack = { navController.popBackStack() },
                 readOnly = publicViewer,
                 showCompare = featureEnabled("compare.view"),
-                canSelectMine = featureEnabled("myRole.select")
+                canSelectMine = featureEnabled("myRole.select"),
+                onOpenMultiRoleDialogue = { selectedRoles ->
+    navController.currentBackStackEntry
+        ?.savedStateHandle
+        ?.set(
+            "multi_role_selected_ids",
+            ArrayList(selectedRoles.map { it.id })
+        )
+
+    navController.navigate(
+        "multi_role_dialogue/$taziehId/${java.net.URLEncoder.encode(taziehTitle, "UTF-8")}"
+    )
+}
             )
         }
 
