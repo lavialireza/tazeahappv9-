@@ -12,7 +12,6 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
-import androidx.compose.material3.Checkbox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -335,7 +334,6 @@ fun toggleRoleSelection(role: ProfessionalRoleItem) {
 
             // Roles list takes all remaining screen space
             
-            // Roles list takes all remaining screen space
             if (filtered.isEmpty()) {
                 Box(
                     modifier = Modifier
