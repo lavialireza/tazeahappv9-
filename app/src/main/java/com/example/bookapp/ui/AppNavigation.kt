@@ -974,23 +974,23 @@ if (featureEnabled("read.view")) composable(ROUTE_MULTI_ROLE_DIALOGUE) { backSta
   
 LaunchedEffect(taziehId, backStackEntry.id) {
 
-    // دریافت شناسه‌ها با حفظ ترتیب انتخاب کاربر
-    val savedIds = navController.previousBackStackEntry
-        ?.savedStateHandle
-        ?.get<String>("multi_role_selected_ids")
+   // دریافت شناسه‌ها با حفظ ترتیب انتخاب کاربر
+val savedSelection = navController.previousBackStackEntry
+    ?.savedStateHandle
+    ?.get<Any>("multi_role_selected_ids")
 
-    // پشتیبانی از داده‌های ذخیره‌شده با روش قبلی نیز حفظ شده است.
-    val selectedIds = if (!savedIds.isNullOrBlank()) {
-        savedIds.split(",")
-            .mapNotNull { it.trim().toLongOrNull() }
-            .distinct()
-    } else {
-        navController.previousBackStackEntry
-            ?.savedStateHandle
-            ?.get<ArrayList<Long>>("multi_role_selected_ids")
-            ?.distinct()
-            .orEmpty()
-    }
+val selectedIds = when (savedSelection) {
+    is ArrayList<*> -> savedSelection
+        .mapNotNull { (it as? Number)?.toLong() }
+        .distinct()
+
+    is String -> savedSelection
+        .split(",")
+        .mapNotNull { it.trim().toLongOrNull() }
+        .distinct()
+
+    else -> emptyList()
+}
 
     // ابتدا تمام نقش‌های متعلق به همین تعزیه دریافت می‌شوند.
     val allRoles = db.roleDao().getByTazieh(taziehId)
@@ -1645,14 +1645,20 @@ compareSections = roles.flatMap { role ->
                     navController.navigate("text_pager/$roleId/$index")
                 },
                 onBack = { navController.popBackStack() },
-                topBarAction = if (featureEnabled("compare")) {
-                    {
-                        TextButton(
-                            onClick = { taziehIdForCompare?.let { navController.navigate("compare/$it") } },
-                            enabled = taziehIdForCompare != null
-                        ) { Text("مقایسه") }
-                    }
-                } else null,
+                topBarAction = if (featureEnabled("compare.view")) {
+    {
+        TextButton(
+            onClick = {
+                taziehIdForCompare?.let {
+                    navController.navigate("compare/$it")
+                }
+            },
+            enabled = taziehIdForCompare != null
+        ) {
+            Text("مقایسه")
+        }
+    }
+} else null,
                 floatingAction = {
                     Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
                         if (featureEnabled("training")) {
