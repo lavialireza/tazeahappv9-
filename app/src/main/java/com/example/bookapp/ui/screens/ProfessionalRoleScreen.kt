@@ -1,10 +1,9 @@
 
 package com.example.bookapp.ui.screens
 
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -50,7 +49,6 @@ fun ProfessionalRoleScreen(
     val lightGreen = Color(0xFFE8F2E9)
     val greenDark = Color(0xFF315B45)
     val softBlue = Color(0xFFE5EDF5)
-    val softGold = Color(0xFFF4EBD7)
     val paper = Color(0xFFF7F8F5)
 
     val filtered = remember(items, query) {
@@ -66,20 +64,12 @@ fun ProfessionalRoleScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "نقش‌های تعزیه",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = ink
-                        )
-                        Text(
-                            text = taziehTitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = muted,
-                            maxLines = 1
-                        )
-                    }
+                    Text(
+                        text = "نقش‌های تعزیه",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = ink
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -88,17 +78,6 @@ fun ProfessionalRoleScreen(
                             contentDescription = "بازگشت",
                             tint = ink
                         )
-                    }
-                },
-                actions = {
-                    if (showGallery) {
-                        IconButton(onClick = onOpenGallery) {
-                            Icon(
-                                Icons.Filled.PhotoLibrary,
-                                contentDescription = "گالری تصاویر این تعزیه",
-                                tint = ink
-                            )
-                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -114,15 +93,15 @@ fun ProfessionalRoleScreen(
                 .padding(padding)
         ) {
 
-            // Search
+            // Search - first item below the top bar
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 leadingIcon = {
                     Icon(
                         Icons.Filled.Search,
@@ -141,126 +120,103 @@ fun ProfessionalRoleScreen(
                 )
             )
 
-            // Role information
+            // Compact combined information card:
+            // Tazieh title + role count + gallery access
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(16.dp),
+                    .padding(horizontal = 12.dp, vertical = 3.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = lightGreen
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = 1.dp
                 )
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
+                        .padding(horizontal = 11.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Filled.School,
-                        contentDescription = null,
-                        tint = greenDark
-                    )
 
-                    Spacer(Modifier.width(10.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Text(
-                            "فهرست نقش‌های این تعزیه",
-                            fontWeight = FontWeight.Bold,
+                            text = taziehTitle,
                             color = ink,
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        Text(
-                            "نقش من با علامت مشخص می‌شود.",
-                            color = muted,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color.White
-                    ) {
-                        Text(
-                            "${filtered.size} نقش",
-                            modifier = Modifier.padding(
-                                horizontal = 12.dp,
-                                vertical = 7.dp
-                            ),
-                            color = greenDark,
                             fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelLarge
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1
                         )
-                    }
-                }
-            }
 
-            // Gallery
-            if (showGallery) {
-                Card(
-                    onClick = onOpenGallery,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 7.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = softBlue
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(15.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                        Spacer(Modifier.height(3.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${filtered.size} نقش",
+                                color = greenDark,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+
+                            Spacer(Modifier.width(9.dp))
+
+                            Text(
+                                text = "نقش من با علامت مشخص می‌شود.",
+                                color = muted,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+
+                    if (showGallery) {
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
+                            onClick = onOpenGallery,
+                            shape = RoundedCornerShape(11.dp),
                             color = Color.White
                         ) {
-                            Icon(
-                                Icons.Filled.PhotoLibrary,
-                                contentDescription = null,
-                                modifier = Modifier.padding(10.dp),
-                                tint = ink
-                            )
+                            Row(
+                                modifier = Modifier.padding(
+                                    horizontal = 9.dp,
+                                    vertical = 7.dp
+                                ),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Filled.PhotoLibrary,
+                                    contentDescription = if (readOnly)
+                                        "مشاهده گالری تصاویر"
+                                    else
+                                        "مدیریت گالری تصاویر",
+                                    tint = ink,
+                                    modifier = Modifier.size(19.dp)
+                                )
+
+                                Spacer(Modifier.width(5.dp))
+
+                                Text(
+                                    text = "گالری",
+                                    color = ink,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
                         }
-
-                        Spacer(Modifier.width(12.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "گالری تصاویر این تعزیه",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = ink
-                            )
-                            Text(
-                                if (readOnly)
-                                    "مشاهده تصاویر اختصاصی این تعزیه"
-                                else
-                                    "افزودن و مدیریت تصاویر اختصاصی این تعزیه",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = muted
-                            )
-                        }
-
-                        Text(
-                            "ورود",
-                            color = ink,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelLarge
-                        )
                     }
                 }
             }
 
-            // Roles list
+            // Roles list takes all remaining screen space
             if (filtered.isEmpty()) {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
+                        .weight(1f)
                         .padding(24.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -273,9 +229,11 @@ fun ProfessionalRoleScreen(
                             tint = muted,
                             modifier = Modifier.size(38.dp)
                         )
+
                         Spacer(Modifier.height(10.dp))
+
                         Text(
-                            if (items.isEmpty())
+                            text = if (items.isEmpty())
                                 "هنوز نقشی برای این تعزیه ثبت نشده است."
                             else
                                 "نقشی با این عنوان پیدا نشد.",
@@ -286,42 +244,39 @@ fun ProfessionalRoleScreen(
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 8.dp,
-                        bottom = 24.dp
+                        start = 12.dp,
+                        end = 12.dp,
+                        top = 5.dp,
+                        bottom = 18.dp
                     ),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                   itemsIndexed(
-                    items = filtered,
-                    key = { _, role -> role.id }
-                ) { index, role ->
+                    itemsIndexed(
+                        items = filtered,
+                        key = { _, role -> role.id }
+                    ) { index, role ->
 
-                        
-Card(
-    onClick = { onOpen(role) },
-    modifier = Modifier.fillMaxWidth(),
-    shape = RoundedCornerShape(18.dp),
-    colors = CardDefaults.cardColors(
-        containerColor = if (index % 2 == 0) {
-            Color.White
-        } else {
-            Color(0xFFE8F2E9)
-        }
-    ),
-    elevation = CardDefaults.cardElevation(
-        defaultElevation = 1.dp
-    )
-) {
-    Column(
-        modifier = Modifier.padding(15.dp)
-    ) {
-
+                        Card(
+                            onClick = { onOpen(role) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (index % 2 == 0) {
+                                    Color.White
+                                } else {
+                                    Color(0xFFE8F2E9)
+                                }
+                            ),
+                            elevation = CardDefaults.cardElevation(
+                                defaultElevation = 1.dp
+                            )
+                        ) {
                             Column(
-                                modifier = Modifier.padding(15.dp)
+                                modifier = Modifier.padding(12.dp)
                             ) {
 
                                 // Role title and selected marker
@@ -330,7 +285,7 @@ Card(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        role.title,
+                                        text = role.title,
                                         modifier = Modifier.weight(1f),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
@@ -355,7 +310,9 @@ Card(
                                                     tint = greenDark,
                                                     modifier = Modifier.size(17.dp)
                                                 )
+
                                                 Spacer(Modifier.width(4.dp))
+
                                                 Text(
                                                     "نقش من",
                                                     color = greenDark,
@@ -367,32 +324,28 @@ Card(
                                     }
                                 }
 
-                                Spacer(Modifier.height(9.dp))
+                                Spacer(Modifier.height(6.dp))
 
                                 // Section count
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        "${role.sectionCount} بخش",
-                                        color = muted,
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
+                                Text(
+                                    text = "${role.sectionCount} بخش",
+                                    color = muted,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
 
                                 // First verse
                                 if (role.firstVerse.isNotBlank()) {
-                                    Spacer(Modifier.height(8.dp))
+                                    Spacer(Modifier.height(7.dp))
 
                                     Surface(
-                                        shape = RoundedCornerShape(10.dp),
+                                        shape = RoundedCornerShape(9.dp),
                                         color = Color(0xFFF5F6F4)
                                     ) {
                                         Text(
                                             text = role.firstVerse,
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(10.dp),
+                                                .padding(9.dp),
                                             maxLines = 2,
                                             color = muted,
                                             style = MaterialTheme.typography.bodySmall
@@ -402,7 +355,7 @@ Card(
 
                                 // Actions
                                 if (canSelectMine || showCompare) {
-                                    Spacer(Modifier.height(12.dp))
+                                    Spacer(Modifier.height(9.dp))
 
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -411,7 +364,7 @@ Card(
                                         if (canSelectMine) {
                                             OutlinedButton(
                                                 onClick = { onSetMine(role) },
-                                                shape = RoundedCornerShape(12.dp),
+                                                shape = RoundedCornerShape(11.dp),
                                                 colors = ButtonDefaults.outlinedButtonColors(
                                                     contentColor = greenDark
                                                 ),
@@ -422,7 +375,9 @@ Card(
                                                     contentDescription = null,
                                                     modifier = Modifier.size(18.dp)
                                                 )
+
                                                 Spacer(Modifier.width(5.dp))
+
                                                 Text(
                                                     if (role.isMine)
                                                         "نقش من"
@@ -435,7 +390,7 @@ Card(
                                         if (showCompare) {
                                             OutlinedButton(
                                                 onClick = { onCompare(role) },
-                                                shape = RoundedCornerShape(12.dp),
+                                                shape = RoundedCornerShape(11.dp),
                                                 colors = ButtonDefaults.outlinedButtonColors(
                                                     contentColor = ink
                                                 ),
@@ -453,5 +408,4 @@ Card(
             }
         }
     }
-}
 }
