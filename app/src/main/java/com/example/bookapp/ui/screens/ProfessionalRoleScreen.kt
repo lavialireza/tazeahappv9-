@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
+import androidx.compose.material3.Checkbox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,8 +42,27 @@ fun ProfessionalRoleScreen(
     readOnly: Boolean = false,
     showCompare: Boolean = true,
     canSelectMine: Boolean = true
+    onOpenMultiRoleDialogue: (List<ProfessionalRoleItem>) -> Unit = {}
 ) {
     var query by remember { mutableStateOf("") }
+    // انتخاب چندنقشی با حفظ ترتیب انتخاب کاربر
+var multiRoleSelectionMode by remember { mutableStateOf(false) }
+
+val selectedRoles = remember {
+    mutableStateListOf<ProfessionalRoleItem>()
+}
+
+fun toggleRoleSelection(role: ProfessionalRoleItem) {
+    val existingIndex = selectedRoles.indexOfFirst {
+        it.id == role.id
+    }
+
+    if (existingIndex >= 0) {
+        selectedRoles.removeAt(existingIndex)
+    } else {
+        selectedRoles.add(role)
+    }
+}
 
     val ink = Color(0xFF263B5B)
     val muted = Color(0xFF647184)
@@ -210,7 +230,111 @@ fun ProfessionalRoleScreen(
                     }
                 }
             }
+            // Multi-role dialogue selection controls
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
+                shape = RoundedCornerShape(13.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (multiRoleSelectionMode)
+                        softBlue
+                    else
+                        Color.White
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = 1.dp
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "نمایش مکالمه چندنقشی",
+                                color = ink,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleSmall
+                            )
 
+                            Text(
+                                text = if (multiRoleSelectionMode)
+                                    "نقش‌ها را به ترتیب دلخواه انتخاب کنید."
+                                else
+                                    "متن چند نقش را به صورت یکپارچه بخوانید.",
+                                color = muted,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                if (multiRoleSelectionMode) {
+                                    selectedRoles.clear()
+                                }
+                                multiRoleSelectionMode =
+                                    !multiRoleSelectionMode
+                            },
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(
+                                if (multiRoleSelectionMode)
+                                    "لغو انتخاب"
+                                else
+                                    "انتخاب نقش‌ها"
+                            )
+                        }
+                    }
+
+                    if (multiRoleSelectionMode) {
+                        Spacer(Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "تعداد انتخاب‌شده: ${selectedRoles.size}",
+                                modifier = Modifier.weight(1f),
+                                color = greenDark,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+
+                            Button(
+                                onClick = {
+                                    onOpenMultiRoleDialogue(
+                                        selectedRoles.toList()
+                                    )
+                                },
+                                enabled = selectedRoles.size >= 2,
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("نمایش مکالمه")
+                            }
+                        }
+
+                        if (selectedRoles.size < 2) {
+                            Text(
+                                text = "برای نمایش مکالمه، حداقل دو نقش انتخاب کنید.",
+                                color = muted,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Roles list takes all remaining screen space
+            
             // Roles list takes all remaining screen space
             if (filtered.isEmpty()) {
                 Box(
@@ -260,8 +384,14 @@ fun ProfessionalRoleScreen(
                         key = { _, role -> role.id }
                     ) { index, role ->
 
-                        Card(
-                            onClick = { onOpen(role) },
+                      Card(
+    onClick = {
+        if (multiRoleSelectionMode) {
+            toggleRoleSelection(role)
+        } else {
+            onOpen(role)
+        }
+    },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(
@@ -278,13 +408,21 @@ fun ProfessionalRoleScreen(
                             Column(
                                 modifier = Modifier.padding(12.dp)
                             ) {
+// Role title and multi-role selection
+Row(
+    modifier = Modifier.fillMaxWidth(),
+    verticalAlignment = Alignment.CenterVertically
+) {
+    if (multiRoleSelectionMode) {
+        Checkbox(
+            checked = selectedRoles.any { it.id == role.id },
+            onCheckedChange = {
+                toggleRoleSelection(role)
+            }
+        )
+    }
 
-                                // Role title and selected marker
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
+    Text(
                                         text = role.title,
                                         modifier = Modifier.weight(1f),
                                         style = MaterialTheme.typography.titleMedium,
