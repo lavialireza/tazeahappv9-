@@ -74,10 +74,15 @@ private fun CompareRoleMultiDropdown(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxWidth()) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         Text(
             "انتخاب نقش‌ها (۲ تا ۴ نقش)",
-            style = MaterialTheme.typography.labelMedium
+            style = MaterialTheme.typography.titleMedium
         )
 
         Box {
@@ -116,7 +121,8 @@ private fun CompareRoleMultiDropdown(
         Text(
             "انتخاب‌شده: ${selectedRoles.size} نقش",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp)
         )
     }
 }
@@ -171,8 +177,6 @@ fun CompareScreen(
         mutableStateOf(TaziehWordDiff.compare("", ""))
     }
 
-    // محاسبه اختلاف سطری در پس‌زمینه
-    // فقط پس از انتخاب دو مورد و زدن دکمه مقایسه اجرا می‌شود.
     LaunchedEffect(
         compared,
         mode,
@@ -223,7 +227,6 @@ fun CompareScreen(
         }
     }
 
-    // در حالت نمایش مکالمه، فقط متن نقش‌ها آماده می‌شود و هیچ مقایسه‌ای انجام نمی‌گیرد.
     LaunchedEffect(compared, mode, conversationRoles.map { it.id }, roleSections) {
         if (!compared || mode != "conversation") {
             conversationTexts = emptyList()
@@ -247,7 +250,6 @@ fun CompareScreen(
         }
     }
 
-    // محاسبه اختلاف واژه‌ای فقط در صورت انتخاب این حالت
     LaunchedEffect(
         compared,
         granularity,
@@ -290,11 +292,32 @@ fun CompareScreen(
 
                 Text(
                     "انتخاب قابلیت",
-                    style = MaterialTheme.typography.titleSmall
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
 
+                // قابلیت نمایش مکالمه در ردیف مستقل و بالای گزینه‌های مقایسه
+                FilterChip(
+                    selected = mode == "conversation",
+                    onClick = {
+                        mode = "conversation"
+                        compared = false
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = {
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text("نمایش هم‌زمان مکالمه نقش‌ها")
+                        }
+                    },
+                    leadingIcon = {
+                        Text("●", color = MaterialTheme.colorScheme.tertiary)
+                    }
+                )
+
+                Spacer(Modifier.height(6.dp))
+
                 Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     FilterChip(
@@ -303,7 +326,12 @@ fun CompareScreen(
                             mode = "role"
                             compared = false
                         },
-                        label = { Text("مقایسه نقش‌ها") }
+                        modifier = Modifier.weight(1f),
+                        label = {
+                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                Text("مقایسه نقش‌ها", maxLines = 1)
+                            }
+                        }
                     )
 
                     FilterChip(
@@ -312,20 +340,16 @@ fun CompareScreen(
                             mode = "section"
                             compared = false
                         },
-                        label = { Text("مقایسه بخش‌ها") }
-                    )
-
-                    FilterChip(
-                        selected = mode == "conversation",
-                        onClick = {
-                            mode = "conversation"
-                            compared = false
-                        },
-                        label = { Text("نمایش هم‌زمان مکالمه نقش‌ها") }
+                        modifier = Modifier.weight(1f),
+                        label = {
+                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                Text("مقایسه بخش‌ها", maxLines = 1)
+                            }
+                        }
                     )
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(16.dp))
 
                 if (mode == "conversation") {
 
@@ -413,25 +437,20 @@ fun CompareScreen(
                     Text(if (mode == "conversation") "نمایش مکالمه نقش‌ها" else "نمایش مقایسه")
                 }
 
-                Text(
-                    if (mode == "conversation") {
-                        "متن ۲ تا ۴ نقش به‌صورت کادرهای جداگانه و هم‌زمان نمایش داده می‌شود."
-                    } else {
-                        "انتخاب‌ها مستقل هستند؛ می‌توانید هر دو نقش یا هر دو بخش را خودتان تعیین کنید."
-                    },
-                    style = MaterialTheme.typography.bodySmall
-                )
+                if (mode != "conversation") {
+                    Text(
+                        "انتخاب‌ها مستقل هستند؛ می‌توانید هر دو نقش یا هر دو بخش را خودتان تعیین کنید.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
 
             } else if (isCalculating || isPreparingConversation) {
 
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize(),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator()
                         Spacer(Modifier.height(12.dp))
                         Text(
@@ -467,10 +486,18 @@ fun CompareScreen(
                         }
                     }
 
-                    Text(
-                        "برای دنبال کردن گفت‌وگو، متن هر نقش را در کادر مستقل آن بخوانید.",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(bottom = 6.dp)
+                    // هر عنوان بیرون از ناحیه اسکرول متن قرار دارد و همیشه دیده می‌شود.
+                    val roleCardColors = listOf(
+                        MaterialTheme.colorScheme.primaryContainer,
+                        MaterialTheme.colorScheme.secondaryContainer,
+                        MaterialTheme.colorScheme.tertiaryContainer,
+                        MaterialTheme.colorScheme.surfaceVariant
+                    )
+                    val roleTitleColors = listOf(
+                        MaterialTheme.colorScheme.onPrimaryContainer,
+                        MaterialTheme.colorScheme.onSecondaryContainer,
+                        MaterialTheme.colorScheme.onTertiaryContainer,
+                        MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     Column(
@@ -479,33 +506,39 @@ fun CompareScreen(
                             .fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        conversationTexts.forEach { (roleTitle, roleText) ->
+                        conversationTexts.forEachIndexed { index, (roleTitle, roleText) ->
                             key(roleTitle) {
                                 Card(
                                     modifier = Modifier
                                         .weight(1f)
                                         .fillMaxWidth(),
                                     colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                        containerColor = roleCardColors[index % roleCardColors.size]
                                     )
                                 ) {
                                     Column(
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .verticalScroll(rememberScrollState())
-                                            .padding(10.dp)
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
                                     ) {
                                         Text(
                                             roleTitle,
                                             style = MaterialTheme.typography.titleSmall,
-                                            color = MaterialTheme.colorScheme.primary
+                                            color = roleTitleColors[index % roleTitleColors.size]
                                         )
                                         Divider(modifier = Modifier.padding(vertical = 5.dp))
-                                        Text(
-                                            text = roleText.ifBlank { "برای این نقش متنی ثبت نشده است." },
-                                            fontSize = conversationFontSize.sp,
-                                            lineHeight = (conversationFontSize * 1.65f).sp
-                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxWidth()
+                                                .verticalScroll(rememberScrollState())
+                                        ) {
+                                            Text(
+                                                text = roleText.ifBlank { "برای این نقش متنی ثبت نشده است." },
+                                                fontSize = conversationFontSize.sp,
+                                                lineHeight = (conversationFontSize * 1.65f).sp
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -514,203 +547,174 @@ fun CompareScreen(
 
                 } else {
 
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    TextButton(
-                        onClick = {
-                            compared = false
-                        }
-                    ) {
-                        Text("تغییر انتخاب")
-                    }
-
-                    Row {
-                        FilterChip(
-                            selected = view == "diff",
-                            onClick = { view = "diff" },
-                            label = { Text("اختلاف‌ها") }
-                        )
-
-                        Spacer(Modifier.width(6.dp))
-
-                        FilterChip(
-                            selected = view == "side",
-                            onClick = { view = "side" },
-                            label = { Text("دو متن") }
-                        )
-                    }
-                }
-
-                Text(
-                    "یکسان: ${diff.same}  |  افزوده: ${diff.added}  |  حذف‌شده: ${diff.removed}",
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-
-                if (view == "diff") {
-
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        FilterChip(
-                            selected = granularity == "line",
-                            onClick = { granularity = "line" },
-                            label = { Text("اختلاف سطری") }
-                        )
+                        TextButton(onClick = { compared = false }) {
+                            Text("تغییر انتخاب")
+                        }
 
-                        FilterChip(
-                            selected = granularity == "word",
-                            onClick = { granularity = "word" },
-                            label = { Text("اختلاف واژه‌ای") }
-                        )
+                        Row {
+                            FilterChip(
+                                selected = view == "diff",
+                                onClick = { view = "diff" },
+                                label = { Text("اختلاف‌ها") }
+                            )
+
+                            Spacer(Modifier.width(6.dp))
+
+                            FilterChip(
+                                selected = view == "side",
+                                onClick = { view = "side" },
+                                label = { Text("دو متن") }
+                            )
+                        }
                     }
 
-                    if (granularity == "line") {
+                    Text(
+                        "یکسان: ${diff.same}  |  افزوده: ${diff.added}  |  حذف‌شده: ${diff.removed}",
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
 
-                        LazyColumn(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                        ) {
-                            itemsIndexed(diff.lines) { _, line ->
+                    if (view == "diff") {
 
-                                val label = when (line.kind) {
-                                    DiffKind.SAME -> "="
-                                    DiffKind.ADDED -> "+"
-                                    DiffKind.REMOVED -> "−"
-                                }
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            FilterChip(
+                                selected = granularity == "line",
+                                onClick = { granularity = "line" },
+                                label = { Text("اختلاف سطری") }
+                            )
 
-                                val color = when (line.kind) {
-                                    DiffKind.SAME ->
-                                        MaterialTheme.colorScheme.surface
+                            FilterChip(
+                                selected = granularity == "word",
+                                onClick = { granularity = "word" },
+                                label = { Text("اختلاف واژه‌ای") }
+                            )
+                        }
 
-                                    DiffKind.ADDED ->
-                                        MaterialTheme.colorScheme.tertiaryContainer
+                        if (granularity == "line") {
 
-                                    DiffKind.REMOVED ->
-                                        MaterialTheme.colorScheme.errorContainer
-                                }
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                            ) {
+                                itemsIndexed(diff.lines) { _, line ->
 
-                                Row(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .background(color)
-                                        .padding(
-                                            horizontal = 8.dp,
-                                            vertical = 5.dp
+                                    val label = when (line.kind) {
+                                        DiffKind.SAME -> "="
+                                        DiffKind.ADDED -> "+"
+                                        DiffKind.REMOVED -> "−"
+                                    }
+
+                                    val color = when (line.kind) {
+                                        DiffKind.SAME -> MaterialTheme.colorScheme.surface
+                                        DiffKind.ADDED -> MaterialTheme.colorScheme.tertiaryContainer
+                                        DiffKind.REMOVED -> MaterialTheme.colorScheme.errorContainer
+                                    }
+
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .background(color)
+                                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                                    ) {
+                                        Text(
+                                            label,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            modifier = Modifier.width(24.dp)
                                         )
-                                ) {
-                                    Text(
-                                        label,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        modifier = Modifier.width(24.dp)
-                                    )
+
+                                        Text(
+                                            line.text.ifBlank { " " },
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
+                                }
+                            }
+
+                        } else {
+
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .padding(8.dp)
+                            ) {
+                                itemsIndexed(wordDiff) { _, token ->
+
+                                    val color = when (token.change) {
+                                        WordChange.SAME -> MaterialTheme.colorScheme.onSurface
+                                        WordChange.ADDED -> MaterialTheme.colorScheme.primary
+                                        WordChange.REMOVED -> MaterialTheme.colorScheme.error
+                                    }
 
                                     Text(
-                                        line.text.ifBlank { " " },
+                                        token.value,
+                                        color = color,
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
                             }
                         }
 
+                        Text(
+                            "راهنما: + افزوده‌شده در متن دوم، − حذف‌شده از متن اول، = یکسان",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+
                     } else {
 
-                        LazyColumn(
-                            modifier = Modifier
+                        Row(
+                            Modifier
                                 .weight(1f)
                                 .fillMaxWidth()
-                                .padding(8.dp)
                         ) {
-                            itemsIndexed(wordDiff) { _, token ->
 
-                                val color = when (token.change) {
-                                    WordChange.SAME ->
-                                        MaterialTheme.colorScheme.onSurface
-
-                                    WordChange.ADDED ->
-                                        MaterialTheme.colorScheme.primary
-
-                                    WordChange.REMOVED ->
-                                        MaterialTheme.colorScheme.error
-                                }
-
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(6.dp)
+                            ) {
                                 Text(
-                                    token.value,
-                                    color = color,
-                                    style = MaterialTheme.typography.bodyMedium
+                                    if (mode == "role") roleA?.title.orEmpty()
+                                    else sectionA?.section?.title.orEmpty(),
+                                    style = MaterialTheme.typography.titleSmall
                                 )
+
+                                Text(leftText)
+                            }
+
+                            Box(
+                                Modifier
+                                    .width(1.dp)
+                                    .fillMaxHeight()
+                                    .background(MaterialTheme.colorScheme.outlineVariant)
+                            )
+
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(6.dp)
+                            ) {
+                                Text(
+                                    if (mode == "role") roleB?.title.orEmpty()
+                                    else sectionB?.section?.title.orEmpty(),
+                                    style = MaterialTheme.typography.titleSmall
+                                )
+
+                                Text(rightText)
                             }
                         }
                     }
-
-                    Text(
-                        "راهنما: + افزوده‌شده در متن دوم، − حذف‌شده از متن اول، = یکسان",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 6.dp)
-                    )
-
-                } else {
-
-                    Row(
-                        Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                    ) {
-
-                        Column(
-                            Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .verticalScroll(rememberScrollState())
-                                .padding(6.dp)
-                        ) {
-                            Text(
-                                if (mode == "role") {
-                                    roleA?.title.orEmpty()
-                                } else {
-                                    sectionA?.section?.title.orEmpty()
-                                },
-                                style = MaterialTheme.typography.titleSmall
-                            )
-
-                            Text(leftText)
-                        }
-
-                        Box(
-                            Modifier
-                                .width(1.dp)
-                                .fillMaxHeight()
-                                .background(
-                                    MaterialTheme.colorScheme.outlineVariant
-                                )
-                        )
-
-                        Column(
-                            Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .background(
-                                    MaterialTheme.colorScheme.surfaceVariant
-                                )
-                                .verticalScroll(rememberScrollState())
-                                .padding(6.dp)
-                        ) {
-                            Text(
-                                if (mode == "role") {
-                                    roleB?.title.orEmpty()
-                                } else {
-                                    sectionB?.section?.title.orEmpty()
-                                },
-                                style = MaterialTheme.typography.titleSmall
-                            )
-
-                            Text(rightText)
-                        }
-                    }
-                }
                 }
             }
         }
