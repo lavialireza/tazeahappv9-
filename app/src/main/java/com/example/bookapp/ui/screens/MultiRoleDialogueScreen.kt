@@ -1,40 +1,28 @@
 
 package com.example.bookapp.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import com.example.bookapp.R
 import com.example.bookapp.data.Prefs
 import com.example.bookapp.ui.theme.colorSchemeFor
-import androidx.compose.ui.platform.LocalContext
 
 data class MultiRoleSectionContent(
     val id: Long,
@@ -45,6 +33,10 @@ data class MultiRoleSectionContent(
 data class MultiRoleRoleContent(
     val roleTitle: String,
     val sections: List<MultiRoleSectionContent>
+)
+
+private val BTitrFont = FontFamily(
+    Font(R.font.b_titr_bold, FontWeight.Bold)
 )
 
 @Composable
@@ -67,20 +59,19 @@ fun MultiRoleDialogueScreen(
         mutableFloatStateOf(Prefs.getLineSpacing(context))
     }
 
-    var showFontMenu by remember {
-        mutableStateOf(false)
-    }
+    var showOverflowMenu by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+    var showFontMenu by remember { mutableStateOf(false) }
 
     val selectedFontFamily = when (fontChoice) {
+        "b_titr" -> BTitrFont
         "serif" -> FontFamily.Serif
         "sans" -> FontFamily.SansSerif
         "cursive" -> FontFamily.Cursive
         else -> FontFamily.Default
     }
 
-    MaterialTheme(
-        colorScheme = colorSchemeFor(themeChoice, darkMode)
-    ) {
+    MaterialTheme(colorScheme = colorSchemeFor(themeChoice, darkMode)) {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
@@ -90,40 +81,179 @@ fun MultiRoleDialogueScreen(
                     .fillMaxSize()
                     .padding(horizontal = 12.dp)
             ) {
+                // نوار بالای صفحه و منوی سه‌نقطه
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(onClick = onBack) {
-                        Text("بازگشت")
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "بازگشت"
+                        )
                     }
 
                     Text(
                         text = "مکالمه چندنقشی",
+                        modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
+
+                    Box {
+                        IconButton(
+                            onClick = { showOverflowMenu = true }
+                        ) {
+                            Icon(
+                                Icons.Filled.MoreVert,
+                                contentDescription = "تنظیمات نمایش"
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showOverflowMenu,
+                            onDismissRequest = {
+                                showOverflowMenu = false
+                            }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("تنظیمات نمایش") },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showSettings = true
+                                }
+                            )
+                        }
+                    }
                 }
 
                 Text(
                     text = taziehTitle,
-                    style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp)
+                        .padding(start = 8.dp, bottom = 8.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
+                if (roles.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "متنی برای نقش‌های انتخاب‌شده پیدا نشد.",
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(bottom = 20.dp)
+                    ) {
+                        itemsIndexed(
+                            items = roles,
+                            key = { index, role ->
+                                "${index}_${role.roleTitle}"
+                            }
+                        ) { index, role ->
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor =
+                                        if (index % 2 == 0)
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                        else
+                                            MaterialTheme.colorScheme.surface
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(14.dp)
+                                ) {
+                                    Text(
+                                        text = role.roleTitle,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(
+                                            top = 8.dp,
+                                            bottom = 10.dp
+                                        ),
+                                        color = MaterialTheme.colorScheme.outlineVariant
+                                    )
+
+                                    if (role.sections.isEmpty()) {
+                                        Text(
+                                            text = "برای این نقش بخشی ثبت نشده است.",
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+
+                                    role.sections.forEach { section ->
+                                        if (section.title.isNotBlank()) {
+                                            Text(
+                                                text = section.title,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                color = MaterialTheme.colorScheme.secondary,
+                                                fontWeight = FontWeight.Bold
+                                            )
+
+                                            Spacer(Modifier.height(5.dp))
+                                        }
+
+                                        Text(
+                                            text = section.content,
+                                            fontFamily = selectedFontFamily,
+                                            fontWeight = if (fontChoice == "b_titr")
+                                                FontWeight.Bold
+                                            else
+                                                FontWeight.Normal,
+                                            fontSize = (20f * fontScale).sp,
+                                            lineHeight = (
+                                                20f * fontScale * lineSpacing
+                                            ).sp,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+
+                                        Spacer(Modifier.height(16.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // پنجره تنظیمات؛ فقط با انتخاب گزینه تنظیمات از منوی سه‌نقطه باز می‌شود.
+        if (showSettings) {
+            AlertDialog(
+                onDismissRequest = {
+                    showSettings = false
+                    showFontMenu = false
+                },
+                title = {
+                    Text("تنظیمات نمایش متن")
+                },
+                text = {
                     Column(
-                        modifier = Modifier.padding(12.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 480.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -137,9 +267,9 @@ fun MultiRoleDialogueScreen(
                             )
                         }
 
-                        Spacer(Modifier.height(4.dp))
+                        HorizontalDivider()
 
-                        Text("اندازه متن")
+                        Text("اندازه متن: ${"%.1f".format(fontScale)}")
 
                         Slider(
                             value = fontScale.coerceIn(0.8f, 1.6f),
@@ -147,18 +277,19 @@ fun MultiRoleDialogueScreen(
                             valueRange = 0.8f..1.6f
                         )
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("قلم متن")
-                            Spacer(Modifier.weight(1f))
+                        HorizontalDivider()
 
-                            TextButton(
-                                onClick = { showFontMenu = true }
+                        Text("قلم متن")
+
+                        Box {
+                            OutlinedButton(
+                                onClick = {
+                                    showFontMenu = true
+                                }
                             ) {
                                 Text(
                                     when (fontChoice) {
+                                        "b_titr" -> "B Titr"
                                         "serif" -> "سریف"
                                         "sans" -> "ساده"
                                         "cursive" -> "تحریری"
@@ -175,6 +306,7 @@ fun MultiRoleDialogueScreen(
                             ) {
                                 listOf(
                                     "titr" to "پیش‌فرض",
+                                    "b_titr" to "B Titr",
                                     "serif" to "سریف",
                                     "sans" to "ساده",
                                     "cursive" to "تحریری"
@@ -190,6 +322,8 @@ fun MultiRoleDialogueScreen(
                             }
                         }
 
+                        HorizontalDivider()
+
                         Text("فاصله خطوط")
 
                         Slider(
@@ -201,7 +335,10 @@ fun MultiRoleDialogueScreen(
                             valueRange = 1f..2f
                         )
 
-                        Text("رنگ برنامه")
+                        Text(
+                            text = "رنگ برنامه",
+                            style = MaterialTheme.typography.titleSmall
+                        )
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -232,81 +369,15 @@ fun MultiRoleDialogueScreen(
                             }
                         }
                     }
-                }
-
-                Spacer(Modifier.height(10.dp))
-
-                if (roles.isEmpty()) {
-                    Text(
-                        text = "متنی برای نقش‌های انتخاب‌شده پیدا نشد.",
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = { showSettings = false }
                     ) {
-                        itemsIndexed(
-                            roles,
-                            key = { index, role -> "${index}_${role.roleTitle}" }
-                        ) { index, role ->
-
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor =
-                                        if (index % 2 == 0)
-                                            MaterialTheme.colorScheme.surfaceVariant
-                                        else
-                                            MaterialTheme.colorScheme.surface
-                                )
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(14.dp)
-                                ) {
-                                    Text(
-                                        text = role.roleTitle,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-
-                                    Spacer(Modifier.height(8.dp))
-
-                                    if (role.sections.isEmpty()) {
-                                        Text("برای این نقش بخشی ثبت نشده است.")
-                                    }
-
-                                    role.sections.forEach { section ->
-                                        if (section.title.isNotBlank()) {
-                                            Text(
-                                                text = section.title,
-                                                style = MaterialTheme.typography.titleSmall,
-                                                color = MaterialTheme.colorScheme.secondary
-                                            )
-                                            Spacer(Modifier.height(4.dp))
-                                        }
-
-                                        Text(
-                                            text = section.content,
-                                            fontFamily = selectedFontFamily,
-                                            fontSize = (20f * fontScale).sp,
-                                            lineHeight = (
-                                                20f * fontScale * lineSpacing
-                                            ).sp,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-
-                                        Spacer(Modifier.height(14.dp))
-                                    }
-                                }
-                            }
-                        }
+                        Text("بستن")
                     }
                 }
-            }
+            )
         }
     }
 }
