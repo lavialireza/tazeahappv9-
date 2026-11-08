@@ -112,6 +112,109 @@ fun toggleRoleSelection(role: ProfessionalRoleItem) {
                 .padding(padding)
         ) {
 
+// Multi-role dialogue selection controls
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
+                shape = RoundedCornerShape(13.dp),
+                colors = CardDefaults.cardColors(
+                  containerColor = if (multiRoleSelectionMode)
+                  Color(0xFFE8EAF6)
+                 else
+                 Color(0xFFF0EDF8)
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = 1.dp
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "نمایش مکالمه چندنقشی",
+                                color = ink,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleSmall
+                            )
+
+                            Text(
+                                text = if (multiRoleSelectionMode)
+                                    "نقش‌ها را به ترتیب دلخواه انتخاب کنید."
+                                else
+                                    "متن چند نقش را به صورت یکپارچه بخوانید.",
+                                color = muted,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                if (multiRoleSelectionMode) {
+                                    selectedRoles.clear()
+                                }
+                                multiRoleSelectionMode =
+                                    !multiRoleSelectionMode
+                            },
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(
+                                if (multiRoleSelectionMode)
+                                    "لغو انتخاب"
+                                else
+                                    "انتخاب نقش‌ها"
+                            )
+                        }
+                    }
+
+                    if (multiRoleSelectionMode) {
+                        Spacer(Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "تعداد انتخاب‌شده: ${selectedRoles.size}",
+                                modifier = Modifier.weight(1f),
+                                color = greenDark,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+
+                            Button(
+                                onClick = {
+                                    onOpenMultiRoleDialogue(
+                                        selectedRoles.toList()
+                                    )
+                                },
+                                enabled = selectedRoles.size >= 2,
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("نمایش مکالمه")
+                            }
+                        }
+
+                        if (selectedRoles.size < 2) {
+                            Text(
+                                text = "برای نمایش مکالمه، حداقل دو نقش انتخاب کنید.",
+                                color = muted,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+            }
+            
             // Search - first item below the top bar
             OutlinedTextField(
                 value = query,
@@ -229,108 +332,7 @@ fun toggleRoleSelection(role: ProfessionalRoleItem) {
                     }
                 }
             }
-            // Multi-role dialogue selection controls
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 5.dp),
-                shape = RoundedCornerShape(13.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (multiRoleSelectionMode)
-                        softBlue
-                    else
-                        Color.White
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 1.dp
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = "نمایش مکالمه چندنقشی",
-                                color = ink,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleSmall
-                            )
-
-                            Text(
-                                text = if (multiRoleSelectionMode)
-                                    "نقش‌ها را به ترتیب دلخواه انتخاب کنید."
-                                else
-                                    "متن چند نقش را به صورت یکپارچه بخوانید.",
-                                color = muted,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-
-                        OutlinedButton(
-                            onClick = {
-                                if (multiRoleSelectionMode) {
-                                    selectedRoles.clear()
-                                }
-                                multiRoleSelectionMode =
-                                    !multiRoleSelectionMode
-                            },
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text(
-                                if (multiRoleSelectionMode)
-                                    "لغو انتخاب"
-                                else
-                                    "انتخاب نقش‌ها"
-                            )
-                        }
-                    }
-
-                    if (multiRoleSelectionMode) {
-                        Spacer(Modifier.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "تعداد انتخاب‌شده: ${selectedRoles.size}",
-                                modifier = Modifier.weight(1f),
-                                color = greenDark,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-
-                            Button(
-                                onClick = {
-                                    onOpenMultiRoleDialogue(
-                                        selectedRoles.toList()
-                                    )
-                                },
-                                enabled = selectedRoles.size >= 2,
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Text("نمایش مکالمه")
-                            }
-                        }
-
-                        if (selectedRoles.size < 2) {
-                            Text(
-                                text = "برای نمایش مکالمه، حداقل دو نقش انتخاب کنید.",
-                                color = muted,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-                    }
-                }
-            }
+            
 
             // Roles list takes all remaining screen space
             
