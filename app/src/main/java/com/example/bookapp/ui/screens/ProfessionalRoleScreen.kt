@@ -41,7 +41,7 @@ fun ProfessionalRoleScreen(
     onBack: () -> Unit,
     readOnly: Boolean = false,
     showCompare: Boolean = true,
-    canSelectMine: Boolean = true
+    canSelectMine: Boolean = true,
     onOpenMultiRoleDialogue: (List<ProfessionalRoleItem>) -> Unit = {}
 ) {
     var query by remember { mutableStateOf("") }
