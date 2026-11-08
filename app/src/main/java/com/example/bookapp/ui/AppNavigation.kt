@@ -396,47 +396,44 @@ composable(ROUTE_MAIN_MENU) {
             )
         }
 
-        composable(ROUTE_ACTIVITY_CENTER) {
-            ActivityCenterScreen(
-                isAdmin = !publicViewer,
-                canRead = featureEnabled("read.view"),
-                canSearch = featureEnabled("search.basic"),
-                canMyRole = featureEnabled("myRole.view"),
-                canDictionary = featureEnabled("dictionary.view"),
-                canEncyclopedia = featureEnabled("encyclopedia.view"),
-                canCorrections = featureEnabled("taziehCorrections.view"),
-                canAiResearch = featureEnabled("ai"),
-                canCalendar = featureEnabled("calendar.view"),
-                onOpenLibrary = { navController.navigate(ROUTE_FIELDS) },
-                onOpenSearch = { navigateIfAllowed("search.basic", ROUTE_SEARCH) },
-                onOpenMyRole = { navigateIfAllowed("myRole.view", ROUTE_MY_ROLE) },
-                onOpenGlossary = { navigateIfAllowed("dictionary.view", ROUTE_GLOSSARY) },
-                onOpenEncyclopedia = { navigateIfAllowed("encyclopedia.view", ROUTE_ENCYCLOPEDIA) },
-                onOpenCorrections = { navigateIfAllowed("taziehCorrections.view", ROUTE_TAZIEH_CORRECTIONS) },
-                onOpenAiResearch = { navigateIfAllowed("ai", ROUTE_AI_RESEARCH) },
-                onOpenCalendar = { navigateIfAllowed("calendar.view", ROUTE_MUHARRAM_CALENDAR) },
-                onOpenVersionComparison = { if (!publicViewer) navController.navigate("version_comparison") },
-                onOpenEncyclopediaManagement = { if (!publicViewer) navController.navigate("encyclopedia_management") },
-                onOpenPerformanceManagement = { if (!publicViewer) navController.navigate("performance_management") },
-                onOpenContentManagement = { if (!publicViewer) navController.navigate(ROUTE_CONTENT_MANAGEMENT) },
-                onOpenViewerAccess = { if (!publicViewer) navController.navigate(ROUTE_VIEWER_ACCESS) },
-                onOpenSpecialUsers = { if (!publicViewer) navController.navigate(ROUTE_SPECIAL_USERS) },
-                onOpenAccessAudit = { if (!publicViewer) navController.navigate(ROUTE_ACCESS_AUDIT) },
-              onOpenSettings = {
-    navController.navigate(ROUTE_SETTINGS)
-}
-)
+       composable(ROUTE_ACTIVITY_CENTER) {
+    ActivityCenterScreen(
+        isAdmin = !publicViewer,
+        canRead = featureEnabled("read.view"),
+        canSearch = featureEnabled("search.basic"),
+        canMyRole = featureEnabled("myRole.view"),
+        canDictionary = featureEnabled("dictionary.view"),
+        canEncyclopedia = featureEnabled("encyclopedia.view"),
+        canCorrections = featureEnabled("taziehCorrections.view"),
+        canAiResearch = featureEnabled("ai"),
+        canCalendar = featureEnabled("calendar.view"),
+        onOpenLibrary = { navController.navigate(ROUTE_FIELDS) },
+        onOpenSearch = { navigateIfAllowed("search.basic", ROUTE_SEARCH) },
+        onOpenMyRole = { navigateIfAllowed("myRole.view", ROUTE_MY_ROLE) },
+        onOpenGlossary = { navigateIfAllowed("dictionary.view", ROUTE_GLOSSARY) },
+        onOpenEncyclopedia = { navigateIfAllowed("encyclopedia.view", ROUTE_ENCYCLOPEDIA) },
+        onOpenCorrections = { navigateIfAllowed("taziehCorrections.view", ROUTE_TAZIEH_CORRECTIONS) },
+        onOpenAiResearch = { navigateIfAllowed("ai", ROUTE_AI_RESEARCH) },
+        onOpenCalendar = { navigateIfAllowed("calendar.view", ROUTE_MUHARRAM_CALENDAR) },
+        onOpenVersionComparison = { if (!publicViewer) navController.navigate("version_comparison") },
+        onOpenEncyclopediaManagement = { if (!publicViewer) navController.navigate("encyclopedia_management") },
+        onOpenPerformanceManagement = { if (!publicViewer) navController.navigate("performance_management") },
+        onOpenContentManagement = { if (!publicViewer) navController.navigate(ROUTE_CONTENT_MANAGEMENT) },
+        onOpenViewerAccess = { if (!publicViewer) navController.navigate(ROUTE_VIEWER_ACCESS) },
+        onOpenSpecialUsers = { if (!publicViewer) navController.navigate(ROUTE_SPECIAL_USERS) },
+        onOpenAccessAudit = { if (!publicViewer) navController.navigate(ROUTE_ACCESS_AUDIT) },
+        onOpenSettings = { navController.navigate(ROUTE_SETTINGS) }
+    )
 }
 
 composable(ROUTE_TOOLS_CENTER) {
-            ToolsCenterScreen(
-                onOpenCalendar = { navigateIfAllowed("calendar.view", ROUTE_MUHARRAM_CALENDAR) },
-                onOpenVersion = { navController.navigate(ROUTE_VERSION) },
-                onOpenChangelog = { navController.navigate(ROUTE_CHANGELOG) },
-                onBack = { navController.popBackStack() }
-            )
-        }
-
+    ToolsCenterScreen(
+        onOpenCalendar = { navigateIfAllowed("calendar.view", ROUTE_MUHARRAM_CALENDAR) },
+        onOpenVersion = { navController.navigate(ROUTE_VERSION) },
+        onOpenChangelog = { navController.navigate(ROUTE_CHANGELOG) },
+        onBack = { navController.popBackStack() }
+    )
+}
         composable(ROUTE_RESEARCH_CENTER) {
             ResearchCenterScreen(
                 showVersionComparison = !publicViewer,
