@@ -2,8 +2,7 @@
 package com.example.bookapp.ui.screens
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -150,20 +149,108 @@ fun MultiRoleDialogueScreen(
                             color = MaterialTheme.colorScheme.onBackground
                         )
                     }
+               
                 } else {
-                    LazyColumn(
+                    val roleCardColors = listOf(
+                        MaterialTheme.colorScheme.primaryContainer,
+                        MaterialTheme.colorScheme.secondaryContainer,
+                        MaterialTheme.colorScheme.tertiaryContainer,
+                        MaterialTheme.colorScheme.surfaceVariant
+                    )
+
+                    val roleTitleColors = listOf(
+                        MaterialTheme.colorScheme.onPrimaryContainer,
+                        MaterialTheme.colorScheme.onSecondaryContainer,
+                        MaterialTheme.colorScheme.onTertiaryContainer,
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        contentPadding = PaddingValues(bottom = 20.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        itemsIndexed(
-                            items = roles,
-                            key = { index, role ->
-                                "${index}_${role.roleTitle}"
+                        roles.forEachIndexed { index, role ->
+                            key(index, role.roleTitle) {
+                                Card(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth(),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor =
+                                            roleCardColors[index % roleCardColors.size]
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(
+                                            text = role.roleTitle,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = roleTitleColors[index % roleTitleColors.size],
+                                            fontWeight = FontWeight.Bold
+                                        )
+
+                                        HorizontalDivider(
+                                            modifier = Modifier.padding(vertical = 5.dp),
+                                            color = MaterialTheme.colorScheme.outlineVariant
+                                        )
+
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxWidth()
+                                                .verticalScroll(rememberScrollState())
+                                        ) {
+                                            Column {
+                                                if (role.sections.isEmpty()) {
+                                                    Text(
+                                                        text = "برای این نقش بخشی ثبت نشده است.",
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                }
+
+                                                role.sections.forEach { section ->
+                                                    if (section.title.isNotBlank()) {
+                                                        Text(
+                                                            text = section.title,
+                                                            style = MaterialTheme.typography.titleSmall,
+                                                            color = MaterialTheme.colorScheme.secondary,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+
+                                                        Spacer(Modifier.height(5.dp))
+                                                    }
+
+                                                    Text(
+                                                        text = section.content,
+                                                        fontFamily = selectedFontFamily,
+                                                        fontWeight = if (fontChoice == "b_titr")
+                                                            FontWeight.Bold
+                                                        else
+                                                            FontWeight.Normal,
+                                                        fontSize = (20f * fontScale).sp,
+                                                        lineHeight = (
+                                                            20f * fontScale * lineSpacing
+                                                        ).sp,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+
+                                                    Spacer(Modifier.height(16.dp))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
-                        ) { index, role ->
+                        }
+                    }
+                }
+
 
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
