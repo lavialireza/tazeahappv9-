@@ -104,6 +104,7 @@ private const val ROUTE_CONTENT_EDITOR = "content_editor"
 private const val ROUTE_FIELDS = "fields"
 private const val ROUTE_TAZIEHS = "taziehs/{fieldId}/{fieldTitle}"
 private const val ROUTE_ROLES = "roles/{taziehId}/{taziehTitle}"
+private const val ROUTE_MULTI_ROLE_DIALOGUE = "multi_role_dialogue/{taziehId}/{taziehTitle}"
 private const val ROUTE_SECTIONS = "sections/{roleId}/{roleTitle}"
 private const val ROUTE_TAZIEH_INDEX = "tazieh_index/{taziehId}/{taziehTitle}"
 private const val ROUTE_DIALOGUES = "dialogues/{taziehId}/{taziehTitle}"
@@ -960,6 +961,80 @@ composable(ROUTE_MAIN_MENU) {
             )
         }
 
+if (featureEnabled("read.view")) composable(ROUTE_MULTI_ROLE_DIALOGUE) { backStackEntry ->
+
+    val taziehId = backStackEntry.arguments
+        ?.getString("taziehId")
+        ?.toLongOrNull() ?: 0L
+
+    val taziehTitle = java.net.URLDecoder.decode(
+        backStackEntry.arguments?.getString("taziehTitle") ?: "",
+        "UTF-8"
+    )
+
+    var dialogueRoles by remember {
+        mutableStateOf(emptyList<MultiRoleRoleContent>())
+    }
+
+    LaunchedEffect(taziehId, backStackEntry.id) {
+
+        // شناسه‌ها از صفحه قبلی و با ترتیب انتخاب کاربر خوانده می‌شوند.
+        val selectedIds = navController.previousBackStackEntry
+            ?.savedStateHandle
+            ?.get<ArrayList<Long>>("multi_role_selected_ids")
+            ?.toList()
+            .orEmpty()
+
+        val loadedRoles = mutableListOf<MultiRoleRoleContent>()
+
+        selectedIds.distinct().forEach { roleId ->
+
+            val role = runCatching {
+                db.roleDao().getById(roleId)
+            }.getOrNull() ?: return@forEach
+
+            // جلوگیری از نمایش نقش متعلق به تعزیه دیگر
+            if (role.taziehId != taziehId) {
+                return@forEach
+            }
+
+            val sections = db.sectionDao().getByRole(roleId)
+
+            loadedRoles.add(
+                MultiRoleRoleContent(
+                    roleTitle = role.title,
+                    sections = sections.map { section ->
+                        MultiRoleSectionContent(
+                            id = section.id,
+                            title = section.title,
+                            content = section.content
+                        )
+                    }
+                )
+            )
+        }
+
+        dialogueRoles = loadedRoles
+    }
+
+    MultiRoleDialogueScreen(
+        taziehTitle = taziehTitle,
+        roles = dialogueRoles,
+        darkMode = darkMode,
+        onDarkModeChange = onDarkModeChange,
+        fontScale = fontScale,
+        onFontScaleChange = onFontScaleChange,
+        themeChoice = themeChoice,
+        onThemeChoiceChange = onThemeChoiceChange,
+        fontChoice = fontChoice,
+        onFontChoiceChange = onFontChoiceChange,
+        onBack = {
+            navController.popBackStack()
+        }
+    )
+}
+
+        
         if (featureEnabled("read.view")) composable(ROUTE_TAZIEH_INDEX) { backStackEntry ->
             val taziehId = backStackEntry.arguments?.getString("taziehId")?.toLongOrNull() ?: 0L
             val taziehTitle = backStackEntry.arguments?.getString("taziehTitle") ?: ""
