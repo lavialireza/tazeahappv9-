@@ -423,12 +423,23 @@ composable(ROUTE_MAIN_MENU) {
                 onOpenSpecialUsers = { if (!publicViewer) navController.navigate(ROUTE_SPECIAL_USERS) },
                 onOpenAccessAudit = { if (!publicViewer) navController.navigate(ROUTE_ACCESS_AUDIT) },
                 onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
-                onOpenMultiRoleDialogue = {
-                    if (featureEnabled("read.view")) navController.navigate(ROUTE_FIELDS)
-                },
-                onBack = { navController.popBackStack() }
-            )
-        }
+              
+onOpenMultiRoleDialogue = { selectedRoles ->
+
+    val selectedIds = selectedRoles
+        .map { it.id }
+        .distinct()
+        .joinToString(",")
+
+    navController.currentBackStackEntry
+        ?.savedStateHandle
+        ?.set("multi_role_selected_ids", selectedIds)
+
+    navController.navigate(
+        "multi_role_dialogue/$taziehId/${java.net.URLEncoder.encode(taziehTitle, "UTF-8")}"
+    )
+}
+
 
         composable(ROUTE_TOOLS_CENTER) {
             ToolsCenterScreen(
@@ -976,46 +987,52 @@ if (featureEnabled("read.view")) composable(ROUTE_MULTI_ROLE_DIALOGUE) { backSta
         mutableStateOf(emptyList<MultiRoleRoleContent>())
     }
 
-    LaunchedEffect(taziehId, backStackEntry.id) {
+  
+LaunchedEffect(taziehId, backStackEntry.id) {
 
-        // شناسه‌ها از صفحه قبلی و با ترتیب انتخاب کاربر خوانده می‌شوند.
-        val selectedIds = navController.previousBackStackEntry
+    // دریافت شناسه‌ها با حفظ ترتیب انتخاب کاربر
+    val savedIds = navController.previousBackStackEntry
+        ?.savedStateHandle
+        ?.get<String>("multi_role_selected_ids")
+
+    // پشتیبانی از داده‌های ذخیره‌شده با روش قبلی نیز حفظ شده است.
+    val selectedIds = if (!savedIds.isNullOrBlank()) {
+        savedIds.split(",")
+            .mapNotNull { it.trim().toLongOrNull() }
+            .distinct()
+    } else {
+        navController.previousBackStackEntry
             ?.savedStateHandle
             ?.get<ArrayList<Long>>("multi_role_selected_ids")
-            ?.toList()
+            ?.distinct()
             .orEmpty()
-
-        val loadedRoles = mutableListOf<MultiRoleRoleContent>()
-
-        selectedIds.distinct().forEach { roleId ->
-
-            val role = runCatching {
-                db.roleDao().getById(roleId)
-            }.getOrNull() ?: return@forEach
-
-            // جلوگیری از نمایش نقش متعلق به تعزیه دیگر
-            if (role.taziehId != taziehId) {
-                return@forEach
-            }
-
-            val sections = db.sectionDao().getByRole(roleId)
-
-            loadedRoles.add(
-                MultiRoleRoleContent(
-                    roleTitle = role.title,
-                    sections = sections.map { section ->
-                        MultiRoleSectionContent(
-                            id = section.id,
-                            title = section.title,
-                            content = section.content
-                        )
-                    }
-                )
-            )
-        }
-
-        dialogueRoles = loadedRoles
     }
+
+    // ابتدا تمام نقش‌های متعلق به همین تعزیه دریافت می‌شوند.
+    val allRoles = db.roleDao().getByTazieh(taziehId)
+    val rolesById = allRoles.associateBy { it.id }
+
+    // سپس نقش‌ها دقیقاً مطابق ترتیب انتخاب کاربر بارگذاری می‌شوند.
+    val loadedRoles = selectedIds.mapNotNull { roleId ->
+
+        val role = rolesById[roleId] ?: return@mapNotNull null
+
+        val sections = db.sectionDao().getByRole(roleId)
+
+        MultiRoleRoleContent(
+            roleTitle = role.title,
+            sections = sections.map { section ->
+                MultiRoleSectionContent(
+                    id = section.id,
+                    title = section.title,
+                    content = section.content
+                )
+            }
+        )
+    }
+
+    dialogueRoles = loadedRoles
+}
 
     MultiRoleDialogueScreen(
         taziehTitle = taziehTitle,
