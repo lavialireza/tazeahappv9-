@@ -1,11 +1,14 @@
 package com.example.bookapp.ui.screens
 
 import android.content.Context
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
@@ -13,6 +16,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -55,11 +59,21 @@ fun MultiRoleRehearsalScreen(
             turn.section.id to turn.section.content.lines().filter { it.isNotBlank() }
         }
     }
-    val initialRevealCounts = remember(ownSectionKey, ownLinesBySection) {
-        ownSectionIds.associateWith { sectionId ->
-            val lineCount = ownLinesBySection[sectionId]?.size ?: 0
-            (prefs.getInt("start_line_$sectionId", 1) - 1).coerceIn(0, lineCount)
+
+    val startLineBySection = remember(ownRoleId, ownSectionKey) {
+        mutableStateMapOf<Long, Int>().apply {
+            ownSectionIds.forEach { sectionId ->
+                val count = ownLinesBySection[sectionId]?.size ?: 0
+                put(
+                    sectionId,
+                    prefs.getInt("start_line_$sectionId", 1).coerceIn(1, count.coerceAtLeast(1))
+                )
+            }
         }
+    }
+    val initialRevealCounts = ownSectionIds.associateWith { sectionId ->
+        val lineCount = ownLinesBySection[sectionId]?.size ?: 0
+        ((startLineBySection[sectionId] ?: 1) - 1).coerceIn(0, lineCount)
     }
     val revealedBySection = remember(ownRoleId, ownSectionKey) {
         mutableStateMapOf<Long, Int>().apply { putAll(initialRevealCounts) }
@@ -72,7 +86,7 @@ fun MultiRoleRehearsalScreen(
     }
     var autoPlay by remember(ownRoleId, ownSectionKey) { mutableStateOf(false) }
     var speed by remember { mutableIntStateOf(3) }
-    var focusSectionId by remember { mutableStateOf<Long?>(null) }
+    var startPickerSection by remember { mutableStateOf<SectionEntity?>(null) }
     var restoredScrollPosition by remember(scrollPrefsKey) { mutableStateOf(false) }
 
     val ownTotalLines = ownSectionIds.sumOf { ownLinesBySection[it]?.size ?: 0 }
@@ -80,6 +94,10 @@ fun MultiRoleRehearsalScreen(
         (revealedBySection[sectionId] ?: 0).coerceIn(0, ownLinesBySection[sectionId]?.size ?: 0)
     }
     val listState = rememberLazyListState()
+    var focusTurnIndex by remember(turnSequenceKey) {
+        mutableIntStateOf(turns.indexOfFirst { it.isOwnRole }.coerceAtLeast(0))
+    }
+    var focusRequested by remember { mutableStateOf(false) }
 
     LaunchedEffect(turns.size, scrollPrefsKey) {
         if (turns.isNotEmpty() && !restoredScrollPosition) {
@@ -102,30 +120,35 @@ fun MultiRoleRehearsalScreen(
             }
     }
 
-    fun nextHiddenOwnSectionId(): Long? {
-        return turns.firstOrNull { turn ->
-            if (!turn.isOwnRole) return@firstOrNull false
-            val count = ownLinesBySection[turn.section.id]?.size ?: 0
-            (revealedBySection[turn.section.id] ?: 0) < count
-        }?.section?.id
+    fun nextHiddenOwnTurnIndex(): Int {
+        return turns.indexOfFirst { turn ->
+            if (!turn.isOwnRole) return@indexOfFirst false
+            val lineCount = ownLinesBySection[turn.section.id]?.size ?: 0
+            (revealedBySection[turn.section.id] ?: 0) < lineCount
+        }
     }
 
     fun revealNextOwnLine() {
-        val sectionId = nextHiddenOwnSectionId() ?: run {
+        val turnIndex = nextHiddenOwnTurnIndex()
+        if (turnIndex < 0) {
             autoPlay = false
             return
         }
+        val sectionId = turns[turnIndex].section.id
         val maxLines = ownLinesBySection[sectionId]?.size ?: 0
         val current = revealedBySection[sectionId] ?: 0
         if (current < maxLines) {
             revealedBySection[sectionId] = current + 1
-            focusSectionId = sectionId
+            if (focusTurnIndex != turnIndex) {
+                focusTurnIndex = turnIndex
+                focusRequested = true
+            }
         }
     }
 
-    LaunchedEffect(autoPlay, speed, revealedTotal, ownSectionKey, turns) {
+    LaunchedEffect(autoPlay, speed, revealedTotal, ownSectionKey, turnSequenceKey) {
         if (!autoPlay) return@LaunchedEffect
-        if (nextHiddenOwnSectionId() == null) {
+        if (nextHiddenOwnTurnIndex() < 0) {
             autoPlay = false
             return@LaunchedEffect
         }
@@ -133,10 +156,10 @@ fun MultiRoleRehearsalScreen(
         revealNextOwnLine()
     }
 
-    LaunchedEffect(focusSectionId, revealedTotal) {
-        val sectionId = focusSectionId ?: return@LaunchedEffect
-        val index = turns.indexOfFirst { it.isOwnRole && it.section.id == sectionId }
-        if (index >= 0) listState.animateScrollToItem(index + 1)
+    LaunchedEffect(focusTurnIndex, revealedTotal, focusRequested, restoredScrollPosition) {
+        if (!focusRequested || !restoredScrollPosition || turns.isEmpty()) return@LaunchedEffect
+        listState.animateScrollToItem((focusTurnIndex + 1).coerceIn(0, turns.size))
+        focusRequested = false
     }
 
     Scaffold(
@@ -194,7 +217,8 @@ fun MultiRoleRehearsalScreen(
                                 autoPlay = false
                                 revealedBySection.clear()
                                 revealedBySection.putAll(initialRevealCounts)
-                                focusSectionId = ownSectionIds.firstOrNull()
+                                focusTurnIndex = turns.indexOfFirst { it.isOwnRole }.coerceAtLeast(0)
+                                focusRequested = true
                             },
                             enabled = revealedTotal > initialRevealCounts.values.sum(),
                             modifier = Modifier.weight(1f),
@@ -220,7 +244,8 @@ fun MultiRoleRehearsalScreen(
                                 ownSectionIds.forEach { sectionId ->
                                     revealedBySection[sectionId] = ownLinesBySection[sectionId]?.size ?: 0
                                 }
-                                focusSectionId = ownSectionIds.lastOrNull()
+                                focusTurnIndex = turns.indexOfLast { it.isOwnRole }.coerceAtLeast(0)
+                                focusRequested = true
                             },
                             enabled = revealedTotal < ownTotalLines,
                             modifier = Modifier.weight(1f),
@@ -250,70 +275,187 @@ fun MultiRoleRehearsalScreen(
                             Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Text(
-                            "متن نقش‌های همراه کامل نمایش داده می‌شود؛ متن نقش اصلی به‌ترتیب خط‌ها آشکار می‌شود.",
+                            "کادرها ثابت هستند؛ متن نقش اصلی خودکار آشکار می‌شود و متن نقش‌های همراه را خودتان اسکرول می‌کنید.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                itemsIndexed(turns, key = { index, turn -> "${turn.section.id}-$index" }) { _, turn ->
+                itemsIndexed(turns, key = { index, turn -> "${turn.section.id}-$index" }) { index, turn ->
                     val section = turn.section
                     val lines = remember(section.id, section.content) {
                         section.content.lines().filter { it.isNotBlank() }
                     }
                     val shownCount = if (turn.isOwnRole) {
                         (revealedBySection[section.id] ?: initialRevealCounts[section.id] ?: 0).coerceIn(0, lines.size)
-                    } else lines.size
+                    } else {
+                        lines.size
+                    }
                     val learned = section.id.toString() in learnedIds
+                    val cardScrollState = rememberScrollState()
+
+                    LaunchedEffect(turn.isOwnRole, section.id, shownCount) {
+                        if (turn.isOwnRole && shownCount > 0) {
+                            withFrameNanos { }
+                            cardScrollState.animateScrollTo(cardScrollState.maxValue)
+                        }
+                    }
 
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(260.dp),
                         shape = RoundedCornerShape(15.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = if (turn.isOwnRole) MaterialTheme.colorScheme.primaryContainer
                             else MaterialTheme.colorScheme.surfaceVariant
                         )
                     ) {
-                        Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(turn.roleTitle, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                    Text(section.title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(Modifier.fillMaxSize()) {
+                            Column(
+                                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(turn.roleTitle, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                        Text(section.title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    if (turn.isOwnRole) {
+                                        AssistChip(onClick = {}, label = { Text("نقش اصلی") }, enabled = false)
+                                    }
                                 }
                                 if (turn.isOwnRole) {
-                                    AssistChip(onClick = {}, label = { Text("نقش اصلی") }, enabled = false)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        TextButton(
+                                            onClick = { startPickerSection = section },
+                                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                                        ) { Text("انتخاب محل شروع", style = MaterialTheme.typography.labelSmall) }
+                                        Spacer(Modifier.weight(1f))
+                                        TextButton(
+                                            onClick = {
+                                                val key = section.id.toString()
+                                                val updated = if (key in learnedIds) learnedIds - key else learnedIds + key
+                                                learnedIds = updated
+                                                prefs.edit().putStringSet("learned_sections_$ownRoleId", updated).apply()
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                                        ) {
+                                            Text(if (learned) "✓ تمرین شده" else "علامت‌گذاری تمرین‌شده", style = MaterialTheme.typography.labelSmall)
+                                        }
+                                    }
                                 }
                             }
-                            if (turn.isOwnRole) {
-                                TextButton(
-                                    onClick = {
-                                        val key = section.id.toString()
-                                        val updated = if (key in learnedIds) learnedIds - key else learnedIds + key
-                                        learnedIds = updated
-                                        prefs.edit().putStringSet("learned_sections_$ownRoleId", updated).apply()
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                                ) {
-                                    Text(if (learned) "✓ این بخش تمرین شده" else "علامت‌گذاری به‌عنوان تمرین‌شده")
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            Column(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                                    .verticalScroll(cardScrollState)
+                                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                                verticalArrangement = Arrangement.spacedBy(7.dp)
+                            ) {
+                                if (turn.isOwnRole && shownCount == 0 && lines.isNotEmpty()) {
+                                    Text(
+                                        "متن این بخش پنهان است؛ با «خط بعد» یا «خودخوان» آن را آشکار کنید.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
-                            }
-                            if (turn.isOwnRole && shownCount == 0 && lines.isNotEmpty()) {
-                                Text("متن این بخش پنهان است؛ با «خط بعد» آن را مرحله‌به‌مرحله آشکار کنید.", style = MaterialTheme.typography.bodySmall)
-                            }
-                            lines.take(shownCount).forEach { line ->
-                                Text(line, style = MaterialTheme.typography.bodyLarge)
-                            }
-                            if (turn.isOwnRole && shownCount < lines.size) {
-                                Text(
-                                    "${lines.size - shownCount} خط پنهان",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                if (turn.isOwnRole) {
+                                    lines.take(shownCount).forEach { line ->
+                                        Text(line, style = MaterialTheme.typography.bodyLarge)
+                                    }
+                                    if (shownCount < lines.size) {
+                                        Text(
+                                            "${lines.size - shownCount} خط پنهان",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                } else {
+                                    lines.forEach { line ->
+                                        Text(line, style = MaterialTheme.typography.bodyLarge)
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    startPickerSection?.let { section ->
+        val lines = remember(section.id, section.content) {
+            section.content.lines().filter { it.isNotBlank() }
+        }
+        val selectedStartLine = startLineBySection[section.id] ?: 1
+        AlertDialog(
+            onDismissRequest = { startPickerSection = null },
+            title = { Text("انتخاب محل شروع تمرین") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        "متن کامل را پیمایش کنید و روی سطری بزنید که تمرین این بخش باید از آن آغاز شود.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (lines.isEmpty()) {
+                        Text("متنی برای این بخش ثبت نشده است.")
+                    } else {
+                        LazyColumn(Modifier.heightIn(max = 440.dp)) {
+                            itemsIndexed(lines) { index, line ->
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            val startLine = index + 1
+                                            startLineBySection[section.id] = startLine
+                                            prefs.edit().putInt("start_line_${section.id}", startLine).apply()
+                                            revealedBySection[section.id] = index
+                                            autoPlay = false
+                                            focusTurnIndex = turns.indexOfFirst {
+                                                it.isOwnRole && it.section.id == section.id
+                                            }.coerceAtLeast(0)
+                                            focusRequested = true
+                                            startPickerSection = null
+                                        },
+                                    shape = RoundedCornerShape(9.dp),
+                                    color = if (selectedStartLine == index + 1) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surface
+                                    }
+                                ) {
+                                    Text(
+                                        line,
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                                Spacer(Modifier.height(3.dp))
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        startLineBySection[section.id] = 1
+                        prefs.edit().putInt("start_line_${section.id}", 1).apply()
+                        revealedBySection[section.id] = 0
+                        autoPlay = false
+                        focusTurnIndex = turns.indexOfFirst {
+                            it.isOwnRole && it.section.id == section.id
+                        }.coerceAtLeast(0)
+                        focusRequested = true
+                        startPickerSection = null
+                    }
+                ) { Text("شروع از ابتدا") }
+            },
+            dismissButton = {
+                TextButton(onClick = { startPickerSection = null }) { Text("بستن") }
+            }
+        )
     }
 }

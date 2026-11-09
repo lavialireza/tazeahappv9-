@@ -7,8 +7,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -103,12 +106,17 @@ fun RehearsalScreen(
             ?: emptyList()
     }
 
-    // خط‌های قبل از نقطه شروع از ابتدا آشکار هستند؛ خود خط انتخابی هنوز پنهان می‌ماند.
-    val initialRevealedLines = remember(section?.id, lines.size) {
-        if (section == null) 0
-        else (progressPrefs.getInt("start_line_${section.id}", 1) - 1)
-            .coerceIn(0, lines.size)
+    // محل شروع برای هر بخش جداگانه ذخیره می‌شود؛ شماره خط در رابط نمایش داده نمی‌شود.
+    var selectedStartLine by remember(section?.id, lines.size) {
+        mutableStateOf(
+            if (section == null) 1
+            else progressPrefs.getInt("start_line_${section.id}", 1).coerceIn(1, lines.size.coerceAtLeast(1))
+        )
     }
+    var showStartPicker by remember(section?.id) { mutableStateOf(false) }
+
+    // خط‌های قبل از محل انتخاب‌شده آشکار هستند و خود سطر انتخاب‌شده اولین سطر تمرین است.
+    val initialRevealedLines = (selectedStartLine - 1).coerceIn(0, lines.size)
     var revealedLines by remember(section?.id) {
         mutableStateOf(initialRevealedLines)
     }
@@ -328,7 +336,22 @@ fun RehearsalScreen(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(
+                    onClick = { showStartPicker = true },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 1.dp)
+                ) {
+                    Text(
+                        if (selectedStartLine == 1) "انتخاب محل شروع" else "تغییر محل شروع",
+                        fontSize = 11.sp
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
 
             // پیشرفت حفظ کل نقش
             Card(
@@ -484,7 +507,7 @@ fun RehearsalScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                "برای شروع، سعی کن خط اول را از حفظ بگویی؛ سپس آن را آشکار کن.",
+                                "برای شروع، سطر انتخاب‌شده را از حفظ بگویید؛ سپس آن را آشکار کنید.",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -704,5 +727,71 @@ fun RehearsalScreen(
                 }
             }
         }
+    }
+
+    if (showStartPicker) {
+        AlertDialog(
+            onDismissRequest = { showStartPicker = false },
+            title = { Text("انتخاب محل شروع تمرین") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        "متن کامل را پیمایش کنید و روی سطری بزنید که می‌خواهید تمرین از همان‌جا آغاز شود.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (lines.isEmpty()) {
+                        Text("متنی برای این بخش ثبت نشده است.")
+                    } else {
+                        LazyColumn(Modifier.heightIn(max = 440.dp)) {
+                            itemsIndexed(lines) { index, line ->
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            selectedStartLine = index + 1
+                                            progressPrefs.edit()
+                                                .putInt("start_line_${section?.id}", selectedStartLine)
+                                                .apply()
+                                            autoPlay = false
+                                            revealedLines = index
+                                            showStartPicker = false
+                                        },
+                                    shape = RoundedCornerShape(9.dp),
+                                    color = if (selectedStartLine == index + 1) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surface
+                                    }
+                                ) {
+                                    Text(
+                                        line,
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                                Spacer(Modifier.height(3.dp))
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        selectedStartLine = 1
+                        section?.let { current ->
+                            progressPrefs.edit().putInt("start_line_${current.id}", 1).apply()
+                        }
+                        autoPlay = false
+                        revealedLines = 0
+                        showStartPicker = false
+                    }
+                ) { Text("شروع از ابتدا") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStartPicker = false }) { Text("بستن") }
+            }
+        )
     }
 }

@@ -55,6 +55,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.bookapp.data.AppDatabase
+import com.example.bookapp.data.FieldEntity
 import com.example.bookapp.data.NoteEntity
 import com.example.bookapp.data.Prefs
 import com.example.bookapp.data.SearchResult
@@ -621,19 +622,20 @@ fun AppNavigation(
         }
 
         if (featureEnabled("training.rehearse")) composable(ROUTE_REHEARSAL_SETUP) {
+            var rehearsalFields by remember { mutableStateOf(listOf<FieldEntity>()) }
             var rehearsalTaziehs by remember { mutableStateOf(listOf<RehearsalTaziehOption>()) }
+            var selectedRehearsalFieldId by remember { mutableStateOf<Long?>(null) }
             var selectedRehearsalTaziehId by remember { mutableStateOf<Long?>(null) }
             var rehearsalRoles by remember { mutableStateOf(listOf<RehearsalRoleOption>()) }
             var rehearsalRolesLoading by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
-                val allTaziehs = db.taziehDao().getAll()
-                val fieldTitles = db.fieldDao().getAll().associate { it.id to it.title }
-                rehearsalTaziehs = allTaziehs.map { tazieh ->
+                rehearsalFields = db.fieldDao().getAll()
+                rehearsalTaziehs = db.taziehDao().getAll().map { tazieh ->
                     RehearsalTaziehOption(
                         id = tazieh.id,
-                        title = tazieh.title,
-                        fieldTitle = fieldTitles[tazieh.fieldId].orEmpty()
+                        fieldId = tazieh.fieldId,
+                        title = tazieh.title
                     )
                 }
             }
@@ -658,10 +660,16 @@ fun AppNavigation(
             }
 
             RehearsalSetupScreen(
+                fields = rehearsalFields,
                 taziehs = rehearsalTaziehs,
+                selectedFieldId = selectedRehearsalFieldId,
                 selectedTaziehId = selectedRehearsalTaziehId,
                 roles = rehearsalRoles,
                 rolesLoading = rehearsalRolesLoading,
+                onFieldSelected = { fieldId ->
+                    selectedRehearsalFieldId = fieldId
+                    selectedRehearsalTaziehId = null
+                },
                 onTaziehSelected = { selectedRehearsalTaziehId = it },
                 onBack = { navController.popBackStack() },
                 onStart = { taziehId, primaryRoleId, primaryRoleTitle, sectionIds, multiRole ->
