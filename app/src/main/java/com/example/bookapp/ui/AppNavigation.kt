@@ -29,7 +29,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -82,7 +81,7 @@ private const val ROUTE_BOOKMARKS = "bookmarks"
 private const val ROUTE_NOTES = "notes"
 private const val ROUTE_MY_ROLE = "my_role"
 private const val ROUTE_ALL_IMAGES = "all_images"
-private const val ROUTE_REHEARSAL_SETUP = "rehearsal_setup/{taziehId}/{roleId}/{roleTitle}"
+private const val ROUTE_REHEARSAL_SETUP = "rehearsal_setup"
 private const val ROUTE_REHEARSAL = "rehearsal/{roleId}/{roleTitle}"
 private const val ROUTE_REHEARSAL_MULTI = "rehearsal_multi/{taziehId}/{ownRoleId}/{ownRoleTitle}"
 private const val ROUTE_ABOUT = "about"
@@ -337,7 +336,7 @@ fun AppNavigation(
                 onOpenTaziehList = { navController.navigate(ROUTE_FIELDS) },
                 onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
                 onOpenMyRole = { navigateIfAllowed("myRole", ROUTE_MY_ROLE) },
-                onOpenRehearsal = { navigateIfAllowed("myRole.view", ROUTE_MY_ROLE) },
+                onOpenRehearsal = { navigateIfAllowed("training.rehearse", ROUTE_REHEARSAL_SETUP) },
                 onOpenGlossary = { navigateIfAllowed("dictionary.view", ROUTE_GLOSSARY) },
                 onOpenGallery = { navigateIfAllowed("gallery.view", ROUTE_ALL_IMAGES) },
                 onOpenCompareGuide = { navController.navigate(ROUTE_FIELDS) },
@@ -586,9 +585,6 @@ fun AppNavigation(
                 onRead = { item ->
                     navController.navigate("sections/${item.roleId}/${item.roleTitle}")
                 },
-                onRehearse = { item ->
-                    navController.navigate("rehearsal_setup/${item.taziehId}/${item.roleId}/${android.net.Uri.encode(item.roleTitle)}")
-                },
                 onExportPdf = { item ->
                     if (!exportAllowed("pdf", "pdf.create", "pdf.save", "myRole", "myRole.pdf")) notifyExportDenied()
                     else scope.launch {
@@ -604,7 +600,6 @@ fun AppNavigation(
                 readOnly = publicViewer,
                 showPdf = featureEnabled("myRole.pdf") && featureEnabled("myRole") && featureEnabled("pdf") && featureEnabled("pdf.create") && featureEnabled("pdf.save"),
                 canRead = featureEnabled("myRole.view"),
-                canRehearse = featureEnabled("myRole.rehearse") && featureEnabled("training.rehearse"),
                 canRemove = featureEnabled("myRole.remove")
             )
         }
@@ -625,34 +620,63 @@ fun AppNavigation(
             )
         }
 
-        if (featureEnabled("training.rehearse")) composable(ROUTE_REHEARSAL_SETUP) { backStackEntry ->
-            val taziehId = backStackEntry.arguments?.getString("taziehId")?.toLongOrNull() ?: 0L
-            val ownRoleId = backStackEntry.arguments?.getString("roleId")?.toLongOrNull() ?: 0L
-            val ownRoleTitle = backStackEntry.arguments?.getString("roleTitle") ?: ""
-            var taziehTitle by remember { mutableStateOf("") }
-            var options by remember { mutableStateOf(listOf<RehearsalRoleOption>()) }
-            LaunchedEffect(taziehId, ownRoleId) {
-                taziehTitle = db.taziehDao().getById(taziehId)?.title.orEmpty()
-                val allRoles = db.roleDao().getByTazieh(taziehId)
-                options = allRoles.map { role ->
-                    RehearsalRoleOption(role, db.sectionDao().getByRole(role.id))
-                }
-                if (options.none { it.role.id == ownRoleId }) {
-                    val ownRole = db.roleDao().getById(ownRoleId)
-                    options = options + RehearsalRoleOption(ownRole, db.sectionDao().getByRole(ownRoleId))
+        if (featureEnabled("training.rehearse")) composable(ROUTE_REHEARSAL_SETUP) {
+            var rehearsalTaziehs by remember { mutableStateOf(listOf<RehearsalTaziehOption>()) }
+            var selectedRehearsalTaziehId by remember { mutableStateOf<Long?>(null) }
+            var rehearsalRoles by remember { mutableStateOf(listOf<RehearsalRoleOption>()) }
+            var rehearsalRolesLoading by remember { mutableStateOf(false) }
+
+            LaunchedEffect(Unit) {
+                val allTaziehs = db.taziehDao().getAll()
+                val fieldTitles = db.fieldDao().getAll().associate { it.id to it.title }
+                rehearsalTaziehs = allTaziehs.map { tazieh ->
+                    RehearsalTaziehOption(
+                        id = tazieh.id,
+                        title = tazieh.title,
+                        fieldTitle = fieldTitles[tazieh.fieldId].orEmpty()
+                    )
                 }
             }
+
+            LaunchedEffect(selectedRehearsalTaziehId) {
+                val taziehId = selectedRehearsalTaziehId
+                if (taziehId == null) {
+                    rehearsalRoles = emptyList()
+                    rehearsalRolesLoading = false
+                } else {
+                    rehearsalRolesLoading = true
+                    rehearsalRoles = emptyList()
+                    val roleEntities = db.roleDao().getByTazieh(taziehId)
+                    val loadedRoleOptions = mutableListOf<RehearsalRoleOption>()
+                    for (role in roleEntities) {
+                        val roleSections = db.sectionDao().getByRole(role.id)
+                        loadedRoleOptions.add(RehearsalRoleOption(role, roleSections))
+                    }
+                    rehearsalRoles = loadedRoleOptions
+                    rehearsalRolesLoading = false
+                }
+            }
+
             RehearsalSetupScreen(
-                taziehTitle = taziehTitle,
-                ownRoleId = ownRoleId,
-                roles = options,
+                taziehs = rehearsalTaziehs,
+                selectedTaziehId = selectedRehearsalTaziehId,
+                roles = rehearsalRoles,
+                rolesLoading = rehearsalRolesLoading,
+                onTaziehSelected = { selectedRehearsalTaziehId = it },
                 onBack = { navController.popBackStack() },
-                onStart = { sectionIds, multiRole ->
-                    navController.currentBackStackEntry?.savedStateHandle?.set("rehearsal_selected_section_ids", sectionIds.toLongArray())
+                onStart = { taziehId, primaryRoleId, primaryRoleTitle, sectionIds, multiRole ->
+                    navController.currentBackStackEntry?.savedStateHandle?.set(
+                        "rehearsal_selected_section_ids",
+                        sectionIds.toLongArray()
+                    )
                     if (multiRole) {
-                        navController.navigate("rehearsal_multi/$taziehId/$ownRoleId/${android.net.Uri.encode(ownRoleTitle)}")
+                        navController.navigate(
+                            "rehearsal_multi/$taziehId/$primaryRoleId/${android.net.Uri.encode(primaryRoleTitle)}"
+                        )
                     } else {
-                        navController.navigate("rehearsal/$ownRoleId/${android.net.Uri.encode(ownRoleTitle)}")
+                        navController.navigate(
+                            "rehearsal/$primaryRoleId/${android.net.Uri.encode(primaryRoleTitle)}"
+                        )
                     }
                 }
             )
@@ -684,46 +708,70 @@ fun AppNavigation(
             var turns by remember { mutableStateOf(listOf<RehearsalTurnItem>()) }
             LaunchedEffect(taziehId, ownRoleId, selectedIds) {
                 taziehTitle = db.taziehDao().getById(taziehId)?.title.orEmpty()
-                val selectedSections = selectedIds.mapNotNull { id ->
-                    try { db.sectionDao().getById(id) } catch (_: Exception) { null }
+                val selectedSections = mutableListOf<SectionEntity>()
+                for (sectionId in selectedIds) {
+                    try {
+                        selectedSections.add(db.sectionDao().getById(sectionId))
+                    } catch (_: Exception) {
+                        // بخش حذف‌شده یا در دسترس‌نبودن آن از فهرست تمرین کنار گذاشته می‌شود.
+                    }
                 }
-                val roleTitles = selectedSections.map { it.roleId }.distinct().associateWith { id -> db.roleDao().getById(id).title }
+                val roleTitles = mutableMapOf<Long, String>()
+                for (roleId in selectedSections.map { it.roleId }.distinct()) {
+                    roleTitles[roleId] = db.roleDao().getById(roleId).title
+                }
                 val selectedSet = selectedSections.map { it.id }.toSet()
                 val dialogues = db.dialogueDao().getByTazieh(taziehId)
-                val candidates = dialogues.map { dialogue ->
+                val dialogueCandidates = mutableListOf<Pair<List<com.example.bookapp.data.DialogueTurnEntity>, Map<Long, com.example.bookapp.data.DialogueTurnMetadataEntity>>>()
+                for (dialogue in dialogues) {
                     val dialogueTurns = db.dialogueTurnDao().getByDialogue(dialogue.id)
                     val matched = dialogueTurns.filter { it.sectionId in selectedSet }
                     val metadata = db.dialogueTurnMetadataDao().getByDialogue(dialogue.id).associateBy { it.turnId }
-                    Triple(dialogueTurns, matched, metadata)
-                }.maxByOrNull { it.second.map { turn -> turn.sectionId }.distinct().size }
-
-                val byId = selectedSections.associateBy { it.id }
-                val orderedIds: List<Long> = if (candidates != null && candidates.second.map { it.sectionId }.distinct().size == selectedSet.size) {
-                    val matched = candidates.second
-                    val meta = candidates.third
-                    val allSourceVerified = matched.all { turn ->
-                        val m = meta[turn.id]
-                        m != null && m.sourceSequenceIndex != null &&
-                            (m.sourceSequenceStatus == com.example.bookapp.data.DialogueTurnMetadataEntity.SOURCE_DOCUMENTED ||
-                             m.sourceSequenceStatus == com.example.bookapp.data.DialogueTurnMetadataEntity.SOURCE_DIRECTOR_CONFIRMED)
-                    }
-                    if (allSourceVerified) {
-                        orderingDescription = "ترتیب مستند منبع"
-                        matched.sortedBy { candidates.third[it.id]?.sourceSequenceIndex }.map { it.sectionId }
-                    } else if (matched.all { candidates.third.containsKey(it.id) }) {
-                        orderingDescription = "ترتیب تمرین تنظیم‌شده؛ لزوماً ترتیب اصلی اجرا نیست"
-                        matched.sortedWith(compareBy<com.example.bookapp.data.DialogueTurnEntity> { candidates.third[it.id]?.rehearsalOrderIndex ?: Int.MAX_VALUE }.thenBy { it.orderIndex }).map { it.sectionId }
-                    } else {
-                        orderingDescription = "ترتیب انتخاب‌شده توسط شما؛ ترتیب اصلی مستند نیست"
-                        selectedIds
-                    }
-                } else {
-                    orderingDescription = "ترتیب انتخاب‌شده توسط شما؛ ترتیب اصلی مستند نیست"
-                    selectedIds
+                    dialogueCandidates.add(Pair(matched, metadata))
+                }
+                val candidates = dialogueCandidates.maxByOrNull { candidate ->
+                    candidate.first.map { it.sectionId }.distinct().size
                 }
 
-                turns = orderedIds.distinct().mapNotNull { id ->
-                    val section = byId[id] ?: return@mapNotNull null
+                val byId = selectedSections.associateBy { it.id }
+                val candidateMatchedIds = candidates?.first?.map { it.sectionId }?.toSet().orEmpty()
+                val hasCompleteDialogueMatch = selectedSet.isNotEmpty() && candidateMatchedIds.containsAll(selectedSet)
+
+                val orderedSections: List<SectionEntity> = if (candidates != null && hasCompleteDialogueMatch) {
+                    val matchedTurns = candidates.first
+                    val metadata = candidates.second
+                    val allSourceVerified = matchedTurns.isNotEmpty() && matchedTurns.all { turn ->
+                        val item = metadata[turn.id]
+                        item != null && item.sourceSequenceIndex != null &&
+                            (item.sourceSequenceStatus == com.example.bookapp.data.DialogueTurnMetadataEntity.SOURCE_DOCUMENTED ||
+                             item.sourceSequenceStatus == com.example.bookapp.data.DialogueTurnMetadataEntity.SOURCE_DIRECTOR_CONFIRMED)
+                    }
+                    val orderedMatchedTurns = when {
+                        allSourceVerified -> {
+                            orderingDescription = "ترتیب مستند منبع"
+                            matchedTurns.sortedBy { metadata[it.id]?.sourceSequenceIndex }
+                        }
+                        matchedTurns.isNotEmpty() && matchedTurns.all { metadata.containsKey(it.id) } -> {
+                            orderingDescription = "ترتیب تمرین تنظیم‌شده؛ لزوماً ترتیب اصلی اجرا نیست"
+                            matchedTurns.sortedWith(
+                                compareBy<com.example.bookapp.data.DialogueTurnEntity> {
+                                    metadata[it.id]?.rehearsalOrderIndex ?: Int.MAX_VALUE
+                                }.thenBy { it.orderIndex }
+                            )
+                        }
+                        else -> {
+                            orderingDescription = "ترتیب ثبت‌شده در گفت‌وگو؛ ترتیب تاریخی/منبعی تأیید نشده"
+                            matchedTurns.sortedBy { it.orderIndex }
+                        }
+                    }
+                    // تکرار یک بخش در چند نوبت مکالمه حفظ می‌شود؛ آن را با distinct حذف نمی‌کنیم.
+                    orderedMatchedTurns.mapNotNull { byId[it.sectionId] }
+                } else {
+                    orderingDescription = "ترتیب انتخاب‌شده توسط شما؛ ترتیب اصلی مستند نیست"
+                    selectedIds.mapNotNull { byId[it] }
+                }
+
+                turns = orderedSections.map { section ->
                     RehearsalTurnItem(
                         section = section,
                         roleTitle = roleTitles[section.roleId].orEmpty(),
@@ -731,6 +779,7 @@ fun AppNavigation(
                         orderLabel = orderingDescription
                     )
                 }
+
             }
             MultiRoleRehearsalScreen(
                 taziehTitle = taziehTitle,
@@ -1613,37 +1662,21 @@ if (featureEnabled("read.view")) composable(ROUTE_DIALOGUE_READER) { backStackEn
                         ) { Text("مقایسه") }
                     }
                 } else null,
-                floatingAction = {
-                    Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
-                        if (featureEnabled("training.rehearse")) {
-                            androidx.compose.material3.ExtendedFloatingActionButton(
-                                text = { androidx.compose.material3.Text("حالت تمرین") },
-                                icon = { androidx.compose.material3.Icon(Icons.Filled.School, contentDescription = null) },
-                                onClick = {
-                                    if (featureEnabled("training.rehearse")) {
-                                        taziehIdForCompare?.let { taziehId ->
-                                            navController.navigate("rehearsal_setup/$taziehId/$roleId/${android.net.Uri.encode(roleTitle)}")
-                                        }
-                                    }
+                floatingAction = if (featureEnabled("pdf") && featureEnabled("pdf.create") && featureEnabled("pdf.save")) {
+                    {
+                        androidx.compose.material3.ExtendedFloatingActionButton(
+                            text = { androidx.compose.material3.Text("خروجی PDF") },
+                            icon = { androidx.compose.material3.Icon(Icons.Filled.Share, contentDescription = null) },
+                            onClick = {
+                                if (!exportAllowed("pdf", "pdf.create", "pdf.save")) notifyExportDenied()
+                                else scope.launch {
+                                    val fullSections = db.sectionDao().getByRole(roleId)
+                                    com.example.bookapp.data.exportRoleToPdf(context, roleTitle, fullSections)
                                 }
-                            )
-                        }
-                        if (featureEnabled("pdf") && featureEnabled("pdf.create") && featureEnabled("pdf.save")) {
-                            Spacer(Modifier.height(10.dp))
-                            androidx.compose.material3.ExtendedFloatingActionButton(
-                                text = { androidx.compose.material3.Text("خروجی PDF") },
-                                icon = { androidx.compose.material3.Icon(Icons.Filled.Share, contentDescription = null) },
-                                onClick = {
-                                    if (!exportAllowed("pdf", "pdf.create", "pdf.save")) notifyExportDenied()
-                                    else scope.launch {
-                                        val fullSections = db.sectionDao().getByRole(roleId)
-                                        com.example.bookapp.data.exportRoleToPdf(context, roleTitle, fullSections)
-                                    }
-                                }
-                            )
-                        }
+                            }
+                        )
                     }
-                }
+                } else null
             )
         }
 
