@@ -1,4 +1,3 @@
-```kotlin
 package com.example.bookapp.ui.screens
 
 import androidx.compose.foundation.BorderStroke
@@ -208,4 +207,3 @@ private fun ListCard(
         }
     }
 }
-```
