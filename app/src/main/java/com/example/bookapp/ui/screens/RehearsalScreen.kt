@@ -85,10 +85,6 @@ fun RehearsalScreen(
             .apply()
     }
 
-    var revealedLines by remember(currentIndex) {
-        mutableStateOf(0)
-    }
-
     var autoPlay by remember {
         mutableStateOf(false)
     }
@@ -105,6 +101,16 @@ fun RehearsalScreen(
             ?.map { it.trimEnd('\r') }
             ?.filter { it.isNotBlank() }
             ?: emptyList()
+    }
+
+    // خط‌های قبل از نقطه شروع از ابتدا آشکار هستند؛ خود خط انتخابی هنوز پنهان می‌ماند.
+    val initialRevealedLines = remember(section?.id, lines.size) {
+        if (section == null) 0
+        else (progressPrefs.getInt("start_line_${section.id}", 1) - 1)
+            .coerceIn(0, lines.size)
+    }
+    var revealedLines by remember(section?.id) {
+        mutableStateOf(initialRevealedLines)
     }
 
     val textScrollState = rememberScrollState()
@@ -150,6 +156,7 @@ fun RehearsalScreen(
     LaunchedEffect(
         autoPlay,
         currentIndex,
+        section?.id,
         autoSpeedSeconds,
         lines.size
     ) {
@@ -173,7 +180,7 @@ fun RehearsalScreen(
     }
 
     // اسکرول خودکار هنگام آشکارشدن متن
-    LaunchedEffect(currentIndex, revealedLines) {
+    LaunchedEffect(currentIndex, section?.id, revealedLines) {
         if (revealedLines == 0) {
             textScrollState.animateScrollTo(0)
         } else {
@@ -563,9 +570,9 @@ fun RehearsalScreen(
                 OutlinedButton(
                     onClick = {
                         autoPlay = false
-                        revealedLines = 0
+                        revealedLines = initialRevealedLines
                     },
-                    enabled = revealedLines > 0,
+                    enabled = revealedLines > initialRevealedLines,
                     modifier = Modifier
                         .weight(1f)
                         .heightIn(min = 38.dp),

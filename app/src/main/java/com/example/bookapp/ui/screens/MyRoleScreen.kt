@@ -9,7 +9,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PictureAsPdf
-import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,21 +25,19 @@ data class MyRoleItem(
 
 /**
  * فهرست نقش‌هایی که کاربر به‌عنوان «نقش من» در تعزیه‌های مختلف مشخص کرده،
- * با دسترسی سریع به مطالعه، حالت تمرین (حفظ‌کردن) و خروجی چاپی مخصوص همان نقش.
+ * با دسترسی سریع به مطالعه و خروجی چاپی مخصوص همان نقش. ورود به تمرین از کتابخانه انجام می‌شود.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyRoleScreen(
     items: List<MyRoleItem>,
     onRead: (MyRoleItem) -> Unit,
-    onRehearse: (MyRoleItem) -> Unit,
     onExportPdf: (MyRoleItem) -> Unit,
     onRemove: (MyRoleItem) -> Unit,
     onBack: () -> Unit,
     readOnly: Boolean = false,
     showPdf: Boolean = true,
     canRead: Boolean = true,
-    canRehearse: Boolean = true,
     canRemove: Boolean = true
 ) {
     Scaffold(
@@ -73,11 +70,9 @@ fun MyRoleScreen(
                     MyRoleCard(
                         item = item,
                         onRead = { onRead(item) },
-                        onRehearse = { onRehearse(item) },
                         onExportPdf = { onExportPdf(item) },
                         showPdf = showPdf,
                         canRead = canRead,
-                        canRehearse = canRehearse,
                         canRemove = canRemove,
                         onRemove = { onRemove(item) },
                         readOnly = readOnly
@@ -92,11 +87,9 @@ fun MyRoleScreen(
 private fun MyRoleCard(
     item: MyRoleItem,
     onRead: () -> Unit,
-    onRehearse: () -> Unit,
     onExportPdf: () -> Unit,
     showPdf: Boolean = true,
     canRead: Boolean = true,
-    canRehearse: Boolean = true,
     canRemove: Boolean = true,
     onRemove: () -> Unit,
     readOnly: Boolean = false
@@ -128,11 +121,6 @@ private fun MyRoleCard(
                     Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
                     Text("مطالعه")
-                }
-                if (canRehearse) OutlinedButton(onClick = onRehearse, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Filled.School, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("تمرین")
                 }
                 if (showPdf) {
                     OutlinedButton(onClick = onExportPdf, modifier = Modifier.weight(1f)) {
