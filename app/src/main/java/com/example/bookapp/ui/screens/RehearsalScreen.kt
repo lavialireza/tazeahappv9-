@@ -160,6 +160,8 @@ fun RehearsalScreen(
 
     val softGreen = Color(0xFFE5EFE0)
     val darkGreen = Color(0xFF55775B)
+    val audioIconColor = Color(0xFFD84343)
+    val noteIconColor = Color(0xFF2869B2)
     val gold = Color(0xFFB79B55)
     val softBorder = Color(0xFFDCE8D8)
 
@@ -360,13 +362,21 @@ fun RehearsalScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                TextButton(
+                FilledTonalButton(
                     onClick = { showStartPicker = true },
-                    contentPadding = PaddingValues(horizontal = 5.dp, vertical = 1.dp)
+                    modifier = Modifier.heightIn(min = 40.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, darkGreen.copy(alpha = 0.45f)),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = softGreen,
+                        contentColor = darkGreen
+                    )
                 ) {
                     Text(
                         if (selectedStartLine == 1) "انتخاب محل شروع" else "تغییر محل شروع",
-                        fontSize = 10.sp
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -388,7 +398,10 @@ fun RehearsalScreen(
                             Icon(
                                 if (audioActive) Icons.Filled.Stop else Icons.Filled.PlayArrow,
                                 contentDescription = null,
-                                modifier = Modifier.size(15.dp)
+                                modifier = Modifier.size(17.dp),
+                                tint = audioIconColor.copy(
+                                    alpha = if (section.audioUrl.isNullOrBlank()) 0.45f else 1f
+                                )
                             )
                             Spacer(Modifier.width(2.dp))
                             Text(if (section.audioUrl.isNullOrBlank()) "بدون صوت" else if (audioActive) "توقف صوت" else "پخش صوت", fontSize = 10.sp)
@@ -399,7 +412,12 @@ fun RehearsalScreen(
                             onClick = { noteTarget = section },
                             contentPadding = PaddingValues(horizontal = 5.dp, vertical = 1.dp)
                         ) {
-                            Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Icon(
+                                Icons.Filled.Edit,
+                                contentDescription = null,
+                                modifier = Modifier.size(17.dp),
+                                tint = noteIconColor
+                            )
                             Spacer(Modifier.width(2.dp))
                             Text("یادداشت", fontSize = 10.sp)
                         }
@@ -484,8 +502,8 @@ fun RehearsalScreen(
                     },
                     shape = RoundedCornerShape(10.dp),
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = softGreen,
-                        selectedLabelColor = darkGreen
+                        selectedContainerColor = darkGreen,
+                        selectedLabelColor = Color.White
                     )
                 )
 
@@ -506,8 +524,8 @@ fun RehearsalScreen(
                         },
                         shape = RoundedCornerShape(10.dp),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = softGreen,
-                            selectedLabelColor = darkGreen
+                            selectedContainerColor = darkGreen,
+                            selectedLabelColor = Color.White
                         )
                     )
                 }

@@ -22,6 +22,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -51,6 +52,8 @@ fun MultiRoleRehearsalScreen(
     onAddPracticeNote: (SectionEntity, String, String) -> Unit
 ) {
     val context = LocalContext.current
+    val audioIconColor = Color(0xFFD84343)
+    val noteIconColor = Color(0xFF2869B2)
     val prefs = remember(context) {
         context.getSharedPreferences("rehearsal_progress", Context.MODE_PRIVATE)
     }
@@ -295,11 +298,6 @@ fun MultiRoleRehearsalScreen(
                         turns.firstOrNull()?.orderLabel?.takeIf { it.isNotBlank() }?.let {
                             Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Text(
-                            "کادرها ثابت هستند؛ متن نقش اصلی خودکار آشکار می‌شود و متن نقش‌های همراه را خودتان اسکرول می‌کنید.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
                 itemsIndexed(turns, key = { index, turn -> "${turn.section.id}-$index" }) { index, turn ->
@@ -359,7 +357,10 @@ fun MultiRoleRehearsalScreen(
                                             Icon(
                                                 if (playingAudioSectionId == section.id) Icons.Filled.Stop else Icons.Filled.PlayArrow,
                                                 contentDescription = if (section.audioUrl.isNullOrBlank()) "صوت ثبت نشده" else if (playingAudioSectionId == section.id) "توقف صوت" else "پخش صوت",
-                                                modifier = Modifier.size(19.dp)
+                                                modifier = Modifier.size(19.dp),
+                                                tint = audioIconColor.copy(
+                                                    alpha = if (section.audioUrl.isNullOrBlank()) 0.45f else 1f
+                                                )
                                             )
                                         }
                                     }
@@ -368,7 +369,12 @@ fun MultiRoleRehearsalScreen(
                                             onClick = { noteTarget = section },
                                             modifier = Modifier.size(36.dp)
                                         ) {
-                                            Icon(Icons.Filled.Edit, contentDescription = "یادداشت برای این بخش", modifier = Modifier.size(18.dp))
+                                            Icon(
+                                                Icons.Filled.Edit,
+                                                contentDescription = "یادداشت برای این بخش",
+                                                modifier = Modifier.size(18.dp),
+                                                tint = noteIconColor
+                                            )
                                         }
                                     }
                                     if (turn.isOwnRole) {
