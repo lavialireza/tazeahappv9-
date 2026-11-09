@@ -1,9 +1,5 @@
 package com.example.bookapp.ui
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
-
 import android.content.Intent
 import com.example.bookapp.BuildConfig
 import com.example.bookapp.data.ViewerPermissionEngine
@@ -86,7 +82,9 @@ private const val ROUTE_BOOKMARKS = "bookmarks"
 private const val ROUTE_NOTES = "notes"
 private const val ROUTE_MY_ROLE = "my_role"
 private const val ROUTE_ALL_IMAGES = "all_images"
+private const val ROUTE_REHEARSAL_SETUP = "rehearsal_setup/{taziehId}/{roleId}/{roleTitle}"
 private const val ROUTE_REHEARSAL = "rehearsal/{roleId}/{roleTitle}"
+private const val ROUTE_REHEARSAL_MULTI = "rehearsal_multi/{taziehId}/{ownRoleId}/{ownRoleTitle}"
 private const val ROUTE_ABOUT = "about"
 private const val ROUTE_SETTINGS = "settings"
 private const val ROUTE_VERSION = "version"
@@ -104,7 +102,6 @@ private const val ROUTE_CONTENT_EDITOR = "content_editor"
 private const val ROUTE_FIELDS = "fields"
 private const val ROUTE_TAZIEHS = "taziehs/{fieldId}/{fieldTitle}"
 private const val ROUTE_ROLES = "roles/{taziehId}/{taziehTitle}"
-private const val ROUTE_MULTI_ROLE_DIALOGUE = "multi_role_dialogue/{taziehId}/{taziehTitle}"
 private const val ROUTE_SECTIONS = "sections/{roleId}/{roleTitle}"
 private const val ROUTE_TAZIEH_INDEX = "tazieh_index/{taziehId}/{taziehTitle}"
 private const val ROUTE_DIALOGUES = "dialogues/{taziehId}/{taziehTitle}"
@@ -124,23 +121,6 @@ private fun concreteNavigationRoute(entry: NavBackStackEntry?): String? {
         route = route.replace("{$key}", android.net.Uri.encode(value))
     }
     return route
-}
-private fun Context.findActivity(): Activity? {
-    var current: Context? = this
-
-    while (current != null) {
-        if (current is Activity) {
-            return current
-        }
-
-        current = if (current is ContextWrapper) {
-            current.baseContext
-        } else {
-            null
-        }
-    }
-
-    return null
 }
 
 @Composable
@@ -165,9 +145,6 @@ fun AppNavigation(
     val publicViewer = BuildConfig.PUBLIC_VIEWER
     var viewerPermissions by remember(publicViewer) { mutableStateOf(if (publicViewer) ViewerAccessPolicy.getEffectivePermissions(context) else ViewerAccessPolicy.permissionLabels.keys.associateWith { true }) }
     val navController: NavHostController = rememberNavController()
-    var pendingSearchQuery by remember {
-    mutableStateOf("")
-}
     fun featureEnabled(key: String): Boolean {
         if (!publicViewer) return true
         return ViewerPermissionEngine.can(context, key)
@@ -329,36 +306,17 @@ fun AppNavigation(
             })
         }
 
-        
-composable(ROUTE_MAIN_MENU) {
-    MainMenuScreen(
-        onOpenLibrary = {
-            navController.navigate(ROUTE_LIBRARY_HOME)
-        },
-        onOpenActivityCenter = {
-            navController.navigate(ROUTE_ACTIVITY_CENTER)
-        },
-        onOpenNotes = {
-            navigateIfAllowed("notes", ROUTE_NOTES)
-        },
-        onOpenSearch = {
-            navigateIfAllowed("search", ROUTE_SEARCH)
-        },
-        onOpenBookmarks = {
-            navigateIfAllowed("bookmarks", ROUTE_BOOKMARKS)
-        },
-        onOpenSettings = {
-            navController.navigate(ROUTE_SETTINGS)
-        },
-        onOpenAbout = {
-            navController.navigate(ROUTE_ABOUT)
-        },
-        onExit = {
-            context.findActivity()?.finish()
+        composable(ROUTE_MAIN_MENU) {
+            MainMenuScreen(
+                onOpenLibrary = { navController.navigate(ROUTE_LIBRARY_HOME) },
+                onOpenActivityCenter = { navController.navigate(ROUTE_ACTIVITY_CENTER) },
+                onOpenNotes = { navigateIfAllowed("notes", ROUTE_NOTES) },
+                onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
+                onOpenBookmarks = { navigateIfAllowed("bookmarks", ROUTE_BOOKMARKS) },
+                onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+                onOpenAbout = { navController.navigate(ROUTE_ABOUT) }
+            )
         }
-    )
-}
-
 
         if (featureEnabled("read.view")) composable(ROUTE_LIBRARY_HOME) {
             var randomVerse by remember { mutableStateOf<SearchResult?>(null) }
@@ -376,10 +334,7 @@ composable(ROUTE_MAIN_MENU) {
                 randomVerse = randomVerse,
                 recentItems = recentItems,
                 onOpenTaziehList = { navController.navigate(ROUTE_FIELDS) },
-              onOpenSearch = { query ->
-    pendingSearchQuery = query
-    navigateIfAllowed("search", ROUTE_SEARCH)
-},
+                onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
                 onOpenMyRole = { navigateIfAllowed("myRole", ROUTE_MY_ROLE) },
                 onOpenRehearsal = { navigateIfAllowed("myRole.view", ROUTE_MY_ROLE) },
                 onOpenGlossary = { navigateIfAllowed("dictionary.view", ROUTE_GLOSSARY) },
@@ -396,45 +351,49 @@ composable(ROUTE_MAIN_MENU) {
             )
         }
 
-       composable(ROUTE_ACTIVITY_CENTER) {
-    ActivityCenterScreen(
-        isAdmin = !publicViewer,
-        canRead = featureEnabled("read.view"),
-        canSearch = featureEnabled("search.basic"),
-        canMyRole = featureEnabled("myRole.view"),
-        canDictionary = featureEnabled("dictionary.view"),
-        canEncyclopedia = featureEnabled("encyclopedia.view"),
-        canCorrections = featureEnabled("taziehCorrections.view"),
-        canAiResearch = featureEnabled("ai"),
-        canCalendar = featureEnabled("calendar.view"),
-        onOpenLibrary = { navController.navigate(ROUTE_FIELDS) },
-        onOpenSearch = { navigateIfAllowed("search.basic", ROUTE_SEARCH) },
-        onOpenMyRole = { navigateIfAllowed("myRole.view", ROUTE_MY_ROLE) },
-        onOpenGlossary = { navigateIfAllowed("dictionary.view", ROUTE_GLOSSARY) },
-        onOpenEncyclopedia = { navigateIfAllowed("encyclopedia.view", ROUTE_ENCYCLOPEDIA) },
-        onOpenCorrections = { navigateIfAllowed("taziehCorrections.view", ROUTE_TAZIEH_CORRECTIONS) },
-        onOpenAiResearch = { navigateIfAllowed("ai", ROUTE_AI_RESEARCH) },
-        onOpenCalendar = { navigateIfAllowed("calendar.view", ROUTE_MUHARRAM_CALENDAR) },
-        onOpenVersionComparison = { if (!publicViewer) navController.navigate("version_comparison") },
-        onOpenEncyclopediaManagement = { if (!publicViewer) navController.navigate("encyclopedia_management") },
-        onOpenPerformanceManagement = { if (!publicViewer) navController.navigate("performance_management") },
-        onOpenContentManagement = { if (!publicViewer) navController.navigate(ROUTE_CONTENT_MANAGEMENT) },
-        onOpenViewerAccess = { if (!publicViewer) navController.navigate(ROUTE_VIEWER_ACCESS) },
-        onOpenSpecialUsers = { if (!publicViewer) navController.navigate(ROUTE_SPECIAL_USERS) },
-        onOpenAccessAudit = { if (!publicViewer) navController.navigate(ROUTE_ACCESS_AUDIT) },
-        onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
-        onOpenMultiRoleDialogue = { navController.navigate(ROUTE_FIELDS) },
-        onBack = { navController.popBackStack() }    )
-}
+        composable(ROUTE_ACTIVITY_CENTER) {
+            ActivityCenterScreen(
+                isAdmin = !publicViewer,
+                canRead = featureEnabled("read.view"),
+                canSearch = featureEnabled("search.basic"),
+                canMyRole = featureEnabled("myRole.view"),
+                canDictionary = featureEnabled("dictionary.view"),
+                canEncyclopedia = featureEnabled("encyclopedia.view"),
+                canCorrections = featureEnabled("taziehCorrections.view"),
+                canAiResearch = featureEnabled("ai"),
+                canCalendar = featureEnabled("calendar.view"),
+                onOpenLibrary = { navController.navigate(ROUTE_FIELDS) },
+                onOpenSearch = { navigateIfAllowed("search.basic", ROUTE_SEARCH) },
+                onOpenMyRole = { navigateIfAllowed("myRole.view", ROUTE_MY_ROLE) },
+                onOpenGlossary = { navigateIfAllowed("dictionary.view", ROUTE_GLOSSARY) },
+                onOpenEncyclopedia = { navigateIfAllowed("encyclopedia.view", ROUTE_ENCYCLOPEDIA) },
+                onOpenCorrections = { navigateIfAllowed("taziehCorrections.view", ROUTE_TAZIEH_CORRECTIONS) },
+                onOpenAiResearch = { navigateIfAllowed("ai", ROUTE_AI_RESEARCH) },
+                onOpenCalendar = { navigateIfAllowed("calendar.view", ROUTE_MUHARRAM_CALENDAR) },
+                onOpenVersionComparison = { if (!publicViewer) navController.navigate("version_comparison") },
+                onOpenEncyclopediaManagement = { if (!publicViewer) navController.navigate("encyclopedia_management") },
+                onOpenPerformanceManagement = { if (!publicViewer) navController.navigate("performance_management") },
+                onOpenContentManagement = { if (!publicViewer) navController.navigate(ROUTE_CONTENT_MANAGEMENT) },
+                onOpenViewerAccess = { if (!publicViewer) navController.navigate(ROUTE_VIEWER_ACCESS) },
+                onOpenSpecialUsers = { if (!publicViewer) navController.navigate(ROUTE_SPECIAL_USERS) },
+                onOpenAccessAudit = { if (!publicViewer) navController.navigate(ROUTE_ACCESS_AUDIT) },
+                onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+                onOpenMultiRoleDialogue = {
+                    if (featureEnabled("read.view")) navController.navigate(ROUTE_FIELDS)
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
 
-composable(ROUTE_TOOLS_CENTER) {
-    ToolsCenterScreen(
-        onOpenCalendar = { navigateIfAllowed("calendar.view", ROUTE_MUHARRAM_CALENDAR) },
-        onOpenVersion = { navController.navigate(ROUTE_VERSION) },
-        onOpenChangelog = { navController.navigate(ROUTE_CHANGELOG) },
-        onBack = { navController.popBackStack() }
-    )
-}
+        composable(ROUTE_TOOLS_CENTER) {
+            ToolsCenterScreen(
+                onOpenCalendar = { navigateIfAllowed("calendar.view", ROUTE_MUHARRAM_CALENDAR) },
+                onOpenVersion = { navController.navigate(ROUTE_VERSION) },
+                onOpenChangelog = { navController.navigate(ROUTE_CHANGELOG) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(ROUTE_RESEARCH_CENTER) {
             ResearchCenterScreen(
                 showVersionComparison = !publicViewer,
@@ -501,7 +460,6 @@ composable(ROUTE_TOOLS_CENTER) {
                 allTaziehs = allTaziehs,
                 allRoles = allRoles,
                 allSections = allSections,
-                initialQuery = pendingSearchQuery,
                 onSearch = { query, options ->
                     com.example.bookapp.data.AdvancedSearchEngine.search(searchCorpus, query, options)
                 },
@@ -628,7 +586,7 @@ composable(ROUTE_TOOLS_CENTER) {
                     navController.navigate("sections/${item.roleId}/${item.roleTitle}")
                 },
                 onRehearse = { item ->
-                    navController.navigate("rehearsal/${item.roleId}/${item.roleTitle}")
+                    navController.navigate("rehearsal_setup/${item.taziehId}/${item.roleId}/${android.net.Uri.encode(item.roleTitle)}")
                 },
                 onExportPdf = { item ->
                     if (!exportAllowed("pdf", "pdf.create", "pdf.save", "myRole", "myRole.pdf")) notifyExportDenied()
@@ -645,7 +603,7 @@ composable(ROUTE_TOOLS_CENTER) {
                 readOnly = publicViewer,
                 showPdf = featureEnabled("myRole.pdf") && featureEnabled("myRole") && featureEnabled("pdf") && featureEnabled("pdf.create") && featureEnabled("pdf.save"),
                 canRead = featureEnabled("myRole.view"),
-                canRehearse = featureEnabled("myRole.rehearse"),
+                canRehearse = featureEnabled("myRole.rehearse") && featureEnabled("training.rehearse"),
                 canRemove = featureEnabled("myRole.remove")
             )
         }
@@ -666,16 +624,118 @@ composable(ROUTE_TOOLS_CENTER) {
             )
         }
 
+        if (featureEnabled("training.rehearse")) composable(ROUTE_REHEARSAL_SETUP) { backStackEntry ->
+            val taziehId = backStackEntry.arguments?.getString("taziehId")?.toLongOrNull() ?: 0L
+            val ownRoleId = backStackEntry.arguments?.getString("roleId")?.toLongOrNull() ?: 0L
+            val ownRoleTitle = backStackEntry.arguments?.getString("roleTitle") ?: ""
+            var taziehTitle by remember { mutableStateOf("") }
+            var options by remember { mutableStateOf(listOf<RehearsalRoleOption>()) }
+            LaunchedEffect(taziehId, ownRoleId) {
+                taziehTitle = db.taziehDao().getById(taziehId)?.title.orEmpty()
+                val allRoles = db.roleDao().getByTazieh(taziehId)
+                options = allRoles.map { role ->
+                    RehearsalRoleOption(role, db.sectionDao().getByRole(role.id))
+                }
+                if (options.none { it.role.id == ownRoleId }) {
+                    val ownRole = db.roleDao().getById(ownRoleId)
+                    options = options + RehearsalRoleOption(ownRole, db.sectionDao().getByRole(ownRoleId))
+                }
+            }
+            RehearsalSetupScreen(
+                taziehTitle = taziehTitle,
+                ownRoleId = ownRoleId,
+                roles = options,
+                onBack = { navController.popBackStack() },
+                onStart = { sectionIds, multiRole ->
+                    navController.currentBackStackEntry?.savedStateHandle?.set("rehearsal_selected_section_ids", sectionIds.toLongArray())
+                    if (multiRole) {
+                        navController.navigate("rehearsal_multi/$taziehId/$ownRoleId/${android.net.Uri.encode(ownRoleTitle)}")
+                    } else {
+                        navController.navigate("rehearsal/$ownRoleId/${android.net.Uri.encode(ownRoleTitle)}")
+                    }
+                }
+            )
+        }
+
         if (featureEnabled("training.rehearse")) composable(ROUTE_REHEARSAL) { backStackEntry ->
             val roleId = backStackEntry.arguments?.getString("roleId")?.toLongOrNull() ?: 0L
             val roleTitle = backStackEntry.arguments?.getString("roleTitle") ?: ""
+            val selectedIds = navController.previousBackStackEntry?.savedStateHandle?.get<LongArray>("rehearsal_selected_section_ids")?.toSet()
             var sections by remember { mutableStateOf(listOf<SectionEntity>()) }
-            LaunchedEffect(roleId) {
-                sections = db.sectionDao().getByRole(roleId)
+            LaunchedEffect(roleId, selectedIds) {
+                val all = db.sectionDao().getByRole(roleId)
+                sections = if (selectedIds.isNullOrEmpty()) all else all.filter { it.id in selectedIds }
             }
             RehearsalScreen(
                 roleTitle = roleTitle,
                 sections = sections,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        if (featureEnabled("training.rehearse")) composable(ROUTE_REHEARSAL_MULTI) { backStackEntry ->
+            val taziehId = backStackEntry.arguments?.getString("taziehId")?.toLongOrNull() ?: 0L
+            val ownRoleId = backStackEntry.arguments?.getString("ownRoleId")?.toLongOrNull() ?: 0L
+            val ownRoleTitle = backStackEntry.arguments?.getString("ownRoleTitle") ?: ""
+            val selectedIds = navController.previousBackStackEntry?.savedStateHandle?.get<LongArray>("rehearsal_selected_section_ids")?.toList().orEmpty()
+            var taziehTitle by remember { mutableStateOf("") }
+            var orderingDescription by remember { mutableStateOf("ترتیب انتخاب‌شده توسط شما؛ ترتیب اصلی مستند نیست") }
+            var turns by remember { mutableStateOf(listOf<RehearsalTurnItem>()) }
+            LaunchedEffect(taziehId, ownRoleId, selectedIds) {
+                taziehTitle = db.taziehDao().getById(taziehId)?.title.orEmpty()
+                val selectedSections = selectedIds.mapNotNull { id ->
+                    try { db.sectionDao().getById(id) } catch (_: Exception) { null }
+                }
+                val roleTitles = selectedSections.map { it.roleId }.distinct().associateWith { id -> db.roleDao().getById(id).title }
+                val selectedSet = selectedSections.map { it.id }.toSet()
+                val dialogues = db.dialogueDao().getByTazieh(taziehId)
+                val candidates = dialogues.map { dialogue ->
+                    val dialogueTurns = db.dialogueTurnDao().getByDialogue(dialogue.id)
+                    val matched = dialogueTurns.filter { it.sectionId in selectedSet }
+                    val metadata = db.dialogueTurnMetadataDao().getByDialogue(dialogue.id).associateBy { it.turnId }
+                    Triple(dialogueTurns, matched, metadata)
+                }.maxByOrNull { it.second.map { turn -> turn.sectionId }.distinct().size }
+
+                val byId = selectedSections.associateBy { it.id }
+                val orderedIds: List<Long> = if (candidates != null && candidates.second.map { it.sectionId }.distinct().size == selectedSet.size) {
+                    val matched = candidates.second
+                    val meta = candidates.third
+                    val allSourceVerified = matched.all { turn ->
+                        val m = meta[turn.id]
+                        m != null && m.sourceSequenceIndex != null &&
+                            (m.sourceSequenceStatus == com.example.bookapp.data.DialogueTurnMetadataEntity.SOURCE_DOCUMENTED ||
+                             m.sourceSequenceStatus == com.example.bookapp.data.DialogueTurnMetadataEntity.SOURCE_DIRECTOR_CONFIRMED)
+                    }
+                    if (allSourceVerified) {
+                        orderingDescription = "ترتیب مستند منبع"
+                        matched.sortedBy { candidates.third[it.id]?.sourceSequenceIndex }.map { it.sectionId }
+                    } else if (matched.all { candidates.third.containsKey(it.id) }) {
+                        orderingDescription = "ترتیب تمرین تنظیم‌شده؛ لزوماً ترتیب اصلی اجرا نیست"
+                        matched.sortedWith(compareBy<com.example.bookapp.data.DialogueTurnEntity> { candidates.third[it.id]?.rehearsalOrderIndex ?: Int.MAX_VALUE }.thenBy { it.orderIndex }).map { it.sectionId }
+                    } else {
+                        orderingDescription = "ترتیب انتخاب‌شده توسط شما؛ ترتیب اصلی مستند نیست"
+                        selectedIds
+                    }
+                } else {
+                    orderingDescription = "ترتیب انتخاب‌شده توسط شما؛ ترتیب اصلی مستند نیست"
+                    selectedIds
+                }
+
+                turns = orderedIds.distinct().mapNotNull { id ->
+                    val section = byId[id] ?: return@mapNotNull null
+                    RehearsalTurnItem(
+                        section = section,
+                        roleTitle = roleTitles[section.roleId].orEmpty(),
+                        isOwnRole = section.roleId == ownRoleId,
+                        orderLabel = orderingDescription
+                    )
+                }
+            }
+            MultiRoleRehearsalScreen(
+                taziehTitle = taziehTitle,
+                ownRoleId = ownRoleId,
+                ownRoleTitle = ownRoleTitle,
+                turns = turns,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -941,102 +1001,10 @@ composable(ROUTE_TOOLS_CENTER) {
                 onBack = { navController.popBackStack() },
                 readOnly = publicViewer,
                 showCompare = featureEnabled("compare.view"),
-                canSelectMine = featureEnabled("myRole.select"),
-                onOpenMultiRoleDialogue = { selectedRoles ->
-    navController.currentBackStackEntry
-        ?.savedStateHandle
-        ?.set(
-            "multi_role_selected_ids",
-            ArrayList(selectedRoles.map { it.id })
-        )
-
-    navController.navigate(
-        "multi_role_dialogue/$taziehId/${java.net.URLEncoder.encode(taziehTitle, "UTF-8")}"
-    )
-}
+                canSelectMine = featureEnabled("myRole.select")
             )
         }
 
-if (featureEnabled("read.view")) composable(ROUTE_MULTI_ROLE_DIALOGUE) { backStackEntry ->
-
-    val taziehId = backStackEntry.arguments
-        ?.getString("taziehId")
-        ?.toLongOrNull() ?: 0L
-
-    val taziehTitle = java.net.URLDecoder.decode(
-        backStackEntry.arguments?.getString("taziehTitle") ?: "",
-        "UTF-8"
-    )
-
-    var dialogueRoles by remember {
-        mutableStateOf(emptyList<MultiRoleRoleContent>())
-    }
-
-  
-LaunchedEffect(taziehId, backStackEntry.id) {
-
-   // دریافت شناسه‌ها با حفظ ترتیب انتخاب کاربر
-val savedSelection = navController.previousBackStackEntry
-    ?.savedStateHandle
-    ?.get<Any>("multi_role_selected_ids")
-
-val selectedIds = when (savedSelection) {
-    is ArrayList<*> -> savedSelection
-        .mapNotNull { (it as? Number)?.toLong() }
-        .distinct()
-
-    is String -> savedSelection
-        .split(",")
-        .mapNotNull { it.trim().toLongOrNull() }
-        .distinct()
-
-    else -> emptyList()
-}
-
-    // ابتدا تمام نقش‌های متعلق به همین تعزیه دریافت می‌شوند.
-    val allRoles = db.roleDao().getByTazieh(taziehId)
-    val rolesById = allRoles.associateBy { it.id }
-
-    // سپس نقش‌ها دقیقاً مطابق ترتیب انتخاب کاربر بارگذاری می‌شوند.
-    val loadedRoles = selectedIds.mapNotNull { roleId ->
-
-        val role = rolesById[roleId] ?: return@mapNotNull null
-
-        val sections = db.sectionDao().getByRole(roleId)
-
-        MultiRoleRoleContent(
-            roleTitle = role.title,
-            sections = sections.map { section ->
-                MultiRoleSectionContent(
-                    id = section.id,
-                    title = section.title,
-                    content = section.content
-                )
-            }
-        )
-    }
-
-    dialogueRoles = loadedRoles
-}
-
-    MultiRoleDialogueScreen(
-        taziehTitle = taziehTitle,
-        roles = dialogueRoles,
-        darkMode = darkMode,
-        onDarkModeChange = onDarkModeChange,
-        fontScale = fontScale,
-        onFontScaleChange = onFontScaleChange,
-        themeChoice = themeChoice,
-        onThemeChoiceChange = onThemeChoiceChange,
-        fontChoice = fontChoice,
-        onFontChoiceChange = onFontChoiceChange,
-        onBack = {
-            navController.popBackStack()
-        }
-    )
-}
-
-        
         if (featureEnabled("read.view")) composable(ROUTE_TAZIEH_INDEX) { backStackEntry ->
             val taziehId = backStackEntry.arguments?.getString("taziehId")?.toLongOrNull() ?: 0L
             val taziehTitle = backStackEntry.arguments?.getString("taziehTitle") ?: ""
@@ -1601,21 +1569,11 @@ if (featureEnabled("read.view")) composable(ROUTE_DIALOGUE_READER) { backStackEn
                 val tazieh = db.taziehDao().getById(taziehId)
                 taziehTitle = tazieh?.title.orEmpty()
                 roles = db.roleDao().getByTazieh(taziehId)
-            val allSections = if (roles.isEmpty()) {
-    emptyList()
-} else {
-    db.sectionDao().getByRoles(roles.map { it.id })
-}
-
-val loadedSections = allSections.groupBy { it.roleId }
-
-roleSections = loadedSections
-
-compareSections = roles.flatMap { role ->
-    loadedSections[role.id].orEmpty().map { section ->
-        CompareSectionItem(section, role.title)
-    }
-}   
+                val loadedSections = roles.associate { role -> role.id to db.sectionDao().getByRole(role.id) }
+                roleSections = loadedSections
+                compareSections = roles.flatMap { role ->
+                    loadedSections[role.id].orEmpty().map { section -> CompareSectionItem(section, role.title) }
+                }
             }
             CompareScreen(
                 taziehTitle = taziehTitle.ifBlank { "تعزیه" },
@@ -1646,29 +1604,25 @@ compareSections = roles.flatMap { role ->
                     navController.navigate("text_pager/$roleId/$index")
                 },
                 onBack = { navController.popBackStack() },
-                topBarAction = if (featureEnabled("compare.view")) {
-    {
-        TextButton(
-            onClick = {
-                taziehIdForCompare?.let {
-                    navController.navigate("compare/$it")
-                }
-            },
-            enabled = taziehIdForCompare != null
-        ) {
-            Text("مقایسه")
-        }
-    }
-} else null,
+                topBarAction = if (featureEnabled("compare")) {
+                    {
+                        TextButton(
+                            onClick = { taziehIdForCompare?.let { navController.navigate("compare/$it") } },
+                            enabled = taziehIdForCompare != null
+                        ) { Text("مقایسه") }
+                    }
+                } else null,
                 floatingAction = {
                     Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
-                        if (featureEnabled("training")) {
+                        if (featureEnabled("training.rehearse")) {
                             androidx.compose.material3.ExtendedFloatingActionButton(
                                 text = { androidx.compose.material3.Text("حالت تمرین") },
                                 icon = { androidx.compose.material3.Icon(Icons.Filled.School, contentDescription = null) },
                                 onClick = {
-                                    if (featureEnabled("training")) {
-                                        navController.navigate("rehearsal/$roleId/$roleTitle")
+                                    if (featureEnabled("training.rehearse")) {
+                                        taziehIdForCompare?.let { taziehId ->
+                                            navController.navigate("rehearsal_setup/$taziehId/$roleId/${android.net.Uri.encode(roleTitle)}")
+                                        }
                                     }
                                 }
                             )
@@ -1949,4 +1903,3 @@ compareSections = roles.flatMap { role ->
         }
     }
 }
- 
