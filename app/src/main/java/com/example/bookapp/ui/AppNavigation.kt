@@ -6,7 +6,7 @@ import com.example.bookapp.data.ViewerPermissionEngine
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-
+import android.app.Activity
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -308,14 +308,15 @@ fun AppNavigation(
 
         composable(ROUTE_MAIN_MENU) {
             MainMenuScreen(
-                onOpenLibrary = { navController.navigate(ROUTE_LIBRARY_HOME) },
-                onOpenActivityCenter = { navController.navigate(ROUTE_ACTIVITY_CENTER) },
-                onOpenNotes = { navigateIfAllowed("notes", ROUTE_NOTES) },
-                onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
-                onOpenBookmarks = { navigateIfAllowed("bookmarks", ROUTE_BOOKMARKS) },
-                onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
-                onOpenAbout = { navController.navigate(ROUTE_ABOUT) }
-            )
+    onOpenLibrary = { navController.navigate(ROUTE_LIBRARY_HOME) },
+    onOpenActivityCenter = { navController.navigate(ROUTE_ACTIVITY_CENTER) },
+    onOpenNotes = { navigateIfAllowed("notes", ROUTE_NOTES) },
+    onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
+    onOpenBookmarks = { navigateIfAllowed("bookmarks", ROUTE_BOOKMARKS) },
+    onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+    onOpenAbout = { navController.navigate(ROUTE_ABOUT) },
+    onExit = { (context as? Activity)?.finish() }
+        )
         }
 
         if (featureEnabled("read.view")) composable(ROUTE_LIBRARY_HOME) {
