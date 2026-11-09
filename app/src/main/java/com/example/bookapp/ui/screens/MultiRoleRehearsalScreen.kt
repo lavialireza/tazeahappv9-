@@ -13,6 +13,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshotFlow
@@ -22,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.bookapp.data.AudioPlayerHelper
 import com.example.bookapp.data.SectionEntity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -41,11 +45,28 @@ fun MultiRoleRehearsalScreen(
     ownRoleId: Long,
     ownRoleTitle: String,
     turns: List<RehearsalTurnItem>,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    canPlayAudio: Boolean = true,
+    canAddPracticeNote: Boolean = true,
+    onAddPracticeNote: (SectionEntity, String, String) -> Unit
 ) {
     val context = LocalContext.current
     val prefs = remember(context) {
         context.getSharedPreferences("rehearsal_progress", Context.MODE_PRIVATE)
+    }
+    var playingAudioSectionId by remember { mutableStateOf<Long?>(null) }
+    val audioPlayerHelper = remember(context) {
+        AudioPlayerHelper(context) { status ->
+            if (status == "done" || status == "error") playingAudioSectionId = null
+        }
+    }
+    var noteTarget by remember { mutableStateOf<SectionEntity?>(null) }
+
+    DisposableEffect(audioPlayerHelper, turns) {
+        onDispose {
+            audioPlayerHelper.stop()
+            playingAudioSectionId = null
+        }
     }
 
     val ownSectionIds = remember(turns) {
@@ -319,6 +340,37 @@ fun MultiRoleRehearsalScreen(
                                         Text(turn.roleTitle, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                                         Text(section.title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
+                                    if (canPlayAudio) {
+                                        IconButton(
+                                            onClick = {
+                                                val audioUrl = section.audioUrl?.takeIf { it.isNotBlank() } ?: return@IconButton
+                                                if (playingAudioSectionId == section.id) {
+                                                    audioPlayerHelper.stop()
+                                                    playingAudioSectionId = null
+                                                } else {
+                                                    audioPlayerHelper.stop()
+                                                    playingAudioSectionId = section.id
+                                                    audioPlayerHelper.play(audioUrl)
+                                                }
+                                            },
+                                            enabled = !section.audioUrl.isNullOrBlank(),
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Icon(
+                                                if (playingAudioSectionId == section.id) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                                                contentDescription = if (section.audioUrl.isNullOrBlank()) "صوت ثبت نشده" else if (playingAudioSectionId == section.id) "توقف صوت" else "پخش صوت",
+                                                modifier = Modifier.size(19.dp)
+                                            )
+                                        }
+                                    }
+                                    if (canAddPracticeNote) {
+                                        IconButton(
+                                            onClick = { noteTarget = section },
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Icon(Icons.Filled.Edit, contentDescription = "یادداشت برای این بخش", modifier = Modifier.size(18.dp))
+                                        }
+                                    }
                                     if (turn.isOwnRole) {
                                         AssistChip(onClick = {}, label = { Text("نقش اصلی") }, enabled = false)
                                     }
@@ -455,6 +507,19 @@ fun MultiRoleRehearsalScreen(
             },
             dismissButton = {
                 TextButton(onClick = { startPickerSection = null }) { Text("بستن") }
+            }
+        )
+    }
+
+    noteTarget?.let { target ->
+        val roleTitle = turns.firstOrNull { it.section.id == target.id }?.roleTitle.orEmpty()
+        RehearsalNoteDialog(
+            roleTitle = roleTitle,
+            sectionTitle = target.title,
+            onDismiss = { noteTarget = null },
+            onSave = { title, content ->
+                onAddPracticeNote(target, title, content)
+                noteTarget = null
             }
         )
     }

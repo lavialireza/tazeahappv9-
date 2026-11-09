@@ -20,6 +20,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.NavigateBefore
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.RemoveRedEye
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Visibility
@@ -34,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import com.example.bookapp.data.AudioPlayerHelper
 import com.example.bookapp.data.SectionEntity
 import kotlinx.coroutines.delay
 
@@ -43,7 +47,10 @@ fun RehearsalScreen(
     roleTitle: String,
     sections: List<SectionEntity>,
     startIndex: Int = 0,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    canPlayAudio: Boolean = true,
+    canAddPracticeNote: Boolean = true,
+    onAddPracticeNote: (SectionEntity, String, String) -> Unit
 ) {
     val context = LocalContext.current
 
@@ -97,6 +104,18 @@ fun RehearsalScreen(
     }
 
     val section = sections.getOrNull(currentIndex)
+    var audioActive by remember { mutableStateOf(false) }
+    val audioPlayerHelper = remember(context) {
+        AudioPlayerHelper(context) { status -> audioActive = status == "started" }
+    }
+    var noteTarget by remember { mutableStateOf<SectionEntity?>(null) }
+
+    DisposableEffect(audioPlayerHelper, section?.id) {
+        onDispose {
+            audioPlayerHelper.stop()
+            audioActive = false
+        }
+    }
 
     val lines = remember(section) {
         section?.content
@@ -338,16 +357,53 @@ fun RehearsalScreen(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextButton(
                     onClick = { showStartPicker = true },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 1.dp)
+                    contentPadding = PaddingValues(horizontal = 5.dp, vertical = 1.dp)
                 ) {
                     Text(
                         if (selectedStartLine == 1) "انتخاب محل شروع" else "تغییر محل شروع",
-                        fontSize = 11.sp
+                        fontSize = 10.sp
                     )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (canPlayAudio) {
+                        TextButton(
+                            onClick = {
+                                val audioUrl = section.audioUrl?.takeIf { it.isNotBlank() } ?: return@TextButton
+                                if (audioActive) {
+                                    audioPlayerHelper.stop()
+                                    audioActive = false
+                                } else {
+                                    audioActive = true
+                                    audioPlayerHelper.play(audioUrl)
+                                }
+                            },
+                            enabled = !section.audioUrl.isNullOrBlank(),
+                            contentPadding = PaddingValues(horizontal = 5.dp, vertical = 1.dp)
+                        ) {
+                            Icon(
+                                if (audioActive) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(Modifier.width(2.dp))
+                            Text(if (section.audioUrl.isNullOrBlank()) "بدون صوت" else if (audioActive) "توقف صوت" else "پخش صوت", fontSize = 10.sp)
+                        }
+                    }
+                    if (canAddPracticeNote) {
+                        TextButton(
+                            onClick = { noteTarget = section },
+                            contentPadding = PaddingValues(horizontal = 5.dp, vertical = 1.dp)
+                        ) {
+                            Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(2.dp))
+                            Text("یادداشت", fontSize = 10.sp)
+                        }
+                    }
                 }
             }
 
@@ -791,6 +847,18 @@ fun RehearsalScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showStartPicker = false }) { Text("بستن") }
+            }
+        )
+    }
+
+    noteTarget?.let { target ->
+        RehearsalNoteDialog(
+            roleTitle = roleTitle,
+            sectionTitle = target.title,
+            onDismiss = { noteTarget = null },
+            onSave = { title, content ->
+                onAddPracticeNote(target, title, content)
+                noteTarget = null
             }
         )
     }

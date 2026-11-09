@@ -41,6 +41,7 @@ fun RehearsalSetupScreen(
     selectedTaziehId: Long?,
     roles: List<RehearsalRoleOption>,
     rolesLoading: Boolean,
+    isMultiRoleMode: Boolean,
     onFieldSelected: (Long) -> Unit,
     onTaziehSelected: (Long?) -> Unit,
     onBack: () -> Unit,
@@ -80,6 +81,15 @@ fun RehearsalSetupScreen(
 
     fun toggleSection(roleId: Long, sectionId: Long, checked: Boolean) {
         if (checked) {
+            if (!isMultiRoleMode) {
+                val alreadySelectedRoleIds = selectedSectionIds.mapNotNull { selectedId ->
+                    roles.firstOrNull { option -> option.sections.any { it.id == selectedId } }?.role?.id
+                }.distinct()
+                if (alreadySelectedRoleIds.any { it != roleId }) {
+                    selectedSectionIds.clear()
+                }
+                primaryRoleId = roleId
+            }
             if (sectionId !in selectedSectionIds) selectedSectionIds.add(sectionId)
             if (primaryRoleId == null || primaryRoleId !in selectedRoleIdsInOrder) {
                 primaryRoleId = roleId
@@ -102,7 +112,7 @@ fun RehearsalSetupScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("مرور و حفظ متن", fontWeight = FontWeight.Bold) },
+                title = { Text(if (isMultiRoleMode) "تنظیم تمرین چندنقشی" else "تنظیم تمرین انفرادی", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "بازگشت")
@@ -121,8 +131,9 @@ fun RehearsalSetupScreen(
                     Text(
                         when {
                             selectedCount == 0 -> "هنوز بخشی انتخاب نشده است"
-                            selectedRoleCount > 1 -> "$selectedCount بخش از $selectedRoleCount نقش · تمرین چندنقشی"
-                            else -> "$selectedCount بخش انتخاب شده · تمرین انفرادی"
+                            isMultiRoleMode && selectedRoleCount < 2 -> "برای تمرین چندنقشی، حداقل دو نقش انتخاب کنید."
+                            isMultiRoleMode -> "$selectedCount بخش از $selectedRoleCount نقش انتخاب شده است."
+                            else -> "$selectedCount بخش از یک نقش برای تمرین انفرادی انتخاب شده است."
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -142,13 +153,14 @@ fun RehearsalSetupScreen(
                                 primaryId,
                                 primaryTitle,
                                 selectedSectionIds.toList(),
-                                selectedRoleCount > 1
+                                isMultiRoleMode
                             )
                         },
-                        enabled = selectedTazieh != null && selectedCount > 0 && selectedRoleCount > 0,
+                        enabled = selectedTazieh != null && selectedCount > 0 &&
+                            (if (isMultiRoleMode) selectedRoleCount >= 2 else selectedRoleCount == 1),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(if (selectedRoleCount > 1) "شروع تمرین چندنقشی" else "شروع تمرین انفرادی")
+                        Text(if (isMultiRoleMode) "شروع تمرین چندنقشی" else "شروع تمرین انفرادی")
                     }
                 }
             }
@@ -202,7 +214,10 @@ fun RehearsalSetupScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text("۳. انتخاب نقش و بخش", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(
-                            "برای تمرین انفرادی یک نقش و برای تمرین چندنقشی دو یا چند نقش را انتخاب کنید. اولین نقش انتخاب‌شده، نقش اصلی است.",
+                            if (isMultiRoleMode)
+                                "دو یا چند نقش را انتخاب کنید. اولین نقش انتخاب‌شده به‌صورت پیش‌فرض نقش اصلی است؛ در صورت نیاز می‌توانید آن را تغییر دهید."
+                            else
+                                "در این حالت فقط یک نقش انتخاب می‌شود؛ می‌توانید چند بخش از همان نقش را برای تمرین انتخاب کنید.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -253,7 +268,7 @@ fun RehearsalSetupScreen(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
-                                    if (roleIsSelected) {
+                                    if (roleIsSelected && isMultiRoleMode) {
                                         if (isPrimary) {
                                             AssistChip(onClick = {}, label = { Text("نقش اصلی") }, enabled = false)
                                         } else {

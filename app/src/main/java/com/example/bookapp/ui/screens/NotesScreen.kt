@@ -15,6 +15,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.bookapp.data.NoteEntity
 
+data class NoteLinkInfo(
+    val label: String,
+    val sectionId: Long,
+    val roleId: Long,
+    val roleTitle: String
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotesScreen(
@@ -25,7 +32,9 @@ fun NotesScreen(
     onBack: () -> Unit,
     canAdd: Boolean = true,
     canEdit: Boolean = true,
-    canDelete: Boolean = true
+    canDelete: Boolean = true,
+    linkedNoteInfo: Map<Long, NoteLinkInfo> = emptyMap(),
+    onOpenLinkedNote: (NoteEntity) -> Unit = {}
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var editingNote by remember { mutableStateOf<NoteEntity?>(null) }
@@ -75,6 +84,19 @@ fun NotesScreen(
                                     style = MaterialTheme.typography.bodyMedium,
                                     maxLines = 3
                                 )
+                                linkedNoteInfo[note.id]?.let { link ->
+                                    Spacer(Modifier.height(5.dp))
+                                    Text(
+                                        "مرتبط با تمرین: ${link.label}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 2
+                                    )
+                                    TextButton(
+                                        onClick = { onOpenLinkedNote(note) },
+                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
+                                    ) { Text("رفتن به محل تمرین", style = MaterialTheme.typography.labelMedium) }
+                                }
                             }
                             if (canDelete) IconButton(onClick = { onDeleteNote(note.id) }) {
                                 Icon(Icons.Filled.Delete, contentDescription = "حذف")

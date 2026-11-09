@@ -82,7 +82,8 @@ private const val ROUTE_BOOKMARKS = "bookmarks"
 private const val ROUTE_NOTES = "notes"
 private const val ROUTE_MY_ROLE = "my_role"
 private const val ROUTE_ALL_IMAGES = "all_images"
-private const val ROUTE_REHEARSAL_SETUP = "rehearsal_setup"
+private const val ROUTE_REHEARSAL_HOME = "rehearsal_home"
+private const val ROUTE_REHEARSAL_SETUP = "rehearsal_setup/{mode}"
 private const val ROUTE_REHEARSAL = "rehearsal/{roleId}/{roleTitle}"
 private const val ROUTE_REHEARSAL_MULTI = "rehearsal_multi/{taziehId}/{ownRoleId}/{ownRoleTitle}"
 private const val ROUTE_ABOUT = "about"
@@ -337,7 +338,7 @@ fun AppNavigation(
                 onOpenTaziehList = { navController.navigate(ROUTE_FIELDS) },
                 onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
                 onOpenMyRole = { navigateIfAllowed("myRole", ROUTE_MY_ROLE) },
-                onOpenRehearsal = { navigateIfAllowed("training.rehearse", ROUTE_REHEARSAL_SETUP) },
+                onOpenRehearsal = { navigateIfAllowed("training.rehearse", ROUTE_REHEARSAL_HOME) },
                 onOpenGlossary = { navigateIfAllowed("dictionary.view", ROUTE_GLOSSARY) },
                 onOpenGallery = { navigateIfAllowed("gallery.view", ROUTE_ALL_IMAGES) },
                 onOpenCompareGuide = { navController.navigate(ROUTE_FIELDS) },
@@ -530,9 +531,32 @@ fun AppNavigation(
 
         if (featureEnabled("notes.view")) composable(ROUTE_NOTES) {
             var notes by remember { mutableStateOf(listOf<NoteEntity>()) }
+            var linkedNoteInfo by remember { mutableStateOf(emptyMap<Long, NoteLinkInfo>()) }
             val scope = androidx.compose.runtime.rememberCoroutineScope()
-            suspend fun reload() { notes = db.noteDao().getAll() }
-            LaunchedEffect(Unit) { reload() }
+            val visibleEntry by navController.currentBackStackEntryAsState()
+
+            suspend fun reload() {
+                val loadedNotes = db.noteDao().getAll()
+                notes = loadedNotes
+                val links = mutableMapOf<Long, NoteLinkInfo>()
+                loadedNotes.forEach { note ->
+                    val sectionUid = note.sectionUid?.takeIf { it.isNotBlank() } ?: return@forEach
+                    val section = db.sectionDao().getByUid(sectionUid) ?: return@forEach
+                    val role = try { db.roleDao().getById(section.roleId) } catch (_: Exception) { null } ?: return@forEach
+                    val tazieh = db.taziehDao().getById(role.taziehId)
+                    val label = listOfNotNull(tazieh?.title, role.title, section.title).joinToString(" ← ")
+                    links[note.id] = NoteLinkInfo(
+                        label = label,
+                        sectionId = section.id,
+                        roleId = role.id,
+                        roleTitle = role.title
+                    )
+                }
+                linkedNoteInfo = links
+            }
+            LaunchedEffect(visibleEntry?.destination?.route) {
+                if (visibleEntry?.destination?.route == ROUTE_NOTES) reload()
+            }
 
             NotesScreen(
                 notes = notes,
@@ -558,7 +582,17 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
                 canAdd = featureEnabled("notes.add"),
                 canEdit = featureEnabled("notes.edit"),
-                canDelete = featureEnabled("notes.delete")
+                canDelete = featureEnabled("notes.delete"),
+                linkedNoteInfo = if (featureEnabled("training.rehearse")) linkedNoteInfo else emptyMap(),
+                onOpenLinkedNote = { note ->
+                    linkedNoteInfo[note.id]?.let { link ->
+                        navController.currentBackStackEntry?.savedStateHandle?.set(
+                            "rehearsal_selected_section_ids",
+                            longArrayOf(link.sectionId)
+                        )
+                        navController.navigate("rehearsal/${link.roleId}/${android.net.Uri.encode(link.roleTitle)}")
+                    }
+                }
             )
         }
 
@@ -621,7 +655,16 @@ fun AppNavigation(
             )
         }
 
-        if (featureEnabled("training.rehearse")) composable(ROUTE_REHEARSAL_SETUP) {
+        if (featureEnabled("training.rehearse")) composable(ROUTE_REHEARSAL_HOME) {
+            RehearsalModeScreen(
+                onIndividual = { navController.navigate("rehearsal_setup/individual") },
+                onMultiRole = { navController.navigate("rehearsal_setup/multi") },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        if (featureEnabled("training.rehearse")) composable(ROUTE_REHEARSAL_SETUP) { backStackEntry ->
+            val isMultiRoleMode = backStackEntry.arguments?.getString("mode") == "multi"
             var rehearsalFields by remember { mutableStateOf(listOf<FieldEntity>()) }
             var rehearsalTaziehs by remember { mutableStateOf(listOf<RehearsalTaziehOption>()) }
             var selectedRehearsalFieldId by remember { mutableStateOf<Long?>(null) }
@@ -666,6 +709,7 @@ fun AppNavigation(
                 selectedTaziehId = selectedRehearsalTaziehId,
                 roles = rehearsalRoles,
                 rolesLoading = rehearsalRolesLoading,
+                isMultiRoleMode = isMultiRoleMode,
                 onFieldSelected = { fieldId ->
                     selectedRehearsalFieldId = fieldId
                     selectedRehearsalTaziehId = null
@@ -699,10 +743,25 @@ fun AppNavigation(
                 val all = db.sectionDao().getByRole(roleId)
                 sections = if (selectedIds.isNullOrEmpty()) all else all.filter { it.id in selectedIds }
             }
+            val rehearsalScope = androidx.compose.runtime.rememberCoroutineScope()
             RehearsalScreen(
                 roleTitle = roleTitle,
                 sections = sections,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                canPlayAudio = featureEnabled("audio.play"),
+                canAddPracticeNote = featureEnabled("notes.view") && featureEnabled("notes.add"),
+                onAddPracticeNote = { section, title, content ->
+                    rehearsalScope.launch {
+                        try {
+                            db.noteDao().insert(
+                                NoteEntity(title = title, content = content, sectionUid = section.uid)
+                            )
+                            android.widget.Toast.makeText(context, "یادداشت در دفتر یادداشت ذخیره شد.", android.widget.Toast.LENGTH_SHORT).show()
+                        } catch (_: Exception) {
+                            android.widget.Toast.makeText(context, "ذخیره یادداشت انجام نشد.", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
             )
         }
 
@@ -789,12 +848,27 @@ fun AppNavigation(
                 }
 
             }
+            val rehearsalScope = androidx.compose.runtime.rememberCoroutineScope()
             MultiRoleRehearsalScreen(
                 taziehTitle = taziehTitle,
                 ownRoleId = ownRoleId,
                 ownRoleTitle = ownRoleTitle,
                 turns = turns,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                canPlayAudio = featureEnabled("audio.play"),
+                canAddPracticeNote = featureEnabled("notes.view") && featureEnabled("notes.add"),
+                onAddPracticeNote = { section, title, content ->
+                    rehearsalScope.launch {
+                        try {
+                            db.noteDao().insert(
+                                NoteEntity(title = title, content = content, sectionUid = section.uid)
+                            )
+                            android.widget.Toast.makeText(context, "یادداشت در دفتر یادداشت ذخیره شد.", android.widget.Toast.LENGTH_SHORT).show()
+                        } catch (_: Exception) {
+                            android.widget.Toast.makeText(context, "ذخیره یادداشت انجام نشد.", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
             )
         }
 
