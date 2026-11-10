@@ -1,3 +1,4 @@
+
 package com.example.bookapp.data
 
 import androidx.room.ColumnInfo
@@ -75,14 +76,21 @@ data class FootnoteEntity(
 @Entity(
     tableName = "dialogues",
     foreignKeys = [ForeignKey(entity = TaziehEntity::class, parentColumns = ["id"], childColumns = ["taziehId"], onDelete = ForeignKey.CASCADE)],
-    indices = [Index("taziehId"), Index(value = ["uid"], unique = true), Index("versionUid")]
+    indices = [
+        Index("taziehId"),
+        Index(value = ["uid"], unique = true),
+        Index("versionUid"),
+        Index("ownerInstallationId")
+    ]
 )
 data class DialogueEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val taziehId: Long,
     val title: String,
     @ColumnInfo(defaultValue = "''") val uid: String = ContentUid.new(),
-    @ColumnInfo(defaultValue = "''") val versionUid: String = ""
+    @ColumnInfo(defaultValue = "''") val versionUid: String = "",
+    /** Empty for legacy/Admin dialogues; set to the local installation ID for Viewer-owned dialogues. */
+    @ColumnInfo(defaultValue = "''") val ownerInstallationId: String = ""
 )
 
 @Entity(
