@@ -395,80 +395,21 @@ fun TaziehCatalogScreen(
                     focusedBorderColor = Color(0xFF789A7D)
                 )
             )
+// نمایش زمینه انتخاب‌شده در یک خط
 
-            // فیلتر زمینه‌ها
-
-            if (fields.isNotEmpty()) {
-
-                Text(
-                    "زمینه‌ها",
-                    modifier = Modifier.padding(
-                        start = 17.dp,
-                        end = 17.dp,
-                        top = 4.dp,
-                        bottom = 2.dp
-                    ),
-                    color = ink,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.labelMedium
-                )
-
-                LazyRow(
-                    contentPadding = PaddingValues(
-                        horizontal = 14.dp
-                    ),
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)
-                ) {
-                    item(key = "all_fields") {
-                        FilterChip(
-                            selected = selectedField == null,
-                            onClick = {
-                                selectedField = null
-                            },
-                            modifier = Modifier.height(36.dp),
-                            label = {
-                                Text(
-                                    "همه",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = green,
-                                selectedLabelColor = greenDark
-                            )
-                        )
-                    }
-
-                    items(
-                        fields,
-                        key = { it.fieldId }
-                    ) { field ->
-
-                        FilterChip(
-                            selected = selectedField == field.fieldId,
-                            onClick = {
-                                selectedField =
-                                    if (selectedField == field.fieldId) {
-                                        null
-                                    } else {
-                                        field.fieldId
-                                    }
-                            },
-                            modifier = Modifier.height(36.dp),
-                            label = {
-                                Text(
-                                    field.fieldTitle,
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = green,
-                                selectedLabelColor = greenDark
-                            )
-                        )
-                    }
-                }
-            }
+if (selectedField != null) {
+    Text(
+        text = "زمینه: ${selectedFieldTitle ?: ""}",
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 5.dp),
+        color = ink,
+        fontWeight = FontWeight.Bold,
+        style = MaterialTheme.typography.labelLarge,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
+}
 
             // وضعیت فیلترها و مرتب‌سازی
 
