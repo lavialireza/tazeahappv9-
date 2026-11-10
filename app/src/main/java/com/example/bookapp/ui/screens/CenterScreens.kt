@@ -84,7 +84,7 @@ val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardContr
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EEE7)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5C3)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
@@ -92,16 +92,16 @@ val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardContr
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Surface(shape = RoundedCornerShape(16.dp), color = Color(0xFFD5E4D3)) {
+                        Surface(shape = RoundedCornerShape(16.dp), color = Color(0xFFE9D6A8)) {
                             Icon(
                                 Icons.AutoMirrored.Filled.MenuBook,
                                 contentDescription = null,
                                 modifier = Modifier.padding(12.dp).size(30.dp),
-                                tint = Color(0xFF28543D)
+                                tint = Color(0xFF624515)
                             )
                         }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text("گنجینهٔ تعزیه", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = ink)
+                            Text("کتابخانه تعزیه", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = ink)
                             Text("مطالعه، شناخت و بررسی میراث مکتوب تعزیه", style = MaterialTheme.typography.bodySmall, color = muted)
                         }
                     }
@@ -114,7 +114,7 @@ val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardContr
                         onClick = onOpenTaziehList,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
                         shape = RoundedCornerShape(15.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF315B45), contentColor = Color.White)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF624515), contentColor = Color.White)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null)
                         Spacer(Modifier.width(9.dp))
@@ -167,27 +167,6 @@ val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardContr
         }
     }
 }   
-            if (randomVerse != null) {
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable { onItemClick(randomVerse) },
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = gold)
-                ) {
-                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Surface(shape = RoundedCornerShape(13.dp), color = Color(0xFFE9DDBE)) {
-                            Icon(Icons.Filled.AutoStories, contentDescription = null, modifier = Modifier.padding(10.dp).size(25.dp), tint = Color(0xFF735A2A))
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("برگی از گنجینه", style = MaterialTheme.typography.labelLarge, color = Color(0xFF735A2A), fontWeight = FontWeight.Bold)
-                            Text(randomVerse.sectionTitle, style = MaterialTheme.typography.titleSmall, color = ink, fontWeight = FontWeight.Bold)
-                            Text("${randomVerse.taziehTitle}  ←  ${randomVerse.roleTitle}", style = MaterialTheme.typography.bodySmall, color = muted)
-                        }
-                        Icon(Icons.Filled.ChevronLeft, contentDescription = null, tint = ink)
-                    }
-                }
-            }
-
             Text("ابزارهای کتابخانه", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = ink)
 
             if (showMyRole || showRehearsal) {
@@ -256,6 +235,27 @@ val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardContr
                     }
                 }
             }
+            if (randomVerse != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { onItemClick(randomVerse) },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = gold)
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Surface(shape = RoundedCornerShape(13.dp), color = Color(0xFFE9DDBE)) {
+                            Icon(Icons.Filled.AutoStories, contentDescription = null, modifier = Modifier.padding(10.dp).size(25.dp), tint = Color(0xFF735A2A))
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("برگی از گنجینه", style = MaterialTheme.typography.labelLarge, color = Color(0xFF735A2A), fontWeight = FontWeight.Bold)
+                            Text(randomVerse.sectionTitle, style = MaterialTheme.typography.titleSmall, color = ink, fontWeight = FontWeight.Bold)
+                            Text("${randomVerse.taziehTitle}  ←  ${randomVerse.roleTitle}", style = MaterialTheme.typography.bodySmall, color = muted)
+                        }
+                        Icon(Icons.Filled.ChevronLeft, contentDescription = null, tint = ink)
+                    }
+                }
+            }
+
             Spacer(Modifier.height(8.dp))
         }
     }
