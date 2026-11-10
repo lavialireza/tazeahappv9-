@@ -76,44 +76,35 @@ fun TaziehCatalogScreen(
     val greenDark = Color(0xFF315B45)
 
     val cardPalettes = listOf(
-        // کرم گرم
         TaziehCardPalette(
-            background = Color(0xFFFFF3E5),
-            iconBackground = Color(0xFFF1DFC5),
-            accent = Color(0xFF79552F),
-            badgeBackground = Color(0xFFF2E3CD)
+            Color(0xFFFFF3E5),
+            Color(0xFFF1DFC5),
+            Color(0xFF79552F),
+            Color(0xFFF2E3CD)
         ),
-
-        // یاسی ملایم
         TaziehCardPalette(
-            background = Color(0xFFF1EAF5),
-            iconBackground = Color(0xFFE2D7EC),
-            accent = Color(0xFF654A78),
-            badgeBackground = Color(0xFFE7DEEF)
+            Color(0xFFF1EAF5),
+            Color(0xFFE2D7EC),
+            Color(0xFF654A78),
+            Color(0xFFE7DEEF)
         ),
-
-        // صورتی چرک
         TaziehCardPalette(
-            background = Color(0xFFF7E9E8),
-            iconBackground = Color(0xFFEED7D6),
-            accent = Color(0xFF824D55),
-            badgeBackground = Color(0xFFF0DEDD)
+            Color(0xFFF7E9E8),
+            Color(0xFFEED7D6),
+            Color(0xFF824D55),
+            Color(0xFFF0DEDD)
         ),
-
-        // خاکستری گرم
         TaziehCardPalette(
-            background = Color(0xFFEEECE6),
-            iconBackground = Color(0xFFDFDED5),
-            accent = Color(0xFF53584F),
-            badgeBackground = Color(0xFFE2E1D9)
+            Color(0xFFEEECE6),
+            Color(0xFFDFDED5),
+            Color(0xFF53584F),
+            Color(0xFFE2E1D9)
         ),
-
-        // هلویی روشن
         TaziehCardPalette(
-            background = Color(0xFFF8EBDD),
-            iconBackground = Color(0xFFF0DCC7),
-            accent = Color(0xFF80583C),
-            badgeBackground = Color(0xFFF1E1CF)
+            Color(0xFFF8EBDD),
+            Color(0xFFF0DCC7),
+            Color(0xFF80583C),
+            Color(0xFFF1E1CF)
         )
     )
 
@@ -223,9 +214,7 @@ fun TaziehCatalogScreen(
                         }
                     ) {
                         DropdownMenuItem(
-                            text = {
-                                Text("همه تعزیه‌ها")
-                            },
+                            text = { Text("همه تعزیه‌ها") },
                             leadingIcon = {
                                 if (selectedField == null && !audioOnly) {
                                     Icon(
@@ -324,7 +313,7 @@ fun TaziehCatalogScreen(
                     .fillMaxWidth()
                     .padding(
                         horizontal = 18.dp,
-                        vertical = 9.dp
+                        vertical = 4.dp
                     ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -344,17 +333,17 @@ fun TaziehCatalogScreen(
                     Text(
                         "${filtered.size} تعزیه",
                         modifier = Modifier.padding(
-                            horizontal = 12.dp,
-                            vertical = 6.dp
+                            horizontal = 10.dp,
+                            vertical = 4.dp
                         ),
                         color = Color(0xFF735A2A),
                         fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.labelMedium
+                        style = MaterialTheme.typography.labelSmall
                     )
                 }
             }
 
-            // جستجو با امکان پاک‌کردن سریع
+            // جستجو
 
             OutlinedTextField(
                 value = query,
@@ -363,14 +352,16 @@ fun TaziehCatalogScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 5.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp)
+                    .height(54.dp),
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 leadingIcon = {
                     Icon(
                         Icons.Filled.Search,
                         contentDescription = null,
-                        tint = ink
+                        tint = ink,
+                        modifier = Modifier.size(20.dp)
                     )
                 },
                 trailingIcon = {
@@ -378,19 +369,25 @@ fun TaziehCatalogScreen(
                         IconButton(
                             onClick = {
                                 query = ""
-                            }
+                            },
+                            modifier = Modifier.size(38.dp)
                         ) {
                             Icon(
                                 Icons.Filled.Close,
                                 contentDescription = "پاک‌کردن جستجو",
-                                tint = muted
+                                tint = muted,
+                                modifier = Modifier.size(19.dp)
                             )
                         }
                     }
                 },
                 placeholder = {
-                    Text("جستجوی نام تعزیه، نویسنده یا زمینه")
+                    Text(
+                        "جستجوی نام تعزیه، نویسنده یا زمینه",
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 },
+                textStyle = MaterialTheme.typography.bodyMedium,
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedContainerColor = Color.White,
                     focusedContainerColor = Color.White,
@@ -408,19 +405,19 @@ fun TaziehCatalogScreen(
                     modifier = Modifier.padding(
                         start = 17.dp,
                         end = 17.dp,
-                        top = 9.dp,
-                        bottom = 6.dp
+                        top = 4.dp,
+                        bottom = 2.dp
                     ),
                     color = ink,
                     fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.labelLarge
+                    style = MaterialTheme.typography.labelMedium
                 )
 
                 LazyRow(
                     contentPadding = PaddingValues(
                         horizontal = 14.dp
                     ),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
                     item(key = "all_fields") {
                         FilterChip(
@@ -428,8 +425,12 @@ fun TaziehCatalogScreen(
                             onClick = {
                                 selectedField = null
                             },
+                            modifier = Modifier.height(36.dp),
                             label = {
-                                Text("همه")
+                                Text(
+                                    "همه",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
                             },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = green,
@@ -453,8 +454,12 @@ fun TaziehCatalogScreen(
                                         field.fieldId
                                     }
                             },
+                            modifier = Modifier.height(36.dp),
                             label = {
-                                Text(field.fieldTitle)
+                                Text(
+                                    field.fieldTitle,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
                             },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = green,
@@ -465,14 +470,14 @@ fun TaziehCatalogScreen(
                 }
             }
 
-            // نمایش وضعیت فیلترها و مرتب‌سازی فعال
+            // وضعیت فیلترها و مرتب‌سازی
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
                         horizontal = 16.dp,
-                        vertical = 7.dp
+                        vertical = 3.dp
                     )
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -485,16 +490,18 @@ fun TaziehCatalogScreen(
                         onClick = {
                             selectedField = null
                         },
+                        modifier = Modifier.height(34.dp),
                         label = {
                             Text(
-                                "زمینه: ${selectedFieldTitle ?: "انتخاب‌شده"}"
+                                "زمینه: ${selectedFieldTitle ?: "انتخاب‌شده"}",
+                                style = MaterialTheme.typography.labelSmall
                             )
                         },
                         trailingIcon = {
                             Icon(
                                 Icons.Filled.Close,
                                 contentDescription = "حذف فیلتر زمینه",
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
                         },
                         colors = FilterChipDefaults.filterChipColors(
@@ -510,14 +517,18 @@ fun TaziehCatalogScreen(
                         onClick = {
                             audioOnly = false
                         },
+                        modifier = Modifier.height(34.dp),
                         label = {
-                            Text("فقط دارای صوت")
+                            Text(
+                                "فقط دارای صوت",
+                                style = MaterialTheme.typography.labelSmall
+                            )
                         },
                         trailingIcon = {
                             Icon(
                                 Icons.Filled.Close,
                                 contentDescription = "حذف فیلتر صوت",
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
                         },
                         colors = FilterChipDefaults.filterChipColors(
@@ -538,8 +549,8 @@ fun TaziehCatalogScreen(
                             "مرتب‌سازی: تعداد نقش"
                         },
                         modifier = Modifier.padding(
-                            horizontal = 11.dp,
-                            vertical = 8.dp
+                            horizontal = 9.dp,
+                            vertical = 5.dp
                         ),
                         color = ink,
                         fontWeight = FontWeight.Medium,
@@ -548,7 +559,7 @@ fun TaziehCatalogScreen(
                 }
             }
 
-            Spacer(Modifier.height(3.dp))
+            Spacer(Modifier.height(2.dp))
 
             // فهرست مجالس
 
@@ -589,10 +600,10 @@ fun TaziehCatalogScreen(
                     contentPadding = PaddingValues(
                         start = 15.dp,
                         end = 15.dp,
-                        top = 7.dp,
-                        bottom = 22.dp
+                        top = 4.dp,
+                        bottom = 16.dp
                     ),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
 
                     itemsIndexed(
@@ -608,7 +619,7 @@ fun TaziehCatalogScreen(
                                 onOpen(item)
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(19.dp),
+                            shape = RoundedCornerShape(17.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = palette.background
                             ),
@@ -618,11 +629,11 @@ fun TaziehCatalogScreen(
                         ) {
 
                             Column(
-                                modifier = Modifier.padding(15.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                                modifier = Modifier.padding(11.dp),
+                                verticalArrangement = Arrangement.spacedBy(7.dp)
                             ) {
 
-                                // عنوان و اطلاعات اصلی مجلس
+                                // عنوان مجلس
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -630,30 +641,30 @@ fun TaziehCatalogScreen(
                                 ) {
 
                                     Surface(
-                                        shape = RoundedCornerShape(12.dp),
+                                        shape = RoundedCornerShape(11.dp),
                                         color = palette.iconBackground
                                     ) {
                                         Icon(
                                             Icons.Filled.MenuBook,
                                             contentDescription = null,
                                             modifier = Modifier
-                                                .padding(10.dp)
-                                                .size(24.dp),
+                                                .padding(8.dp)
+                                                .size(21.dp),
                                             tint = palette.accent
                                         )
                                     }
 
-                                    Spacer(Modifier.width(11.dp))
+                                    Spacer(Modifier.width(9.dp))
 
                                     Column(
                                         modifier = Modifier.weight(1f),
-                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        verticalArrangement = Arrangement.spacedBy(3.dp)
                                     ) {
                                         Text(
                                             text = item.title,
                                             color = palette.accent,
                                             fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.titleMedium,
+                                            style = MaterialTheme.typography.titleSmall,
                                             maxLines = 2,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -661,7 +672,7 @@ fun TaziehCatalogScreen(
                                         Text(
                                             text = item.fieldTitle,
                                             color = palette.accent.copy(alpha = 0.85f),
-                                            style = MaterialTheme.typography.bodySmall,
+                                            style = MaterialTheme.typography.labelSmall,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -670,7 +681,8 @@ fun TaziehCatalogScreen(
                                     Icon(
                                         Icons.Filled.ChevronLeft,
                                         contentDescription = "مشاهده تعزیه",
-                                        tint = palette.accent
+                                        tint = palette.accent,
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
 
@@ -680,13 +692,13 @@ fun TaziehCatalogScreen(
                                     Text(
                                         text = "نویسنده: ${item.author}",
                                         color = muted,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        maxLines = 2,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                 }
 
-                                // نشانگرهای اطلاعاتی
+                                // اطلاعات مجلس
 
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -694,24 +706,24 @@ fun TaziehCatalogScreen(
                                 ) {
 
                                     Surface(
-                                        shape = RoundedCornerShape(10.dp),
+                                        shape = RoundedCornerShape(9.dp),
                                         color = palette.badgeBackground
                                     ) {
                                         Row(
                                             modifier = Modifier.padding(
-                                                horizontal = 9.dp,
-                                                vertical = 6.dp
+                                                horizontal = 7.dp,
+                                                vertical = 4.dp
                                             ),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Icon(
                                                 Icons.Filled.Groups,
                                                 contentDescription = null,
-                                                modifier = Modifier.size(15.dp),
+                                                modifier = Modifier.size(13.dp),
                                                 tint = palette.accent
                                             )
 
-                                            Spacer(Modifier.width(5.dp))
+                                            Spacer(Modifier.width(4.dp))
 
                                             Text(
                                                 "${item.roleCount} نقش",
@@ -724,14 +736,14 @@ fun TaziehCatalogScreen(
 
                                     if (item.hasAudio) {
                                         Surface(
-                                            shape = RoundedCornerShape(10.dp),
+                                            shape = RoundedCornerShape(9.dp),
                                             color = palette.iconBackground
                                         ) {
                                             Text(
                                                 "دارای صوت",
                                                 modifier = Modifier.padding(
-                                                    horizontal = 9.dp,
-                                                    vertical = 6.dp
+                                                    horizontal = 7.dp,
+                                                    vertical = 4.dp
                                                 ),
                                                 color = palette.accent,
                                                 style = MaterialTheme.typography.labelSmall,
@@ -745,39 +757,41 @@ fun TaziehCatalogScreen(
                                     color = palette.accent.copy(alpha = 0.15f)
                                 )
 
-                                // ورود مشخص به نقش‌های مجلس
+                                // ورود به نقش‌های مجلس
 
                                 Button(
                                     onClick = {
                                         onOpen(item)
                                     },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(38.dp),
+                                    shape = RoundedCornerShape(11.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = palette.accent,
                                         contentColor = Color.White
                                     ),
                                     contentPadding = PaddingValues(
-                                        horizontal = 12.dp,
-                                        vertical = 9.dp
+                                        horizontal = 10.dp,
+                                        vertical = 4.dp
                                     )
                                 ) {
                                     Text(
                                         "مشاهده نقش‌های مجلس",
                                         fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.labelLarge
+                                        style = MaterialTheme.typography.labelMedium
                                     )
 
-                                    Spacer(Modifier.width(6.dp))
+                                    Spacer(Modifier.width(5.dp))
 
                                     Icon(
                                         Icons.Filled.ChevronLeft,
                                         contentDescription = null,
-                                        modifier = Modifier.size(19.dp)
+                                        modifier = Modifier.size(17.dp)
                                     )
                                 }
 
-                                // ابزارهای مستقل مجلس
+                                // گفت‌وگوها و گالری تصاویر
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -789,28 +803,30 @@ fun TaziehCatalogScreen(
                                         onClick = {
                                             onOpenDialogues(item)
                                         },
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(36.dp),
+                                        shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.filledTonalButtonColors(
                                             containerColor = palette.badgeBackground,
                                             contentColor = palette.accent
                                         ),
                                         contentPadding = PaddingValues(
-                                            horizontal = 5.dp,
-                                            vertical = 8.dp
+                                            horizontal = 4.dp,
+                                            vertical = 3.dp
                                         )
                                     ) {
                                         Icon(
                                             Icons.Filled.Groups,
                                             contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier.size(16.dp)
                                         )
 
-                                        Spacer(Modifier.width(5.dp))
+                                        Spacer(Modifier.width(4.dp))
 
                                         Text(
                                             "گفت‌وگوها",
-                                            style = MaterialTheme.typography.labelMedium,
+                                            style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
@@ -820,8 +836,10 @@ fun TaziehCatalogScreen(
                                             onClick = {
                                                 onOpenGallery(item)
                                             },
-                                            modifier = Modifier.weight(1f),
-                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(36.dp),
+                                            shape = RoundedCornerShape(10.dp),
                                             border = BorderStroke(
                                                 1.dp,
                                                 palette.accent.copy(alpha = 0.45f)
@@ -830,21 +848,21 @@ fun TaziehCatalogScreen(
                                                 contentColor = palette.accent
                                             ),
                                             contentPadding = PaddingValues(
-                                                horizontal = 5.dp,
-                                                vertical = 8.dp
+                                                horizontal = 4.dp,
+                                                vertical = 3.dp
                                             )
                                         ) {
                                             Icon(
                                                 Icons.Filled.PhotoLibrary,
                                                 contentDescription = null,
-                                                modifier = Modifier.size(18.dp)
+                                                modifier = Modifier.size(16.dp)
                                             )
 
-                                            Spacer(Modifier.width(5.dp))
+                                            Spacer(Modifier.width(4.dp))
 
                                             Text(
                                                 "گالری تصاویر",
-                                                style = MaterialTheme.typography.labelMedium,
+                                                style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
