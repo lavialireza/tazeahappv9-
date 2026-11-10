@@ -38,7 +38,7 @@ fun FieldsScreen(
     val ink = Color(0xFF263B5B)
     val muted = Color(0xFF647184)
     // رنگ کارت معرفی با کارت اصلی کتابخانه در صفحه قبل هماهنگ است.
-    val headerColor = Color(0xFFE8EEE7)
+     val headerColor = Color(0xFFF3E5C3)
     val softGreen = Color(0xFFE8F2E9)
     val softBlue = Color(0xFFE8EDF8)
     val gold = Color(0xFFF4EBD7)
