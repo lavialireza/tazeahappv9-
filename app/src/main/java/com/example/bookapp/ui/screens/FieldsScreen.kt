@@ -37,7 +37,10 @@ fun FieldsScreen(
 
     val ink = Color(0xFF263B5B)
     val muted = Color(0xFF647184)
-    val green = Color(0xFFE8F2E9)
+    // رنگ کارت معرفی با کارت اصلی کتابخانه در صفحه قبل هماهنگ است.
+    val headerColor = Color(0xFFE8EEE7)
+    val softGreen = Color(0xFFE8F2E9)
+    val softBlue = Color(0xFFE8EDF8)
     val gold = Color(0xFFF4EBD7)
     val paper = Color(0xFFF7F8F5)
 
@@ -89,7 +92,7 @@ fun FieldsScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(22.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = green
+                    containerColor = headerColor
                 ),
                 elevation = CardDefaults.cardElevation(
                     defaultElevation = 0.dp
@@ -120,7 +123,7 @@ fun FieldsScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            "گنجینه زمینه‌های تعزیه",
+                            "زمینه‌های تعزیه",
                             color = ink,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleMedium
@@ -231,13 +234,15 @@ fun FieldsScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(filtered, key = { it.id }) { field ->
+                        val cardColor = if (filtered.indexOf(field) % 2 == 0) softGreen else softBlue
+                        val iconSurfaceColor = if (filtered.indexOf(field) % 2 == 0) Color(0xFFDCEBDD) else Color(0xFFDCE6F2)
 
                         Card(
                             onClick = { onOpen(field) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(18.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = Color.White
+                                containerColor = cardColor
                             ),
                             elevation = CardDefaults.cardElevation(
                                 defaultElevation = 1.dp
@@ -252,7 +257,7 @@ fun FieldsScreen(
 
                                 Surface(
                                     shape = RoundedCornerShape(13.dp),
-                                    color = green
+                                    color = iconSurfaceColor
                                 ) {
                                     Icon(
                                         Icons.Filled.MenuBook,
