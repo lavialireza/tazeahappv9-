@@ -188,7 +188,7 @@ fun FieldsScreen(
                     Text("جستجوی زمینه تعزیه")
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = green,
+                 unfocusedContainerColor = softGreen,
                     focusedContainerColor = Color.White,
                     unfocusedBorderColor = Color.Transparent,
                     focusedBorderColor = Color(0xFF789A7D)
