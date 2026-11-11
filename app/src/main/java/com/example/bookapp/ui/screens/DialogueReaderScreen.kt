@@ -94,8 +94,14 @@ fun DialogueReaderScreen(
             .map { it.roleId to it.roleTitle }
     }
     val personalTurns = remember(orderedTurns, selectedRole) {
-        orderedTurns.filter { it.roleId == selectedRole }
+    orderedTurns.filter { turn ->
+        turn.roleId == selectedRole ||
+            (
+                turn.expectsResponse &&
+                turn.expectedResponderRoleId == selectedRole
+            )
     }
+}
     // فقط رابطه صریح metadata ملاک است؛ از ترتیب متن پاسخ‌دهنده استنباط نمی‌شود.
     val incomingExpectedTurns = remember(orderedTurns, selectedRole) {
         orderedTurns.filter {
@@ -174,23 +180,7 @@ fun DialogueReaderScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (incomingExpectedTurns.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
-                    ) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("نوبت‌هایی که پاسخ آن‌ها از نقش شما انتظار می‌رود", fontWeight = FontWeight.Bold)
-                            incomingExpectedTurns.forEach { item ->
-                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text("${item.roleTitle} — ${item.sectionTitle}", style = MaterialTheme.typography.titleSmall)
-                                    Text(item.content, style = MaterialTheme.typography.bodyMedium)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+               
 
             HorizontalDivider()
 
@@ -231,8 +221,11 @@ fun DialogueReaderScreen(
                         onActivate = { activeTurnId = turn.turnId },
                         onEditRelation = { relationEditorTurn = turn },
                         onEditCues = { cueEditorTurn = turn },
-                        label = "نوبت شما ${index + 1} — ${turn.sectionTitle}"
-                    )
+label = if (turn.roleId == selectedRole) {
+    "نوبت شما ${index + 1} — ${turn.sectionTitle}"
+} else {
+    "پرسش از شما ${index + 1} — ${turn.roleTitle}"
+}                    )
                 }
             }
 
