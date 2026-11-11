@@ -1,22 +1,31 @@
+
 package com.example.bookapp.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bookapp.data.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class CompareSectionItem(
@@ -24,44 +33,105 @@ data class CompareSectionItem(
     val roleTitle: String
 )
 
-@Composable
-private fun <T> CompareDropdown(
-    label: String,
-    selected: T?,
-    items: List<T>,
-    itemLabel: (T) -> String,
-    onSelect: (T) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
+private data class ConversationRoleText(
+    val roleId: Long,
+    val title: String,
+    val text: String
+)
 
-    Column(Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.labelMedium)
+private data class RoleSearchMatch(
+    val start: Int,
+    val end: Int
+)
 
-        Box {
-            OutlinedButton(
-                onClick = { expanded = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    selected?.let(itemLabel) ?: "انتخاب کنید",
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                items.forEach { item ->
-                    DropdownMenuItem(
-                        text = { Text(itemLabel(item)) },
-                        onClick = {
-                            onSelect(item)
-                            expanded = false
-                        }
-                    )
+private fun normalizeDialogueSearchText(value: String): String {
+    return buildString(value.length) {
+        value.forEach { character ->
+            append(
+                when (character) {
+                    'ي', 'ى' -> 'ی'
+                    'ك' -> 'ک'
+                    'ؤ' -> 'و'
+                    'إ', 'أ', 'ٱ' -> 'ا'
+                    else -> character
                 }
+            )
+        }
+    }.lowercase()
+}
+
+private fun findRoleSearchMatches(
+    text: String,
+    query: String
+): List<RoleSearchMatch> {
+    if (query.isBlank()) return emptyList()
+
+    val normalizedText = normalizeDialogueSearchText(text)
+    val normalizedQuery = normalizeDialogueSearchText(query)
+
+    if (normalizedQuery.isBlank()) return emptyList()
+
+    val results = mutableListOf<RoleSearchMatch>()
+    var startIndex = 0
+
+    while (startIndex <= normalizedText.length - normalizedQuery.length) {
+        val foundIndex = normalizedText.indexOf(
+            normalizedQuery,
+            startIndex
+        )
+
+        if (foundIndex < 0) break
+
+        results.add(
+            RoleSearchMatch(
+                start = foundIndex,
+                end = foundIndex + normalizedQuery.length
+            )
+        )
+
+        startIndex = foundIndex + normalizedQuery.length
+    }
+
+    return results
+}
+
+private fun buildHighlightedText(
+    text: String,
+    matches: List<RoleSearchMatch>,
+    selectedIndex: Int
+): AnnotatedString {
+    return buildAnnotatedString {
+        var currentPosition = 0
+
+        matches.forEachIndexed { index, match ->
+            if (match.start < currentPosition ||
+                match.start >= text.length ||
+                match.end > text.length
+            ) {
+                return@forEachIndexed
             }
+
+            append(text.substring(currentPosition, match.start))
+
+            withStyle(
+                SpanStyle(
+                    background = if (index == selectedIndex) {
+                        androidx.compose.ui.graphics.Color(0xFFFFB74D)
+                    } else {
+                        androidx.compose.ui.graphics.Color(0xFFFFF176)
+                    },
+                    color = androidx.compose.ui.graphics.Color.Black,
+                    fontWeight = FontWeight.Bold
+                )
+            ) {
+                append(text.substring(match.start, match.end))
+            }
+
+            currentPosition = match.end
+        }
+
+        if (currentPosition < text.length) {
+            append(text.substring(currentPosition))
         }
     }
 }
@@ -77,11 +147,11 @@ private fun CompareRoleMultiDropdown(
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 8.dp),
+            .padding(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            "انتخاب نقش‌ها (۲ تا ۴ نقش)",
+            "انتخاب نقش‌ها",
             style = MaterialTheme.typography.titleMedium
         )
 
@@ -91,10 +161,13 @@ private fun CompareRoleMultiDropdown(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = if (selectedRoles.isEmpty()) "انتخاب نقش‌ها"
-                    else selectedRoles.joinToString("، ") { it.title },
+                    text = if (selectedRoles.isEmpty()) {
+                        "انتخاب نقش‌ها"
+                    } else {
+                        selectedRoles.joinToString("، ") { it.title }
+                    },
                     modifier = Modifier.fillMaxWidth(),
-                    maxLines = 2
+                    maxLines = 3
                 )
             }
 
@@ -103,27 +176,270 @@ private fun CompareRoleMultiDropdown(
                 onDismissRequest = { expanded = false }
             ) {
                 roles.forEach { role ->
-                    val checked = selectedRoles.any { it.id == role.id }
+                    val checked = selectedRoles.any {
+                        it.id == role.id
+                    }
+
                     DropdownMenuItem(
                         text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(checked = checked, onCheckedChange = null)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = checked,
+                                    onCheckedChange = null
+                                )
                                 Spacer(Modifier.width(8.dp))
                                 Text(role.title)
                             }
                         },
-                        onClick = { onToggle(role) }
+                        onClick = {
+                            onToggle(role)
+                        }
                     )
                 }
             }
         }
 
         Text(
-            "انتخاب‌شده: ${selectedRoles.size} نقش",
+            "تعداد نقش‌های انتخاب‌شده: ${selectedRoles.size}",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 2.dp)
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        Text(
+            "ترتیب انتخاب نقش‌ها، ترتیب نمایش آن‌ها خواهد بود.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun RoleStudyCard(
+    item: ConversationRoleText,
+    fontSize: Float,
+    cardColor: androidx.compose.ui.graphics.Color,
+    titleColor: androidx.compose.ui.graphics.Color,
+    fullscreen: Boolean,
+    onToggleFullscreen: () -> Unit
+) {
+    var searchQuery by remember(item.roleId) {
+        mutableStateOf("")
+    }
+
+    var selectedMatchIndex by remember(item.roleId) {
+        mutableIntStateOf(0)
+    }
+
+    val matches = remember(item.text, searchQuery) {
+        findRoleSearchMatches(item.text, searchQuery)
+    }
+
+    val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+
+    var textLayoutResult by remember {
+        mutableStateOf<TextLayoutResult?>(null)
+    }
+
+    val highlightedText = remember(
+        item.text,
+        matches,
+        selectedMatchIndex
+    ) {
+        buildHighlightedText(
+            text = item.text,
+            matches = matches,
+            selectedIndex = selectedMatchIndex
+        )
+    }
+
+    LaunchedEffect(
+        selectedMatchIndex,
+        matches,
+        textLayoutResult
+    ) {
+        if (matches.isEmpty()) return@LaunchedEffect
+
+        val selectedMatch = matches.getOrNull(
+            selectedMatchIndex
+        ) ?: return@LaunchedEffect
+
+        val layout = textLayoutResult
+            ?: return@LaunchedEffect
+
+        val line = layout.getLineForOffset(
+            selectedMatch.start.coerceIn(
+                0,
+                item.text.length
+            )
+        )
+
+        val targetPosition = layout
+            .getLineTop(line)
+            .toInt()
+            .coerceAtLeast(0)
+
+        scrollState.animateScrollTo(targetPosition)
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (fullscreen) {
+                    Modifier.fillMaxHeight()
+                } else {
+                    Modifier.height(320.dp)
+                }
+            ),
+        colors = CardDefaults.cardColors(
+            containerColor = cardColor
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    horizontal = 10.dp,
+                    vertical = 8.dp
+                )
+        ) {
+
+            // عنوان و دکمه تمام‌صفحه ثابت می‌مانند.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    item.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = titleColor,
+                    modifier = Modifier.weight(1f)
+                )
+
+                TextButton(
+                    onClick = onToggleFullscreen
+                ) {
+                    Text(
+                        if (fullscreen) "بازگشت" else "تمام‌صفحه"
+                    )
+                }
+            }
+
+            Divider(
+                modifier = Modifier.padding(vertical = 5.dp),
+                color = titleColor.copy(alpha = 0.25f)
+            )
+
+            // کادر جستجو خارج از اسکرول متن است.
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = {
+                    searchQuery = it
+                    selectedMatchIndex = 0
+                    scope.launch {
+                        scrollState.scrollTo(0)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = {
+                    Text("جستجو در متن این نقش")
+                },
+                placeholder = {
+                    Text("عبارت موردنظر را وارد کنید")
+                },
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Search
+                )
+            )
+
+            if (searchQuery.isNotBlank()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        if (matches.isEmpty()) {
+                            "عبارتی پیدا نشد"
+                        } else {
+                            "${selectedMatchIndex + 1} از ${matches.size} نتیجه"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = titleColor
+                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            enabled = matches.isNotEmpty(),
+                            onClick = {
+                                selectedMatchIndex =
+                                    if (selectedMatchIndex <= 0) {
+                                        matches.lastIndex
+                                    } else {
+                                        selectedMatchIndex - 1
+                                    }
+                            }
+                        ) {
+                            Text("قبلی")
+                        }
+
+                        TextButton(
+                            enabled = matches.isNotEmpty(),
+                            onClick = {
+                                selectedMatchIndex =
+                                    if (selectedMatchIndex >= matches.lastIndex) {
+                                        0
+                                    } else {
+                                        selectedMatchIndex + 1
+                                    }
+                            }
+                        ) {
+                            Text("بعدی")
+                        }
+                    }
+                }
+            } else {
+                Spacer(Modifier.height(5.dp))
+            }
+
+            Divider(
+                color = titleColor.copy(alpha = 0.2f)
+            )
+
+            // فقط متن اسکرول می‌شود؛ عنوان و جستجو ثابت هستند.
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState)
+                    .padding(
+                        horizontal = 4.dp,
+                        vertical = 8.dp
+                    )
+            ) {
+                Text(
+                    text = highlightedText.ifEmpty {
+                        AnnotatedString(
+                            "برای این نقش متنی ثبت نشده است."
+                        )
+                    },
+                    fontSize = fontSize.sp,
+                    lineHeight = (fontSize * 1.65f).sp,
+                    onTextLayout = {
+                        textLayoutResult = it
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -136,141 +452,104 @@ fun CompareScreen(
     roleSections: Map<Long, List<SectionEntity>>,
     onBack: () -> Unit
 ) {
-    var mode by remember { mutableStateOf("role") }
-    var view by remember { mutableStateOf("diff") }
-    var granularity by remember { mutableStateOf("line") }
-
-    var roleA by remember(roles) {
-        mutableStateOf(roles.getOrNull(0))
-    }
-
-    var roleB by remember(roles) {
-        mutableStateOf(roles.getOrNull(1))
-    }
+    // sections برای سازگاری با AppNavigation فعلی حفظ شده است.
 
     var conversationRoles by remember(roles) {
         mutableStateOf(roles.take(2))
     }
-    var conversationTexts by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
-    var isPreparingConversation by remember { mutableStateOf(false) }
-    var conversationFontSize by remember { mutableStateOf(14f) }
 
-    var sectionA by remember(sections) {
-        mutableStateOf(sections.getOrNull(0))
+    var conversationTexts by remember {
+        mutableStateOf(emptyList<ConversationRoleText>())
     }
 
-    var sectionB by remember(sections) {
-        mutableStateOf(sections.getOrNull(1))
+    var isPreparingConversation by remember {
+        mutableStateOf(false)
     }
 
-    var compared by remember { mutableStateOf(false) }
-    var isCalculating by remember { mutableStateOf(false) }
-
-    var leftText by remember { mutableStateOf("") }
-    var rightText by remember { mutableStateOf("") }
-
-    var diff by remember {
-        mutableStateOf(TaziehTextDiff.compare("", ""))
+    var isShowingConversation by remember {
+        mutableStateOf(false)
     }
 
-    var wordDiff by remember {
-        mutableStateOf(TaziehWordDiff.compare("", ""))
+    var fullscreenRoleId by remember {
+        mutableStateOf<Long?>(null)
+    }
+
+    var conversationFontSize by remember {
+        mutableFloatStateOf(14f)
     }
 
     LaunchedEffect(
-        compared,
-        mode,
-        roleA?.id,
-        roleB?.id,
-        sectionA?.section?.id,
-        sectionB?.section?.id,
+        isShowingConversation,
+        conversationRoles.map { it.id },
         roleSections
     ) {
-        if (!compared || mode == "conversation") return@LaunchedEffect
-
-        isCalculating = true
-
-        try {
-            val result = withContext(Dispatchers.Default) {
-                val left = if (mode == "role") {
-                    roleA?.let { role ->
-                        roleSections[role.id].orEmpty().joinToString("\n\n") { section ->
-                            "【${section.title}】\n${section.content}"
-                        }
-                    }.orEmpty()
-                } else {
-                    sectionA?.section?.content.orEmpty()
-                }
-
-                val right = if (mode == "role") {
-                    roleB?.let { role ->
-                        roleSections[role.id].orEmpty().joinToString("\n\n") { section ->
-                            "【${section.title}】\n${section.content}"
-                        }
-                    }.orEmpty()
-                } else {
-                    sectionB?.section?.content.orEmpty()
-                }
-
-                Triple(
-                    left,
-                    right,
-                    TaziehTextDiff.compare(left, right)
-                )
-            }
-
-            leftText = result.first
-            rightText = result.second
-            diff = result.third
-        } finally {
-            isCalculating = false
-        }
-    }
-
-    LaunchedEffect(compared, mode, conversationRoles.map { it.id }, roleSections) {
-        if (!compared || mode != "conversation") {
+        if (!isShowingConversation) {
             conversationTexts = emptyList()
             isPreparingConversation = false
             return@LaunchedEffect
         }
 
         isPreparingConversation = true
+
         try {
             val prepared = withContext(Dispatchers.Default) {
                 conversationRoles.map { role ->
-                    val text = roleSections[role.id].orEmpty().joinToString("\n\n") { section ->
-                        "【${section.title}】\n${section.content}"
-                    }
-                    role.title to text
+                    val text = roleSections[role.id]
+                        .orEmpty()
+                        .joinToString("\n\n") { section ->
+                            "【${section.title}】\n${section.content}"
+                        }
+
+                    ConversationRoleText(
+                        roleId = role.id,
+                        title = role.title,
+                        text = text
+                    )
                 }
             }
+
             conversationTexts = prepared
         } finally {
             isPreparingConversation = false
         }
     }
 
-    LaunchedEffect(
-        compared,
-        granularity,
-        leftText,
-        rightText
-    ) {
-        if (compared && mode != "conversation" && granularity == "word" && !isCalculating) {
-            wordDiff = withContext(Dispatchers.Default) {
-                TaziehWordDiff.compare(leftText, rightText)
-            }
-        }
-    }
+    val roleCardColors = listOf(
+        MaterialTheme.colorScheme.primaryContainer,
+        MaterialTheme.colorScheme.secondaryContainer,
+        MaterialTheme.colorScheme.tertiaryContainer,
+        MaterialTheme.colorScheme.surfaceVariant
+    )
+
+    val roleTitleColors = listOf(
+        MaterialTheme.colorScheme.onPrimaryContainer,
+        MaterialTheme.colorScheme.onSecondaryContainer,
+        MaterialTheme.colorScheme.onTertiaryContainer,
+        MaterialTheme.colorScheme.onSurfaceVariant
+    )
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(if (mode == "conversation") "نمایش هم‌زمان مکالمه نقش‌ها — $taziehTitle" else "مقایسه — $taziehTitle")
+                    Text(
+                        if (fullscreenRoleId != null) {
+                            "نمایش تمام‌صفحه نقش"
+                        } else {
+                            "نمایش هم‌زمان نقش‌ها — $taziehTitle"
+                        }
+                    )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = {
+                            if (fullscreenRoleId != null) {
+                                fullscreenRoleId = null
+                            } else {
+                                onBack()
+                            }
+                        }
+                    ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "بازگشت"
@@ -288,432 +567,184 @@ fun CompareScreen(
                 .padding(16.dp)
         ) {
 
-            if (!compared) {
+            if (!isShowingConversation) {
 
                 Text(
-                    "انتخاب قابلیت",
-                    style = MaterialTheme.typography.titleSmall,
+                    "نمایش هم‌زمان مکالمه نقش‌ها",
+                    style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
 
-                // قابلیت نمایش مکالمه در ردیف مستقل و بالای گزینه‌های مقایسه
-                FilterChip(
-                    selected = mode == "conversation",
-                    onClick = {
-                        mode = "conversation"
-                        compared = false
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            Text("نمایش هم‌زمان مکالمه نقش‌ها")
+                CompareRoleMultiDropdown(
+                    roles = roles,
+                    selectedRoles = conversationRoles,
+                    onToggle = { role ->
+                        val exists = conversationRoles.any {
+                            it.id == role.id
                         }
-                    },
-                    leadingIcon = {
-                        Text("●", color = MaterialTheme.colorScheme.tertiary)
+
+                        if (exists) {
+                            conversationRoles =
+                                conversationRoles.filterNot {
+                                    it.id == role.id
+                                }
+                        } else {
+                            // بدون محدودیت تعداد نقش
+                            conversationRoles =
+                                conversationRoles + role
+                        }
                     }
                 )
 
-                Spacer(Modifier.height(6.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = mode == "role",
-                        onClick = {
-                            mode = "role"
-                            compared = false
-                        },
-                        modifier = Modifier.weight(1f),
-                        label = {
-                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                Text("مقایسه نقش‌ها", maxLines = 1)
-                            }
-                        }
-                    )
-
-                    FilterChip(
-                        selected = mode == "section",
-                        onClick = {
-                            mode = "section"
-                            compared = false
-                        },
-                        modifier = Modifier.weight(1f),
-                        label = {
-                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                Text("مقایسه بخش‌ها", maxLines = 1)
-                            }
-                        }
-                    )
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                if (mode == "conversation") {
-
-                    CompareRoleMultiDropdown(
-                        roles = roles,
-                        selectedRoles = conversationRoles,
-                        onToggle = { role ->
-                            val exists = conversationRoles.any { it.id == role.id }
-                            if (exists) {
-                                conversationRoles = conversationRoles.filterNot { it.id == role.id }
-                            } else if (conversationRoles.size < 4) {
-                                conversationRoles = conversationRoles + role
-                            }
-                            compared = false
-                        }
-                    )
-
-                } else if (mode == "role") {
-
-                    CompareDropdown(
-                        label = "نقش اول",
-                        selected = roleA,
-                        items = roles,
-                        itemLabel = { it.title }
-                    ) {
-                        roleA = it
-                        compared = false
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    CompareDropdown(
-                        label = "نقش دوم",
-                        selected = roleB,
-                        items = roles,
-                        itemLabel = { it.title }
-                    ) {
-                        roleB = it
-                        compared = false
-                    }
-
-                } else {
-
-                    CompareDropdown(
-                        label = "بخش اول",
-                        selected = sectionA,
-                        items = sections,
-                        itemLabel = {
-                            "${it.roleTitle} ← ${it.section.title}"
-                        }
-                    ) {
-                        sectionA = it
-                        compared = false
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    CompareDropdown(
-                        label = "بخش دوم",
-                        selected = sectionB,
-                        items = sections,
-                        itemLabel = {
-                            "${it.roleTitle} ← ${it.section.title}"
-                        }
-                    ) {
-                        sectionB = it
-                        compared = false
-                    }
-                }
-
                 Button(
                     onClick = {
-                        compared = true
+                        isShowingConversation = true
                     },
-                    enabled = when (mode) {
-                        "conversation" -> conversationRoles.size in 2..4
-                        "role" -> roleA != null && roleB != null && roleA?.id != roleB?.id
-                        else -> sectionA != null && sectionB != null &&
-                                sectionA?.section?.id != sectionB?.section?.id
-                    },
+                    enabled = conversationRoles.size >= 2,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 12.dp)
                 ) {
-                    Text(if (mode == "conversation") "نمایش مکالمه نقش‌ها" else "نمایش مقایسه")
+                    Text("نمایش نقش‌های انتخاب‌شده")
                 }
 
-                if (mode != "conversation") {
+                if (roles.isEmpty()) {
                     Text(
-                        "انتخاب‌ها مستقل هستند؛ می‌توانید هر دو نقش یا هر دو بخش را خودتان تعیین کنید.",
-                        style = MaterialTheme.typography.bodySmall
+                        "برای این تعزیه نقشی ثبت نشده است.",
+                        color = MaterialTheme.colorScheme.error
                     )
                 }
 
-            } else if (isCalculating || isPreparingConversation) {
+            } else if (isPreparingConversation) {
 
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         CircularProgressIndicator()
                         Spacer(Modifier.height(12.dp))
-                        Text(
-                            if (mode == "conversation") "در حال آماده‌سازی متن نقش‌ها..."
-                            else "در حال آماده‌سازی و مقایسه متن‌ها..."
-                        )
+                        Text("در حال آماده‌سازی متن نقش‌ها...")
                     }
                 }
 
             } else {
 
-                if (mode == "conversation") {
+                if (fullscreenRoleId == null) {
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        TextButton(onClick = { compared = false }) {
+                        TextButton(
+                            onClick = {
+                                isShowingConversation = false
+                            }
+                        ) {
                             Text("تغییر انتخاب نقش‌ها")
                         }
 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("قلم", style = MaterialTheme.typography.labelMedium)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "قلم",
+                                style = MaterialTheme.typography.labelMedium
+                            )
+
                             TextButton(
-                                onClick = { conversationFontSize = (conversationFontSize - 1f).coerceAtLeast(10f) },
+                                onClick = {
+                                    conversationFontSize =
+                                        (conversationFontSize - 1f)
+                                            .coerceAtLeast(10f)
+                                },
                                 enabled = conversationFontSize > 10f
-                            ) { Text("−") }
-                            Text("${conversationFontSize.toInt()}", style = MaterialTheme.typography.labelLarge)
+                            ) {
+                                Text("−")
+                            }
+
+                            Text(
+                                "${conversationFontSize.toInt()}",
+                                style = MaterialTheme.typography.labelLarge
+                            )
+
                             TextButton(
-                                onClick = { conversationFontSize = (conversationFontSize + 1f).coerceAtMost(22f) },
+                                onClick = {
+                                    conversationFontSize =
+                                        (conversationFontSize + 1f)
+                                            .coerceAtMost(22f)
+                                },
                                 enabled = conversationFontSize < 22f
-                            ) { Text("+") }
+                            ) {
+                                Text("+")
+                            }
                         }
                     }
 
-                    // هر عنوان بیرون از ناحیه اسکرول متن قرار دارد و همیشه دیده می‌شود.
-                    val roleCardColors = listOf(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        MaterialTheme.colorScheme.secondaryContainer,
-                        MaterialTheme.colorScheme.tertiaryContainer,
-                        MaterialTheme.colorScheme.surfaceVariant
-                    )
-                    val roleTitleColors = listOf(
-                        MaterialTheme.colorScheme.onPrimaryContainer,
-                        MaterialTheme.colorScheme.onSecondaryContainer,
-                        MaterialTheme.colorScheme.onTertiaryContainer,
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Spacer(Modifier.height(6.dp))
 
-                    Column(
+                    // فهرست اصلی نقش‌ها؛ اسکرول هر کارت مستقل است.
+                    LazyColumn(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        conversationTexts.forEachIndexed { index, (roleTitle, roleText) ->
-                            key(roleTitle) {
-                                Card(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = roleCardColors[index % roleCardColors.size]
-                                    )
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                                    ) {
-                                        Text(
-                                            roleTitle,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            color = roleTitleColors[index % roleTitleColors.size]
-                                        )
-                                        Divider(modifier = Modifier.padding(vertical = 5.dp))
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .fillMaxWidth()
-                                                .verticalScroll(rememberScrollState())
-                                        ) {
-                                            Text(
-                                                text = roleText.ifBlank { "برای این نقش متنی ثبت نشده است." },
-                                                fontSize = conversationFontSize.sp,
-                                                lineHeight = (conversationFontSize * 1.65f).sp
-                                            )
-                                        }
-                                    }
+                        items(
+                            items = conversationTexts,
+                            key = { it.roleId }
+                        ) { item ->
+
+                            val index = conversationTexts.indexOfFirst {
+                                it.roleId == item.roleId
+                            }.coerceAtLeast(0)
+
+                            RoleStudyCard(
+                                item = item,
+                                fontSize = conversationFontSize,
+                                cardColor = roleCardColors[
+                                    index % roleCardColors.size
+                                ],
+                                titleColor = roleTitleColors[
+                                    index % roleTitleColors.size
+                                ],
+                                fullscreen = false,
+                                onToggleFullscreen = {
+                                    fullscreenRoleId = item.roleId
                                 }
-                            }
+                            )
                         }
                     }
 
                 } else {
 
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        TextButton(onClick = { compared = false }) {
-                            Text("تغییر انتخاب")
+                    val fullscreenIndex =
+                        conversationTexts.indexOfFirst {
+                            it.roleId == fullscreenRoleId
                         }
 
-                        Row {
-                            FilterChip(
-                                selected = view == "diff",
-                                onClick = { view = "diff" },
-                                label = { Text("اختلاف‌ها") }
-                            )
+                    val fullscreenItem =
+                        conversationTexts.getOrNull(fullscreenIndex)
 
-                            Spacer(Modifier.width(6.dp))
+                    if (fullscreenItem != null) {
 
-                            FilterChip(
-                                selected = view == "side",
-                                onClick = { view = "side" },
-                                label = { Text("دو متن") }
-                            )
-                        }
-                    }
-
-                    Text(
-                        "یکسان: ${diff.same}  |  افزوده: ${diff.added}  |  حذف‌شده: ${diff.removed}",
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-
-                    if (view == "diff") {
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            FilterChip(
-                                selected = granularity == "line",
-                                onClick = { granularity = "line" },
-                                label = { Text("اختلاف سطری") }
-                            )
-
-                            FilterChip(
-                                selected = granularity == "word",
-                                onClick = { granularity = "word" },
-                                label = { Text("اختلاف واژه‌ای") }
-                            )
-                        }
-
-                        if (granularity == "line") {
-
-                            LazyColumn(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth()
-                            ) {
-                                itemsIndexed(diff.lines) { _, line ->
-
-                                    val label = when (line.kind) {
-                                        DiffKind.SAME -> "="
-                                        DiffKind.ADDED -> "+"
-                                        DiffKind.REMOVED -> "−"
-                                    }
-
-                                    val color = when (line.kind) {
-                                        DiffKind.SAME -> MaterialTheme.colorScheme.surface
-                                        DiffKind.ADDED -> MaterialTheme.colorScheme.tertiaryContainer
-                                        DiffKind.REMOVED -> MaterialTheme.colorScheme.errorContainer
-                                    }
-
-                                    Row(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .background(color)
-                                            .padding(horizontal = 8.dp, vertical = 5.dp)
-                                    ) {
-                                        Text(
-                                            label,
-                                            style = MaterialTheme.typography.labelLarge,
-                                            modifier = Modifier.width(24.dp)
-                                        )
-
-                                        Text(
-                                            line.text.ifBlank { " " },
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                    }
-                                }
+                        RoleStudyCard(
+                            item = fullscreenItem,
+                            fontSize = conversationFontSize,
+                            cardColor = roleCardColors[
+                                fullscreenIndex % roleCardColors.size
+                            ],
+                            titleColor = roleTitleColors[
+                                fullscreenIndex % roleTitleColors.size
+                            ],
+                            fullscreen = true,
+                            onToggleFullscreen = {
+                                fullscreenRoleId = null
                             }
-
-                        } else {
-
-                            LazyColumn(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth()
-                                    .padding(8.dp)
-                            ) {
-                                itemsIndexed(wordDiff) { _, token ->
-
-                                    val color = when (token.change) {
-                                        WordChange.SAME -> MaterialTheme.colorScheme.onSurface
-                                        WordChange.ADDED -> MaterialTheme.colorScheme.primary
-                                        WordChange.REMOVED -> MaterialTheme.colorScheme.error
-                                    }
-
-                                    Text(
-                                        token.value,
-                                        color = color,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-                            }
-                        }
-
-                        Text(
-                            "راهنما: + افزوده‌شده در متن دوم، − حذف‌شده از متن اول، = یکسان",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 6.dp)
                         )
-
-                    } else {
-
-                        Row(
-                            Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                        ) {
-
-                            Column(
-                                Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .verticalScroll(rememberScrollState())
-                                    .padding(6.dp)
-                            ) {
-                                Text(
-                                    if (mode == "role") roleA?.title.orEmpty()
-                                    else sectionA?.section?.title.orEmpty(),
-                                    style = MaterialTheme.typography.titleSmall
-                                )
-
-                                Text(leftText)
-                            }
-
-                            Box(
-                                Modifier
-                                    .width(1.dp)
-                                    .fillMaxHeight()
-                                    .background(MaterialTheme.colorScheme.outlineVariant)
-                            )
-
-                            Column(
-                                Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    .verticalScroll(rememberScrollState())
-                                    .padding(6.dp)
-                            ) {
-                                Text(
-                                    if (mode == "role") roleB?.title.orEmpty()
-                                    else sectionB?.section?.title.orEmpty(),
-                                    style = MaterialTheme.typography.titleSmall
-                                )
-
-                                Text(rightText)
-                            }
-                        }
                     }
                 }
             }
