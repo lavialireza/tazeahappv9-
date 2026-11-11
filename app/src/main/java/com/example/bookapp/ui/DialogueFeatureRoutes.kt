@@ -29,6 +29,7 @@ import androidx.navigation.compose.composable
 import androidx.room.withTransaction
 import com.example.bookapp.data.AppDatabase
 import com.example.bookapp.data.DialogueRepository
+import com.example.bookapp.data.DialogueRoleSelectionEntity
 import com.example.bookapp.data.DialogueTurnEntity
 import com.example.bookapp.data.DialogueTurnMetadataEntity
 import com.example.bookapp.data.ViewerAccessPolicy
@@ -312,6 +313,9 @@ fun NavGraphBuilder.dialogueFeatureRoutes(
             var allowedSections by remember(dialogueId) {
                 mutableStateOf(emptyList<SectionPickerItem>())
             }
+            var availableSourceSections by remember(dialogueId) {
+                mutableStateOf(emptyList<SectionPickerItem>())
+            }
             var roleOrder by remember(dialogueId) {
                 mutableStateOf(emptyList<Long>())
             }
@@ -344,6 +348,9 @@ fun NavGraphBuilder.dialogueFeatureRoutes(
 
                 val allowed = DialogueRepository.loadAllowedSections(db, dialogue)
                 allowedSections = allowed
+                availableSourceSections = DialogueRepository.loadSectionSources(
+                    db, dialogue.taziehId
+                )
                 roleOrder = allowed.map { it.roleId }.distinct()
                 val allowedBySectionId = allowed.associateBy { it.sectionId }
 
@@ -440,29 +447,17 @@ fun NavGraphBuilder.dialogueFeatureRoutes(
                                     ) {
                                         "موقعیت انتخاب‌شده برای جابه‌جایی معتبر نیست."
                                     }
-                                    val first = current[index]
-                                    val second = current[targetIndex]
-                                    val firstMeta = ensureTurnMetadata(
-                                        first.turnId,
-                                        first.rehearsalOrderIndex
-                                    )
-                                    val secondMeta = ensureTurnMetadata(
-                                        second.turnId,
-                                        second.rehearsalOrderIndex
-                                    )
+                                    val reordered = current.toMutableList()
+                                    val movedTurn = reordered.removeAt(index)
+                                    reordered.add(targetIndex, movedTurn)
                                     val metadataDao = db.dialogueTurnMetadataDao()
-                                    metadataDao.updateRehearsalOrder(
-                                        first.turnId,
-                                        Int.MIN_VALUE
-                                    )
-                                    metadataDao.updateRehearsalOrder(
-                                        second.turnId,
-                                        firstMeta.rehearsalOrderIndex
-                                    )
-                                    metadataDao.updateRehearsalOrder(
-                                        first.turnId,
-                                        secondMeta.rehearsalOrderIndex
-                                    )
+                                    reordered.forEachIndexed { newOrder, turn ->
+                                        ensureTurnMetadata(turn.turnId, newOrder)
+                                        metadataDao.updateRehearsalOrder(
+                                            turn.turnId,
+                                            newOrder
+                                        )
+                                    }
                                 }
                                 reloadTurns()
                             }.onFailure {
@@ -560,16 +555,23 @@ fun NavGraphBuilder.dialogueFeatureRoutes(
                     onDismissRequest = { showAddTurn = false },
                     title = { Text("افزودن متن به مطالعه") },
                     text = {
-                        if (allowedSections.isEmpty()) {
-                            Text("منبع مجازی برای افزودن وجود ندارد.")
+                        if (availableSourceSections.isEmpty()) {
+                            Text("منبع آرشیوی برای افزودن وجود ندارد.")
                         } else {
-                            LazyColumn(
-                                Modifier.heightIn(max = 420.dp)
-                            ) {
-                                items(
-                                    allowedSections,
-                                    key = { it.sectionId }
-                                ) { item ->
+                            Column {
+                                Text(
+                                    "می‌توانید متنی از نسخه‌ای دیگر هم انتخاب کنید؛ با افزودن آن، نسخهٔ جدید به منابع این گفتگو اضافه می‌شود.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                LazyColumn(
+                                    Modifier.heightIn(max = 420.dp)
+                                ) {
+                                    items(
+                                        availableSourceSections,
+                                        key = { it.sectionId }
+                                    ) { item ->
                                     ListItem(
                                         headlineContent = { Text(item.sectionTitle) },
                                         supportingContent = {
@@ -579,6 +581,7 @@ fun NavGraphBuilder.dialogueFeatureRoutes(
                                             .fillMaxWidth()
                                             .clickable { chosen = item }
                                     )
+                                }
                                 }
                             }
                         }
@@ -598,17 +601,64 @@ fun NavGraphBuilder.dialogueFeatureRoutes(
                                                     isAdmin,
                                                     ownerId
                                                 )
-                                            val allowedFresh =
-                                                DialogueRepository.loadAllowedSections(
+                                            val allFreshSources =
+                                                DialogueRepository.loadSectionSources(
                                                     db,
-                                                    freshDialogue
+                                                    freshDialogue.taziehId
                                                 )
-                                            require(allowedFresh.any {
+                                            require(allFreshSources.any {
                                                 it.sectionId == selected.sectionId &&
                                                     it.roleId == selected.roleId &&
                                                     it.versionUid == selected.versionUid
                                             }) {
-                                                "این متن جزو نقش‌ها و نسخه‌های انتخاب‌شده نیست."
+                                                "این متن در منابع آرشیوی این تعزیه وجود ندارد."
+                                            }
+
+                                            val selectionDao = db.dialogueRoleSelectionDao()
+                                            var selections = selectionDao.getByDialogue(dialogueId)
+
+                                            // گفت‌وگوهای قدیمی ممکن است هنوز جدول انتخاب نقش نداشته باشند.
+                                            // پیش از افزودن منبع جدید، انتخاب‌های legacy را ثبت می‌کنیم تا
+                                            // افزودن نسخهٔ تازه باعث ناپدیدشدن متن‌های قبلی نشود.
+                                            if (selections.isEmpty()) {
+                                                val legacySources =
+                                                    DialogueRepository.loadAllowedSections(
+                                                        db,
+                                                        freshDialogue
+                                                    ).distinctBy { it.roleId }
+                                                legacySources.forEachIndexed { index, source ->
+                                                    selectionDao.insert(
+                                                        DialogueRoleSelectionEntity(
+                                                            dialogueId = dialogueId,
+                                                            roleId = source.roleId,
+                                                            versionUid = source.versionUid,
+                                                            displayOrder = index
+                                                        )
+                                                    )
+                                                }
+                                                selections = selectionDao.getByDialogue(dialogueId)
+                                            }
+
+                                            val existingSelection = selectionDao
+                                                .getByDialogueAndRole(
+                                                    dialogueId,
+                                                    selected.roleId
+                                                )
+                                            if (existingSelection == null) {
+                                                selectionDao.insert(
+                                                    DialogueRoleSelectionEntity(
+                                                        dialogueId = dialogueId,
+                                                        roleId = selected.roleId,
+                                                        versionUid = selected.versionUid,
+                                                        displayOrder = (selections.maxOfOrNull {
+                                                            it.displayOrder
+                                                        } ?: -1) + 1
+                                                    )
+                                                )
+                                            } else {
+                                                require(existingSelection.versionUid == selected.versionUid) {
+                                                    "نسخهٔ منبع این نقش با انتخاب قبلی سازگار نیست."
+                                                }
                                             }
 
                                             val existing = db.dialogueTurnDao()

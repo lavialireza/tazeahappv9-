@@ -18,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
@@ -30,6 +32,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateMapOf
@@ -68,6 +71,9 @@ fun DialogueBuilderScreen(
 
     val titleState = remember {
         mutableStateOf("")
+    }
+    val showTitleDialogState = remember {
+        mutableStateOf(false)
     }
 
     val expandedVersionRoleKeyState = remember {
@@ -125,9 +131,7 @@ fun DialogueBuilderScreen(
 
     val selectedRoleCount = selectedRoleKeys.size
 
-    val valid = title.isNotBlank() &&
-        selectedSequence.size >= 2 &&
-        selectedRoleCount >= 2
+    val valid = selectedSequence.size >= 2 && selectedRoleCount >= 2
 
     Scaffold(
         topBar = {
@@ -153,20 +157,6 @@ fun DialogueBuilderScreen(
                 .padding(padding)
                 .imePadding()
         ) {
-
-            OutlinedTextField(
-                value = title,
-                onValueChange = {
-                    titleState.value = it
-                },
-                label = {
-                    Text("نام گفتگو")
-                },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-            )
 
             Text(
                 text = "توالی انتخاب‌شده: ${selectedSequence.size} نوبت از $selectedRoleCount نقش",
@@ -395,6 +385,20 @@ fun DialogueBuilderScreen(
                                             }
                                         },
                                         enabled = !alreadyAdded,
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            containerColor = if (alreadyAdded) {
+                                                MaterialTheme.colorScheme.secondaryContainer
+                                            } else {
+                                                MaterialTheme.colorScheme.surface
+                                            },
+                                            contentColor = if (alreadyAdded) {
+                                                MaterialTheme.colorScheme.onSecondaryContainer
+                                            } else {
+                                                MaterialTheme.colorScheme.primary
+                                            },
+                                            disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                            disabledContentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                        ),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
 
@@ -426,26 +430,20 @@ fun DialogueBuilderScreen(
 
             Button(
                 onClick = {
-                    onSave(
-                        titleState.value.trim(),
-                        selectedSequenceState.value
-                    )
+                    showTitleDialogState.value = true
                 },
                 enabled = valid,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
             ) {
-                Text("ذخیره گفتگو")
+                Text("ادامه و نام‌گذاری گفتگو")
             }
 
             if (!valid) {
 
                 Text(
                     text = when {
-                        title.isBlank() ->
-                            "نام گفتگو را وارد کنید."
-
                         selectedSequence.size < 2 ->
                             "حداقل دو نوبت از گفتگو انتخاب کنید."
 
@@ -468,5 +466,41 @@ fun DialogueBuilderScreen(
                 modifier = Modifier.height(8.dp)
             )
         }
+    }
+
+    if (showTitleDialogState.value) {
+        AlertDialog(
+            onDismissRequest = { showTitleDialogState.value = false },
+            title = { Text("نام‌گذاری گفتگو") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("متن‌ها و ترتیب نوبت‌ها انتخاب شده‌اند. اکنون نامی برای این گفتگو وارد کنید.")
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { titleState.value = it },
+                        label = { Text("نام گفتگو") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = title.trim().isNotBlank(),
+                    onClick = {
+                        val finalTitle = title.trim()
+                        if (finalTitle.isNotBlank()) {
+                            showTitleDialogState.value = false
+                            onSave(finalTitle, selectedSequenceState.value)
+                        }
+                    }
+                ) { Text("ذخیره گفتگو") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTitleDialogState.value = false }) {
+                    Text("بازگشت به انتخاب متن‌ها")
+                }
+            }
+        )
     }
 }

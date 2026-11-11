@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -98,11 +99,20 @@ fun DialoguesScreen(
                 )
             }
         } else {
-            LazyColumn(
-                Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                modifier = Modifier.fillMaxSize().padding(padding)
             ) {
+                Text(
+                    "برای نمایش هر گفتگو، روی کارت آن یا آیکن چشم بزنید.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                LazyColumn(
+                    Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = PaddingValues(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                 items(dialogues, key = { it.id }) { dialogue ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -123,6 +133,12 @@ fun DialoguesScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            IconButton(onClick = { onOpenDialogue(dialogue) }) {
+                                Icon(
+                                    Icons.Filled.Visibility,
+                                    contentDescription = "نمایش گفتگو"
+                                )
+                            }
                             if (canEdit) {
                                 IconButton(onClick = {
                                     editTarget = dialogue
@@ -138,6 +154,7 @@ fun DialoguesScreen(
                             }
                         }
                     }
+                }
                 }
             }
         }

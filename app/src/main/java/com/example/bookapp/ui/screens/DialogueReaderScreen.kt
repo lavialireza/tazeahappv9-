@@ -1,6 +1,5 @@
 package com.example.bookapp.ui.screens
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,11 +10,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -318,7 +314,6 @@ private fun RoleStudyCard(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RoleStudyCardBody(
     group: RoleStudyGroup,
@@ -339,6 +334,16 @@ private fun RoleStudyCardBody(
         activeMatchIndex.coerceIn(0, matches.lastIndex)
     }
     val currentMatch = matches.getOrNull(safeActiveIndex)
+    val turnListState = rememberLazyListState()
+
+    LaunchedEffect(currentMatch?.turnId, group.numberedTurns) {
+        val targetIndex = currentMatch?.let { match ->
+            group.numberedTurns.indexOfFirst { it.second.turnId == match.turnId }
+        } ?: -1
+        if (targetIndex >= 0) {
+            turnListState.animateScrollToItem(targetIndex)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -382,88 +387,77 @@ private fun RoleStudyCardBody(
             label = { Text("جستجو در متن نقش ${group.roleTitle}") }
         )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = if (query.isBlank()) {
-                    "برای جستجو، کلمه یا عبارت وارد کنید."
-                } else if (matches.isEmpty()) {
-                    "نتیجه‌ای پیدا نشد."
-                } else {
-                    "نتیجه ${safeActiveIndex + 1} از ${matches.size}"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (matches.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = { onNavigateMatch(-1, matches.size) }) {
-                        Text("قبلی")
-                    }
-                    TextButton(onClick = { onNavigateMatch(1, matches.size) }) {
-                        Text("بعدی")
+        if (query.isNotBlank()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = if (matches.isEmpty()) {
+                        "نتیجه‌ای پیدا نشد."
+                    } else {
+                        "نتیجه ${safeActiveIndex + 1} از ${matches.size}"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (matches.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = { onNavigateMatch(-1, matches.size) }) {
+                            Text("قبلی")
+                        }
+                        TextButton(onClick = { onNavigateMatch(1, matches.size) }) {
+                            Text("بعدی")
+                        }
                     }
                 }
             }
         }
 
-        androidx.compose.foundation.layout.Box(
+        LazyColumn(
+            state = turnListState,
             modifier = if (fullscreen) {
                 Modifier.weight(1f).fillMaxWidth()
             } else {
                 Modifier.fillMaxWidth().heightIn(max = 480.dp)
-            }
+            },
+            contentPadding = PaddingValues(bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                group.numberedTurns.forEach { (sequenceNumber, turn) ->
-                    val turnMatches = matches.filter { it.turnId == turn.turnId }
-                    val activeForTurn = currentMatch?.takeIf { it.turnId == turn.turnId }
-                    val requester = remember(turn.turnId) { BringIntoViewRequester() }
-
-                    LaunchedEffect(activeForTurn?.start, activeForTurn?.end) {
-                        if (activeForTurn != null) {
-                            requester.bringIntoView()
-                        }
-                    }
-
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .bringIntoViewRequester(requester),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        ),
-                        shape = RoundedCornerShape(14.dp)
+            items(
+                items = group.numberedTurns,
+                key = { it.second.turnId }
+            ) { (sequenceNumber, turn) ->
+                val turnMatches = matches.filter { it.turnId == turn.turnId }
+                val activeForTurn = currentMatch?.takeIf { it.turnId == turn.turnId }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(
-                                text = "نوبت $sequenceNumber · ${turn.sectionTitle}",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = buildHighlightedText(
-                                    text = turn.content,
-                                    matches = turnMatches,
-                                    activeMatch = activeForTurn,
-                                    normalHighlight = MaterialTheme.colorScheme.tertiaryContainer,
-                                    activeHighlight = MaterialTheme.colorScheme.primaryContainer,
-                                    activeTextColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                ),
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        }
+                        Text(
+                            text = "نوبت $sequenceNumber · ${turn.sectionTitle}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = buildHighlightedText(
+                                text = turn.content,
+                                matches = turnMatches,
+                                activeMatch = activeForTurn,
+                                normalHighlight = MaterialTheme.colorScheme.tertiaryContainer,
+                                activeHighlight = MaterialTheme.colorScheme.primaryContainer,
+                                activeTextColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
                     }
                 }
             }
