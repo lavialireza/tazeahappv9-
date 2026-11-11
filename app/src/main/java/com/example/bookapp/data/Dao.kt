@@ -183,8 +183,10 @@ interface FootnoteDao {
     suspend fun delete(footnoteId: Long)
 }
 
+
 @Dao
 interface DialogueDao {
+
     @Query("SELECT * FROM dialogues WHERE versionUid = :versionUid ORDER BY id")
     suspend fun getByVersionUid(versionUid: String): List<DialogueEntity>
 
@@ -197,20 +199,76 @@ interface DialogueDao {
     @Query("SELECT * FROM dialogues WHERE id = :dialogueId")
     suspend fun getById(dialogueId: Long): DialogueEntity
 
+    @Query("SELECT * FROM dialogues WHERE id = :dialogueId LIMIT 1")
+    suspend fun getByIdOrNull(dialogueId: Long): DialogueEntity?
+
     @Query("SELECT * FROM dialogues WHERE uid = :uid LIMIT 1")
     suspend fun getByUid(uid: String): DialogueEntity?
+
+    @Query("""
+        SELECT * FROM dialogues
+        WHERE id = :dialogueId
+          AND ownerInstallationId = :ownerId
+        LIMIT 1
+    """)
+    suspend fun getOwnedById(
+        dialogueId: Long,
+        ownerId: String
+    ): DialogueEntity?
+
+    @Query("""
+        SELECT * FROM dialogues
+        WHERE taziehId = :taziehId
+          AND ownerInstallationId = :ownerId
+        ORDER BY id
+    """)
+    suspend fun getOwnedByTazieh(
+        taziehId: Long,
+        ownerId: String
+    ): List<DialogueEntity>
 
     @Insert
     suspend fun insert(dialogue: DialogueEntity): Long
 
-    @Query("UPDATE dialogues SET taziehId = :taziehId, title = :title, uid = :uid WHERE id = :dialogueId")
-    suspend fun updateIdentity(dialogueId: Long, taziehId: Long, title: String, uid: String)
+    @Query("""
+        UPDATE dialogues
+        SET taziehId = :taziehId, title = :title, uid = :uid
+        WHERE id = :dialogueId
+    """)
+    suspend fun updateIdentity(
+        dialogueId: Long,
+        taziehId: Long,
+        title: String,
+        uid: String
+    )
 
     @Query("UPDATE dialogues SET title = :title WHERE id = :dialogueId")
     suspend fun updateTitle(dialogueId: Long, title: String)
 
+    @Query("""
+        UPDATE dialogues
+        SET title = :title
+        WHERE id = :dialogueId
+          AND ownerInstallationId = :ownerId
+    """)
+    suspend fun updateOwnedTitle(
+        dialogueId: Long,
+        ownerId: String,
+        title: String
+    ): Int
+
     @Query("DELETE FROM dialogues WHERE id = :dialogueId")
     suspend fun delete(dialogueId: Long)
+
+    @Query("""
+        DELETE FROM dialogues
+        WHERE id = :dialogueId
+          AND ownerInstallationId = :ownerId
+    """)
+    suspend fun deleteOwned(
+        dialogueId: Long,
+        ownerId: String
+    ): Int
 }
 
 @Dao
