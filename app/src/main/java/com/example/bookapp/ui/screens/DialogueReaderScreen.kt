@@ -65,6 +65,7 @@ fun DialogueReaderScreen(
     onBack: () -> Unit,
     readOnly: Boolean = false,
     showPdf: Boolean = true,
+    allowPractice: Boolean = true,
     onSaveResponseRelation: (
         turn: DialogueTurnDisplay,
         expectsResponse: Boolean,
@@ -93,22 +94,23 @@ fun DialogueReaderScreen(
             .distinctBy { it.roleId }
             .map { it.roleId to it.roleTitle }
     }
+    // توالی شخصی شامل نوبت‌های خود نقش و پرسش‌هایی است که صریحاً
+    // پاسخ را از همین نقش انتظار دارند؛ ترتیب اصلی تمرین حفظ می‌شود.
     val personalTurns = remember(orderedTurns, selectedRole) {
-    orderedTurns.filter { turn ->
-        turn.roleId == selectedRole ||
-            (
-                turn.expectsResponse &&
-                turn.expectedResponderRoleId == selectedRole
-            )
-    }
-}
-    // فقط رابطه صریح metadata ملاک است؛ از ترتیب متن پاسخ‌دهنده استنباط نمی‌شود.
-    val incomingExpectedTurns = remember(orderedTurns, selectedRole) {
-        orderedTurns.filter {
-            it.expectsResponse && it.expectedResponderRoleId == selectedRole
+        orderedTurns.filter { turn ->
+            turn.roleId == selectedRole ||
+                (turn.expectsResponse && turn.expectedResponderRoleId == selectedRole)
         }
     }
-    val activeSequence = if (mode == DialogueViewMode.PERSONAL) personalTurns else orderedTurns
+    val activeSequence = if (allowPractice && mode == DialogueViewMode.PERSONAL) {
+        personalTurns
+    } else {
+        orderedTurns
+    }
+
+    LaunchedEffect(allowPractice) {
+        if (!allowPractice) mode = DialogueViewMode.GROUP
+    }
 
     LaunchedEffect(mode, selectedRole, activeSequence) {
         if (activeSequence.none { it.turnId == activeTurnId }) {
@@ -148,18 +150,20 @@ fun DialogueReaderScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("شیوه نمایش و تمرین", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = mode == DialogueViewMode.GROUP,
-                    onClick = { mode = DialogueViewMode.GROUP },
-                    label = { Text("تمرین گروهی") }
-                )
-                FilterChip(
-                    selected = mode == DialogueViewMode.PERSONAL,
-                    onClick = { mode = DialogueViewMode.PERSONAL },
-                    label = { Text("تمرین نقش من") }
-                )
+            if (allowPractice) {
+                Text("شیوه نمایش و تمرین", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = mode == DialogueViewMode.GROUP,
+                        onClick = { mode = DialogueViewMode.GROUP },
+                        label = { Text("تمرین گروهی") }
+                    )
+                    FilterChip(
+                        selected = mode == DialogueViewMode.PERSONAL,
+                        onClick = { mode = DialogueViewMode.PERSONAL },
+                        label = { Text("تمرین نقش من") }
+                    )
+                }
             }
 
             if (mode == DialogueViewMode.PERSONAL) {
@@ -180,7 +184,7 @@ fun DialogueReaderScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-               
+            }
 
             HorizontalDivider()
 
@@ -221,14 +225,16 @@ fun DialogueReaderScreen(
                         onActivate = { activeTurnId = turn.turnId },
                         onEditRelation = { relationEditorTurn = turn },
                         onEditCues = { cueEditorTurn = turn },
-label = if (turn.roleId == selectedRole) {
-    "نوبت شما ${index + 1} — ${turn.sectionTitle}"
-} else {
-    "پرسش از شما ${index + 1} — ${turn.roleTitle}"
-}                    )
+                        label = if (turn.roleId == selectedRole) {
+                            "نوبت شما ${index + 1} — ${turn.sectionTitle}"
+                        } else {
+                            "پرسش از شما ${index + 1} — ${turn.roleTitle}"
+                        }
+                    )
                 }
             }
 
+            if (allowPractice) {
             HorizontalDivider()
             Text("کنترل تمرین", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Row(
@@ -273,6 +279,7 @@ label = if (turn.roleId == selectedRole) {
                         }
                     }
                 }
+            }
             }
         }
     }
