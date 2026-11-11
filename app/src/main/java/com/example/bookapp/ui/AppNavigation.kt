@@ -105,9 +105,6 @@ private const val ROUTE_TAZIEHS = "taziehs/{fieldId}/{fieldTitle}"
 private const val ROUTE_ROLES = "roles/{taziehId}/{taziehTitle}"
 private const val ROUTE_SECTIONS = "sections/{roleId}/{roleTitle}"
 private const val ROUTE_TAZIEH_INDEX = "tazieh_index/{taziehId}/{taziehTitle}"
-private const val ROUTE_DIALOGUES = "dialogues/{taziehId}/{taziehTitle}"
-private const val ROUTE_DIALOGUE_BUILDER = "dialogue_builder/{taziehId}/{taziehTitle}"
-private const val ROUTE_DIALOGUE_READER = "dialogue_reader/{dialogueId}"
 private const val ROUTE_TAZIEH_GALLERY = "tazieh_gallery/{taziehId}"
 private const val ROUTE_TEXT = "text/{sectionId}"
 private const val ROUTE_TEXT_PAGER = "text_pager/{roleId}/{startIndex}"
@@ -493,7 +490,11 @@ fun AppNavigation(
                         } else null
                     }.take(100).toList()
                 },
-                onDialogueResultClick = { d -> navController.navigate("dialogue_reader/${d.dialogueId}") },
+                onDialogueResultClick = { d ->
+                    if (featureEnabled("dialogues.view")) {
+                        navController.navigate("dialogue_reader/${d.dialogueId}")
+                    }
+                },
                 isBookmarked = { id -> id in bookmarkedIds },
                 showBookmarks = featureEnabled("bookmarks.view"),
                 advancedEnabled = featureEnabled("advancedSearch.filters"),
@@ -1042,6 +1043,14 @@ fun AppNavigation(
         // دلیل کد این صفحات هرگز در خروجی Viewer کامپایل نمی‌شود.
         adminOnlyRoutes(navController = navController, db = db, context = context)
 
+        dialogueFeatureRoutes(
+            navController = navController,
+            db = db,
+            context = context,
+            publicViewer = publicViewer,
+            featureEnabled = { key -> featureEnabled(key) }
+        )
+
 
 
         if (featureEnabled("read.view")) composable(ROUTE_FIELDS) {
@@ -1083,8 +1092,8 @@ fun AppNavigation(
                     if (featureEnabled("gallery.view")) navController.navigate("tazieh_gallery/${item.id}")
                 },
                 onOpenDialogues = { item ->
-                    if (featureEnabled("read.view")) {
-                        navController.navigate("dialogues/${item.id}/${java.net.URLEncoder.encode(item.title, "UTF-8")}")
+                    if (featureEnabled("dialogues.view")) {
+                        navController.navigate("dialogues/${item.id}/${android.net.Uri.encode(item.title)}")
                     }
                 },
                 showGallery = featureEnabled("gallery.view"),
@@ -1203,433 +1212,6 @@ fun AppNavigation(
             )
         }
 
-        if (featureEnabled("read.view")) composable(ROUTE_DIALOGUES) { backStackEntry ->
-            val taziehId = backStackEntry.arguments?.getString("taziehId")?.toLongOrNull() ?: 0L
-            val taziehTitle = backStackEntry.arguments?.getString("taziehTitle") ?: ""
-            var dialogues by remember { mutableStateOf(listOf<DialogueSummary>()) }
-            val scope = androidx.compose.runtime.rememberCoroutineScope()
-
-            suspend fun reloadDialogues() {
-                dialogues = db.dialogueDao().getByTazieh(taziehId).map { d ->
-                    DialogueSummary(d.id, d.title, db.dialogueTurnDao().getByDialogue(d.id).size)
-                }
-            }
-            LaunchedEffect(taziehId) { reloadDialogues() }
-
-            DialoguesScreen(
-                taziehTitle = taziehTitle,
-                dialogues = dialogues,
-                onOpenDialogue = { d -> navController.navigate("dialogue_reader/${d.id}") },
-                onEditDialogue = { d, title ->
-                    scope.launch { db.dialogueDao().updateTitle(d.id, title); reloadDialogues() }
-                },
-                onDeleteDialogue = { d ->
-                    scope.launch {
-                        db.dialogueDao().delete(d.id)
-                        reloadDialogues()
-                    }
-                },
-                onCreateNew = { if (!publicViewer) navController.navigate("dialogue_builder/$taziehId/$taziehTitle") },
-                readOnly = publicViewer,
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-
-if (featureEnabled("read.view")) composable(ROUTE_DIALOGUE_READER) { backStackEntry ->
-    val dialogueId = backStackEntry.arguments
-        ?.getString("dialogueId")?.toLongOrNull() ?: 0L
-
-    var dialogueTitle by remember { mutableStateOf("") }
-    var turns by remember { mutableStateOf(listOf<DialogueTurnDisplay>()) }
-    var allSections by remember { mutableStateOf(listOf<SectionPickerItem>()) }
-    var showAddTurn by remember { mutableStateOf(false) }
-
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-
-    suspend fun ensureTurnMetadata(
-        turnId: Long,
-        fallbackOrder: Int
-    ): com.example.bookapp.data.DialogueTurnMetadataEntity {
-        val dao = db.dialogueTurnMetadataDao()
-        return dao.getByTurn(turnId) ?: com.example.bookapp.data.DialogueTurnMetadataEntity(
-            turnId = turnId,
-            rehearsalOrderIndex = fallbackOrder
-        ).also { dao.upsert(it) }
-    }
-
-    suspend fun reloadTurns() {
-        val dialogue = db.dialogueDao().getById(dialogueId)
-        if (dialogue == null) {
-            dialogueTitle = "گفت‌وگو پیدا نشد"
-            turns = emptyList()
-            allSections = emptyList()
-            return
-        }
-
-        dialogueTitle = dialogue.title
-
-        // ترتیب اصلی نوبت‌ها فقط برای مقداردهی اولیه metadata استفاده می‌شود.
-        // پس از آن، ترتیب مستقل تمرین ملاک نمایش خواهد بود.
-        val sourceTurns = db.dialogueTurnDao().getByDialogue(dialogueId)
-        val metadataDao = db.dialogueTurnMetadataDao()
-        val cueDao = db.dialogueStageCueDao()
-
-        val metadataById = mutableMapOf<Long, com.example.bookapp.data.DialogueTurnMetadataEntity>()
-        sourceTurns.forEachIndexed { index, sourceTurn ->
-            metadataById[sourceTurn.id] =
-                ensureTurnMetadata(sourceTurn.id, index)
-        }
-
-        val orderedTurns = sourceTurns.sortedWith(
-            compareBy<com.example.bookapp.data.DialogueTurnEntity> {
-                metadataById[it.id]?.rehearsalOrderIndex ?: it.orderIndex
-            }.thenBy { it.orderIndex }.thenBy { it.id }
-        )
-
-        turns = orderedTurns.mapNotNull { sourceTurn ->
-            val section = db.sectionDao().getById(sourceTurn.sectionId)
-                ?: return@mapNotNull null
-            val role = db.roleDao().getById(section.roleId)
-            val metadata = metadataById[sourceTurn.id]
-                ?: metadataDao.getByTurn(sourceTurn.id)
-            val cues = cueDao.getByTurn(sourceTurn.id)
-
-            DialogueTurnDisplay(
-                turnId = sourceTurn.id,
-                sectionId = section.id,
-                roleTitle = role.title,
-                sectionTitle = section.title,
-                content = section.content,
-                roleId = role.id,
-                sourceSequenceIndex = metadata?.sourceSequenceIndex,
-                sourceSequenceStatus = metadata?.sourceSequenceStatus
-                    ?: com.example.bookapp.data.DialogueTurnMetadataEntity.SOURCE_UNVERIFIED,
-                rehearsalOrderIndex = metadata?.rehearsalOrderIndex
-                    ?: sourceTurn.orderIndex,
-                expectsResponse = metadata?.expectsResponse ?: false,
-                replyToTurnId = metadata?.replyToTurnId,
-                expectedResponderRoleId = metadata?.expectedResponderRoleId,
-                expectedResponderRoleTitle = metadata?.expectedResponderRoleId
-                    ?.let { responderId ->
-                        runCatching { db.roleDao().getById(responderId).title }
-                            .getOrNull()
-                    },
-                sequenceEvidence = metadata?.sequenceEvidence.orEmpty(),
-                directorNote = metadata?.directorNote.orEmpty(),
-                stageCues = cues
-            )
-        }
-
-        // نقش‌ها و بخش‌ها فقط از نسخه متصل به همین گفت‌وگو گرفته می‌شوند؛
-        // نه از تمام نسخه‌های تعزیه.
-        val versionRoles = db.roleDao().getByVersionUid(dialogue.versionUid)
-        allSections = versionRoles.flatMap { role ->
-            db.sectionDao().getByRole(role.id).map { section ->
-                SectionPickerItem(
-                    section.id,
-                    role.title,
-                    section.title,
-                    role.id
-                )
-            }
-        }
-    }
-
-    LaunchedEffect(dialogueId) {
-        reloadTurns()
-    }
-
-    DialogueReaderScreen(
-        dialogueTitle = dialogueTitle,
-        turns = turns,
-
-        onMoveTurn = { index, direction ->
-            if (!publicViewer) scope.launch {
-                val current = turns
-                val targetIndex = index + direction
-                if (index !in current.indices || targetIndex !in current.indices) {
-                    return@launch
-                }
-
-                val first = current[index]
-                val second = current[targetIndex]
-                val firstMetadata = ensureTurnMetadata(
-                    first.turnId,
-                    first.rehearsalOrderIndex
-                )
-                val secondMetadata = ensureTurnMetadata(
-                    second.turnId,
-                    second.rehearsalOrderIndex
-                )
-
-                val dao = db.dialogueTurnMetadataDao()
-
-                // استفاده از مقدار موقت مانع تداخل در جابه‌جایی دو مقدار می‌شود.
-                dao.updateRehearsalOrder(first.turnId, Int.MIN_VALUE)
-                dao.updateRehearsalOrder(
-                    second.turnId,
-                    firstMetadata.rehearsalOrderIndex
-                )
-                dao.updateRehearsalOrder(
-                    first.turnId,
-                    secondMetadata.rehearsalOrderIndex
-                )
-                reloadTurns()
-            }
-        },
-
-        onDeleteTurn = { turn ->
-            if (!publicViewer) scope.launch {
-                db.dialogueTurnDao().deleteTurn(turn.turnId)
-
-                // پس از حذف، ترتیب تمرین به صورت پیوسته بازشماری می‌شود.
-                val remaining = db.dialogueTurnDao().getByDialogue(dialogueId)
-                remaining.forEachIndexed { index, item ->
-                    val metadata = ensureTurnMetadata(item.id, index)
-                    db.dialogueTurnMetadataDao().updateRehearsalOrder(
-                        item.id,
-                        index
-                    )
-                }
-                reloadTurns()
-            }
-        },
-
-        onAddTurn = {
-            if (!publicViewer) showAddTurn = true
-        },
-
-        onExportPdf = {
-            if (!exportAllowed("pdf", "pdf.create", "pdf.save")) {
-                notifyExportDenied()
-            } else scope.launch {
-                val triples = turns.map {
-                    Triple(it.roleTitle, it.sectionTitle, it.content)
-                }
-                com.example.bookapp.data.exportDialogueToPdf(
-                    context,
-                    dialogueTitle,
-                    triples
-                )
-            }
-        },
-
-        onBack = { navController.popBackStack() },
-        readOnly = publicViewer,
-        showPdf = featureEnabled("pdf") &&
-            featureEnabled("pdf.create") &&
-            featureEnabled("pdf.save"),
-
-        onSaveResponseRelation = {
-                turn, expectsResponse, replyToTurnId, expectedResponderRoleId ->
-            if (!publicViewer) scope.launch {
-                runCatching {
-                    val dialogue = db.dialogueDao().getById(dialogueId)
-                        ?: error("گفت‌وگوی موردنظر پیدا نشد.")
-
-                    val currentTurns = db.dialogueTurnDao()
-                        .getByDialogue(dialogueId)
-                    val currentIds = currentTurns.map { it.id }.toSet()
-
-                    require(turn.turnId in currentIds) {
-                        "نوبت انتخاب‌شده متعلق به این گفت‌وگو نیست."
-                    }
-                    require(replyToTurnId == null ||
-                        (replyToTurnId in currentIds &&
-                            replyToTurnId != turn.turnId)
-                    ) {
-                        "نوبت مرجع پاسخ معتبر نیست."
-                    }
-
-                    val versionRoleIds = db.roleDao()
-                        .getByVersionUid(dialogue.versionUid)
-                        .map { it.id }.toSet()
-
-                    require(
-                        expectedResponderRoleId == null ||
-                            expectedResponderRoleId in versionRoleIds
-                    ) {
-                        "نقش پاسخ‌دهنده متعلق به نسخه این گفت‌وگو نیست."
-                    }
-
-                    // جلوگیری از چرخه در زنجیره پاسخ‌ها.
-                    var cursor = replyToTurnId
-                    val visited = mutableSetOf<Long>()
-                    while (cursor != null) {
-                        require(cursor != turn.turnId) {
-                            "این رابطه باعث ایجاد چرخه در زنجیره پاسخ‌ها می‌شود."
-                        }
-                        require(visited.add(cursor)) {
-                            "در روابط قبلی پاسخ، چرخه‌ای وجود دارد؛ ابتدا آن را اصلاح کنید."
-                        }
-                        cursor = db.dialogueTurnMetadataDao()
-                            .getByTurn(cursor)?.replyToTurnId
-                    }
-
-                    val old = ensureTurnMetadata(
-                        turn.turnId,
-                        turn.rehearsalOrderIndex
-                    )
-
-                    db.dialogueTurnMetadataDao().upsert(
-                        old.copy(
-                            expectsResponse = expectsResponse,
-                            replyToTurnId = replyToTurnId,
-                            expectedResponderRoleId =
-                                if (expectsResponse) expectedResponderRoleId else null
-                        )
-                    )
-                }.onFailure { error ->
-                    android.util.Log.e(
-                        "DialogueReader",
-                        "ذخیره رابطه پاسخ ناموفق بود",
-                        error
-                    )
-                    android.widget.Toast.makeText(
-                        context,
-                        error.message ?: "ذخیره رابطه پاسخ انجام نشد.",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
-                }
-                reloadTurns()
-            }
-        },
-
-        onAddStageCue = { turn, cueType, cueText ->
-            if (!publicViewer) scope.launch {
-                runCatching {
-                    require(turns.any { it.turnId == turn.turnId }) {
-                        "نوبت انتخاب‌شده دیگر در این گفت‌وگو وجود ندارد."
-                    }
-                    val existing = db.dialogueStageCueDao()
-                        .getByTurn(turn.turnId)
-
-                    db.dialogueStageCueDao().insert(
-                        com.example.bookapp.data.DialogueStageCueEntity(
-                            turnId = turn.turnId,
-                            cueType = cueType,
-                            cueText = cueText.trim(),
-                            orderIndex = existing.size,
-                            origin = com.example.bookapp.data.DialogueStageCueEntity.ORIGIN_DIRECTOR_ADDED,
-                            isVerified = false
-                        )
-                    )
-                }.onFailure { error ->
-                    android.util.Log.e(
-                        "DialogueReader",
-                        "ثبت نشانه اجرایی ناموفق بود",
-                        error
-                    )
-                    android.widget.Toast.makeText(
-                        context,
-                        error.message ?: "ثبت نشانه اجرایی انجام نشد.",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
-                }
-                reloadTurns()
-            }
-        },
-
-        onDeleteStageCue = { cue ->
-            if (!publicViewer) scope.launch {
-                // نشانه استخراج‌شده از متن منبع هرگز از این مسیر حذف نمی‌شود.
-                if (cue.origin ==
-                    com.example.bookapp.data.DialogueStageCueEntity.ORIGIN_DIRECTOR_ADDED
-                ) {
-                    db.dialogueStageCueDao().delete(cue.id)
-                    reloadTurns()
-                }
-            }
-        }
-    )
-
-    if (showAddTurn && !publicViewer) {
-        var chosen by remember(dialogueId) {
-            mutableStateOf<SectionPickerItem?>(null)
-        }
-
-        AlertDialog(
-            onDismissRequest = { showAddTurn = false },
-            title = { Text("افزودن نوبت به گفت‌وگو") },
-            text = {
-                androidx.compose.foundation.lazy.LazyColumn(
-                    Modifier.heightIn(max = 420.dp)
-                ) {
-                    items(allSections, key = { it.sectionId }) { item ->
-                        ListItem(
-                            headlineContent = { Text(item.sectionTitle) },
-                            supportingContent = { Text(item.roleTitle) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { chosen = item }
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = chosen != null,
-                    onClick = {
-                        val sectionId = chosen?.sectionId
-                        if (sectionId != null) scope.launch {
-                            runCatching {
-                                val current = db.dialogueTurnDao()
-                                    .getByDialogue(dialogueId)
-                                val nextSourceOrder =
-                                    (current.maxOfOrNull { it.orderIndex } ?: -1) + 1
-                                val newTurnId = db.dialogueTurnDao().insert(
-                                    com.example.bookapp.data.DialogueTurnEntity(
-                                        dialogueId = dialogueId,
-                                        sectionId = sectionId,
-                                        orderIndex = nextSourceOrder
-                                    )
-                                )
-
-                                require(newTurnId > 0L) {
-                                    "شناسه نوبت جدید ایجاد نشد."
-                                }
-
-                                val nextRehearsalOrder =
-                                    (turns.maxOfOrNull {
-                                        it.rehearsalOrderIndex
-                                    } ?: -1) + 1
-
-                                db.dialogueTurnMetadataDao().upsert(
-                                    com.example.bookapp.data.DialogueTurnMetadataEntity(
-                                        turnId = newTurnId,
-                                        rehearsalOrderIndex = nextRehearsalOrder
-                                    )
-                                )
-                            }.onFailure { error ->
-                                android.util.Log.e(
-                                    "DialogueReader",
-                                    "افزودن نوبت ناموفق بود",
-                                    error
-                                )
-                                android.widget.Toast.makeText(
-                                    context,
-                                    error.message ?: "افزودن نوبت انجام نشد.",
-                                    android.widget.Toast.LENGTH_LONG
-                                ).show()
-                            }
-                            reloadTurns()
-                            showAddTurn = false
-                        }
-                    }
-                ) {
-                    Text("افزودن")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddTurn = false }) {
-                    Text("انصراف")
-                }
-            }
-        )
-    }
-}
-       
         if (featureEnabled("gallery.view")) composable(ROUTE_TAZIEH_GALLERY) { backStackEntry ->
             val taziehId = backStackEntry.arguments?.getString("taziehId")?.toLongOrNull() ?: 0L
             var taziehTitle by remember { mutableStateOf("تعزیه") }

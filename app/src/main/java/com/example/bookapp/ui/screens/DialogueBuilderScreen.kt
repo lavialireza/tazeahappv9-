@@ -127,7 +127,7 @@ fun DialogueBuilderScreen(
 
     val valid = title.isNotBlank() &&
         selectedSequence.size >= 2 &&
-        selectedRoleCount in 2..4
+        selectedRoleCount >= 2
 
     Scaffold(
         topBar = {
@@ -174,9 +174,16 @@ fun DialogueBuilderScreen(
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
 
+            Text(
+                text = "حداقل دو نقش متمایز لازم است؛ برای تعداد نقش‌ها سقفی تعیین نشده است.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+
             if (selectedSequence.isEmpty()) {
                 Text(
-                    text = "برای هر نقش، نسخهٔ منبع را انتخاب کنید؛ سپس بخش‌ها را به ترتیب اجرای گفتگو اضافه کنید.",
+                    text = "برای هر نقش نسخهٔ منبع را انتخاب کنید؛ سپس متن‌ها را به ترتیبی که برای مطالعه نیاز دارید اضافه کنید.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(
@@ -252,9 +259,6 @@ fun DialogueBuilderScreen(
 
                     val roleAlreadySelected =
                         group.key in selectedRoleKeys
-
-                    val roleLimitReached =
-                        !roleAlreadySelected && selectedRoleCount >= 4
 
                     Card(
                         modifier = Modifier
@@ -359,14 +363,9 @@ fun DialogueBuilderScreen(
                                     Text(
                                         text = when {
                                             roleAlreadySelected -> "در گفتگو"
-                                            roleLimitReached -> "حداکثر ۴ نقش"
                                             else -> "قابل افزودن"
                                         },
-                                        color = if (roleLimitReached) {
-                                            MaterialTheme.colorScheme.error
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        },
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         style = MaterialTheme.typography.labelSmall
                                     )
                                 }
@@ -390,12 +389,12 @@ fun DialogueBuilderScreen(
 
                                     OutlinedButton(
                                         onClick = {
-                                            if (!alreadyAdded && !roleLimitReached) {
+                                            if (!alreadyAdded) {
                                                 selectedSequenceState.value =
                                                     selectedSequenceState.value + item
                                             }
                                         },
-                                        enabled = !alreadyAdded && !roleLimitReached,
+                                        enabled = !alreadyAdded,
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
 
@@ -452,9 +451,6 @@ fun DialogueBuilderScreen(
 
                         selectedRoleCount < 2 ->
                             "برای ساخت گفتگو حداقل دو نقش متفاوت انتخاب کنید."
-
-                        selectedRoleCount > 4 ->
-                            "حداکثر چهار نقش متفاوت قابل انتخاب است."
 
                         else ->
                             "انتخاب نقش‌ها و نوبت‌ها را بررسی کنید."

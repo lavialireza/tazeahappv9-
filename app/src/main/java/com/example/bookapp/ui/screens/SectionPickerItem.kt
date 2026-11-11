@@ -15,7 +15,11 @@ data class SectionPickerItem(
     val isCurrentVersion: Boolean = false
 ) {
     val versionLabel: String
-        get() = versionTitle.ifBlank {
-            versionNumber?.let { "نسخه $it" } ?: "نسخه آرشیو"
+        get() {
+            val title = versionTitle.ifBlank {
+                versionNumber?.let { "نسخه $it" } ?: "نسخه آرشیو"
+            }
+            val status = if (isCurrentVersion) "جاری" else "قدیمی"
+            return "$title · $status"
         }
 }
