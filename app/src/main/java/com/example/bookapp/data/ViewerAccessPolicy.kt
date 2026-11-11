@@ -97,6 +97,12 @@ object ViewerAccessPolicy {
         "taziehCorrections.apply" to "اصلاحات تعزیه: اعمال اصلاح بر متن",
         "calendar.view" to "تقویم محرم: مشاهده",
         "calendar.suggestions" to "تقویم محرم: پیشنهاد تعزیه‌ها"
+        "dialogues" to "گفتگوهای چندنقشی",
+        "dialogues.view" to "گفتگوها: مشاهده",
+        "dialogues.create" to "گفتگوها: ساخت گفتگوی جدید",
+        "dialogues.edit" to "گفتگوها: ویرایش گفتگوی شخصی",
+        "dialogues.delete" to "گفتگوها: حذف گفتگوی شخصی",
+        "dialogues.practice" to "گفتگوها: تمرین و اجرای گفتگو"
     )
 
     /** والد هر مجوز فرزند. اگر والد خاموش باشد، فرزند نیز مؤثرًا خاموش است. */
@@ -122,6 +128,11 @@ object ViewerAccessPolicy {
         "calendar.view" to "calendar", "calendar.suggestions" to "calendar",
         "encyclopedia.view" to "encyclopedia",
         "ai.analysis" to "ai", "ai.speaker" to "ai", "ai.glossary" to "ai", "ai.semanticSearch" to "ai", "ai.transcription" to "ai"
+ "dialogues.view" to "dialogues",
+"dialogues.create" to "dialogues",
+"dialogues.edit" to "dialogues",
+"dialogues.delete" to "dialogues",
+"dialogues.practice" to "dialogues"
     )
 
     data class SpecialUser(
