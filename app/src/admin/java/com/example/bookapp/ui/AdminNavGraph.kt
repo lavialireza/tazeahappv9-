@@ -815,156 +815,151 @@ fun NavGraphBuilder.adminOnlyRoutes(
             }
         } else {
          
-DialogueBuilderScreen(
-    allSections = allSections,
-    onSave = { title, orderedSections: List<SectionPickerItem> ->
-        scope.launch {
-            try {
-                db.withTransaction {
-                    val tazieh = requireNotNull(
-                        db.taziehDao().getById(taziehId)
-                    ) {
-                        "تعزیه انتخاب‌شده دیگر وجود ندارد."
-                    }
 
-                    require(title.isNotBlank()) {
-                        "نام گفتگو را وارد کنید."
-                    }
-
-                    require(orderedSections.size >= 2) {
-                        "برای ساخت گفتگو حداقل دو نوبت لازم است."
-                    }
-
-                    require(
-                        orderedSections.map { it.sectionId }.distinct().size ==
-                            orderedSections.size
-                    ) {
-                        "یک بخش بیش از یک بار انتخاب شده است."
-                    }
-
-                    // هر بخش همراه با نقش و نسخه واقعی خودش بررسی می‌شود.
-                    val selectedRecords = orderedSections.map { item ->
-                        val section = requireNotNull(
-                            db.sectionDao().getById(item.sectionId)
-                        ) {
-                            "یکی از بخش‌های انتخاب‌شده پیدا نشد."
-                        }
-
-                        val role = requireNotNull(
-                            db.roleDao().getById(section.roleId)
-                        ) {
-                            "نقش یکی از بخش‌های انتخاب‌شده پیدا نشد."
-                        }
-
-                        val version = requireNotNull(
-                            db.archiveDao().versionByUid(item.versionUid)
-                        ) {
-                            "نسخهٔ منبع یکی از نقش‌ها پیدا نشد."
-                        }
-
-                        check(version.taziehUid == tazieh.uid) {
-                            "نسخهٔ انتخاب‌شده متعلق به این تعزیه نیست."
-                        }
-
-                        check(
-                            role.taziehId == taziehId &&
-                                role.versionUid == item.versionUid &&
-                                role.id == item.roleId
-                        ) {
-                            "اطلاعات نقش یا نسخهٔ یکی از بخش‌ها تغییر کرده است."
-                        }
-
-                        Triple(item, section, role)
-                    }
-
-                    // تشخیص نقش‌های متمایز با عنوان نرمال‌شده؛
-                    // زیرا شناسه نقش در نسخه‌های منشعب ممکن است متفاوت باشد.
-                    fun normalizeRoleTitle(value: String): String =
-                        value.trim()
-                            .replace('ي', 'ی')
-                            .replace('ك', 'ک')
-                            .replace("ـ", "")
-                            .lowercase(java.util.Locale.ROOT)
-                            .filterNot {
-                                it.isWhitespace() || it == '\u200c'
+        DialogueBuilderScreen(
+            allSections = allSections,
+            onSave = { title, orderedSections: List<SectionPickerItem> ->
+                scope.launch {
+                    try {
+                        db.withTransaction {
+                            val tazieh = requireNotNull(
+                                db.taziehDao().getById(taziehId)
+                            ) {
+                                "تعزیه انتخاب‌شده دیگر وجود ندارد."
                             }
 
-                    val distinctRoleRecords = selectedRecords.distinctBy {
-                        normalizeRoleTitle(it.third.title)
-                    }
+                            require(title.isNotBlank()) {
+                                "نام گفتگو را وارد کنید."
+                            }
 
-                    require(distinctRoleRecords.size in 2..4) {
-                        "گفتگو باید شامل ۲ تا ۴ نقش متفاوت باشد."
-                    }
+                            require(orderedSections.size >= 2) {
+                                "برای ساخت گفتگو حداقل دو نوبت لازم است."
+                            }
 
-                    // ایجاد گفتگو؛ نسخه اصلی صرفاً نسخه پایه گفتگو است.
-                    val dialogueId = db.dialogueDao().insert(
-                        com.example.bookapp.data.DialogueEntity(
-                            taziehId = taziehId,
-                            title = title.trim(),
-                            versionUid = selectedRecords.first().first.versionUid
-                        )
-                    )
+                            require(
+                                orderedSections.map { it.sectionId }.distinct().size ==
+                                    orderedSections.size
+                            ) {
+                                "یک بخش بیش از یک بار انتخاب شده است."
+                            }
 
-                    // ثبت هر نقش با نسخه مستقل خودش و ترتیب انتخاب کاربر.
-                    distinctRoleRecords.forEachIndexed { index, record ->
-                        val item = record.first
-                        val role = record.third
+                            val selectedRecords = orderedSections.map { item ->
+                                val section = requireNotNull(
+                                    db.sectionDao().getById(item.sectionId)
+                                ) {
+                                    "یکی از بخش‌های انتخاب‌شده پیدا نشد."
+                                }
 
-                        val insertedId =
-                            db.dialogueRoleSelectionDao().insert(
-                                com.example.bookapp.data.DialogueRoleSelectionEntity(
-                                    dialogueId = dialogueId,
-                                    roleId = role.id,
-                                    versionUid = item.versionUid,
-                                    displayOrder = index
+                                val role = requireNotNull(
+                                    db.roleDao().getById(section.roleId)
+                                ) {
+                                    "نقش یکی از بخش‌های انتخاب‌شده پیدا نشد."
+                                }
+
+                                val version = requireNotNull(
+                                    db.archiveDao().versionByUid(item.versionUid)
+                                ) {
+                                    "نسخهٔ منبع یکی از نقش‌ها پیدا نشد."
+                                }
+
+                                check(version.taziehUid == tazieh.uid) {
+                                    "نسخهٔ انتخاب‌شده متعلق به این تعزیه نیست."
+                                }
+
+                                check(
+                                    role.taziehId == taziehId &&
+                                        role.versionUid == item.versionUid &&
+                                        role.id == item.roleId
+                                ) {
+                                    "اطلاعات نقش یا نسخهٔ یکی از بخش‌ها تغییر کرده است."
+                                }
+
+                                Triple(item, section, role)
+                            }
+
+                            fun normalizeRoleTitle(value: String): String =
+                                value.trim()
+                                    .replace('ي', 'ی')
+                                    .replace('ك', 'ک')
+                                    .replace("ـ", "")
+                                    .lowercase(java.util.Locale.ROOT)
+                                    .filterNot {
+                                        it.isWhitespace() || it == '\u200c'
+                                    }
+
+                            val distinctRoleRecords = selectedRecords.distinctBy {
+                                normalizeRoleTitle(it.third.title)
+                            }
+
+                            require(distinctRoleRecords.size in 2..4) {
+                                "گفتگو باید شامل ۲ تا ۴ نقش متفاوت باشد."
+                            }
+
+                            val dialogueId = db.dialogueDao().insert(
+                                com.example.bookapp.data.DialogueEntity(
+                                    taziehId = taziehId,
+                                    title = title.trim(),
+                                    versionUid = selectedRecords.first().first.versionUid
                                 )
                             )
 
-                        check(insertedId > 0L) {
-                            "ثبت یکی از نقش‌های گفتگو ناموفق بود."
+                            distinctRoleRecords.forEachIndexed { index, record ->
+                                val item = record.first
+                                val role = record.third
+
+                                val insertedId =
+                                    db.dialogueRoleSelectionDao().insert(
+                                        com.example.bookapp.data.DialogueRoleSelectionEntity(
+                                            dialogueId = dialogueId,
+                                            roleId = role.id,
+                                            versionUid = item.versionUid,
+                                            displayOrder = index
+                                        )
+                                    )
+
+                                check(insertedId > 0L) {
+                                    "ثبت یکی از نقش‌های گفتگو ناموفق بود."
+                                }
+                            }
+
+                            selectedRecords.forEachIndexed { index, record ->
+                                val section = record.second
+
+                                val turnId = db.dialogueTurnDao().insert(
+                                    com.example.bookapp.data.DialogueTurnEntity(
+                                        dialogueId = dialogueId,
+                                        sectionId = section.id,
+                                        orderIndex = index
+                                    )
+                                )
+
+                                db.dialogueTurnMetadataDao().upsert(
+                                    com.example.bookapp.data.DialogueTurnMetadataEntity(
+                                        turnId = turnId,
+                                        sourceSequenceIndex = null,
+                                        sourceSequenceStatus =
+                                            com.example.bookapp.data.DialogueTurnMetadataEntity
+                                                .SOURCE_UNVERIFIED,
+                                        rehearsalOrderIndex = index,
+                                        expectsResponse = false,
+                                        replyToTurnId = null,
+                                        expectedResponderRoleId = null
+                                    )
+                                )
+                            }
                         }
-                    }
 
-                    // ثبت نوبت‌ها دقیقاً با ترتیب انتخاب‌شده کاربر.
-                    selectedRecords.forEachIndexed { index, record ->
-                        val section = record.second
-
-                        val turnId = db.dialogueTurnDao().insert(
-                            com.example.bookapp.data.DialogueTurnEntity(
-                                dialogueId = dialogueId,
-                                sectionId = section.id,
-                                orderIndex = index
-                            )
-                        )
-
-                        db.dialogueTurnMetadataDao().upsert(
-                            com.example.bookapp.data.DialogueTurnMetadataEntity(
-                                turnId = turnId,
-                                sourceSequenceIndex = null,
-                                sourceSequenceStatus =
-                                    com.example.bookapp.data.DialogueTurnMetadataEntity
-                                        .SOURCE_UNVERIFIED,
-                                rehearsalOrderIndex = index,
-                                expectsResponse = false,
-                                replyToTurnId = null,
-                                expectedResponderRoleId = null
-                            )
-                        )
+                        navController.popBackStack()
+                    } catch (e: Exception) {
+                        saveError = e.message ?: "ذخیره گفتگو ناموفق بود."
                     }
                 }
-
+            },
+            onBack = {
                 navController.popBackStack()
-
-            } catch (e: Exception) {
-                saveError = e.message ?: "ذخیره گفتگو ناموفق بود."
             }
-        }
-    },
-    onBack = {
-        navController.popBackStack()
-    }
-)
+        )
+        } // پایان else مربوط به loading و builderError
 
         if (saveError != null) {
             AlertDialog(
@@ -986,5 +981,4 @@ DialogueBuilderScreen(
                 }
             )
         }
-    }
-}
+    } // پایان composable
