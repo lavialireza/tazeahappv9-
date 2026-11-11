@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -41,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -120,6 +124,7 @@ fun DialogueReaderScreen(
                     add(id)
                 }
             }
+
             turnsByRole.keys.forEach { id ->
                 if (id !in this) {
                     add(id)
@@ -133,11 +138,9 @@ fun DialogueReaderScreen(
             if (roleTurns.isEmpty()) {
                 null
             } else {
-                val title = roleTurns.first().roleTitle
-
                 RoleStudyGroup(
                     roleId = roleId,
-                    roleTitle = title,
+                    roleTitle = roleTurns.first().roleTitle,
                     versionLabel = roleTurns.first().versionLabel,
                     numberedTurns = roleTurns.map { turn ->
                         (
@@ -197,6 +200,7 @@ fun DialogueReaderScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .imePadding()
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Text(
@@ -389,10 +393,15 @@ private fun RoleStudyCardBody(
     val currentMatch = matches.getOrNull(safeActiveIndex)
     val turnListState = rememberLazyListState()
 
-    // فقط فهرست داخلی متن‌های نقش پیمایش می‌شود.
-    // از bringIntoView استفاده نمی‌کنیم تا کادر جستجو مخفی نشود.
+    val density = LocalDensity.current
+    val keyboardVisible = WindowInsets.ime.getBottom(density) > 0
+
+    // با تایپ عبارت، نتیجهٔ اول انتخاب می‌شود.
+    // با قبلی و بعدی، نتیجهٔ فعال عوض شده و فهرست به نوبت مربوط می‌رود.
     LaunchedEffect(
         currentMatch?.turnId,
+        currentMatch?.start,
+        currentMatch?.end,
         safeActiveIndex,
         group.numberedTurns
     ) {
@@ -403,7 +412,10 @@ private fun RoleStudyCardBody(
         } ?: -1
 
         if (targetIndex >= 0) {
-            turnListState.animateScrollToItem(targetIndex)
+            turnListState.animateScrollToItem(
+                index = targetIndex,
+                scrollOffset = 0
+            )
         }
     }
 
@@ -414,6 +426,7 @@ private fun RoleStudyCardBody(
                 if (fullscreen) Modifier.fillMaxSize()
                 else Modifier
             )
+            .imePadding()
             .padding(
                 if (fullscreen) 16.dp else 12.dp
             ),
@@ -438,6 +451,7 @@ private fun RoleStudyCardBody(
                         if (group.versionLabel.isNotBlank()) {
                             append("منبع: ${group.versionLabel} · ")
                         }
+
                         append(
                             "${group.numberedTurns.size} بخش انتخاب‌شده"
                         )
@@ -514,7 +528,9 @@ private fun RoleStudyCardBody(
             } else {
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 480.dp)
+                    .heightIn(
+                        max = if (keyboardVisible) 180.dp else 480.dp
+                    )
             },
             contentPadding = PaddingValues(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
