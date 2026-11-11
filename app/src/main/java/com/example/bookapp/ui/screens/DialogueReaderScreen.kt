@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoView
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -102,9 +105,18 @@ fun DialogueReaderScreen(
     showPdf: Boolean = true
 ) {
     var showOrderEditor by remember { mutableStateOf(false) }
-    val queryByRole = remember { mutableStateMapOf<Long, String>() }
-    val activeMatchByRole = remember { mutableStateMapOf<Long, Int>() }
-    var expandedRoleId by remember { mutableStateOf<Long?>(null) }
+
+    val queryByRole = remember {
+        mutableStateMapOf<Long, String>()
+    }
+
+    val activeMatchByRole = remember {
+        mutableStateMapOf<Long, Int>()
+    }
+
+    var expandedRoleId by remember {
+        mutableStateOf<Long?>(null)
+    }
 
     val orderedTurns = remember(turns) {
         turns.sortedWith(
@@ -171,7 +183,9 @@ fun DialogueReaderScreen(
                 actions = {
                     if (!readOnly) {
                         TextButton(
-                            onClick = { showOrderEditor = true }
+                            onClick = {
+                                showOrderEditor = true
+                            }
                         ) {
                             Text("ترتیب نوبت‌ها")
                         }
@@ -201,7 +215,10 @@ fun DialogueReaderScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .imePadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(
+                    horizontal = 12.dp,
+                    vertical = 8.dp
+                )
         ) {
             Text(
                 text = "مطالعهٔ نقش‌ها",
@@ -210,16 +227,6 @@ fun DialogueReaderScreen(
                 modifier = Modifier.padding(
                     horizontal = 4.dp,
                     vertical = 6.dp
-                )
-            )
-
-            Text(
-                text = "متن هر نقش از نسخهٔ منبع انتخاب‌شده نمایش داده می‌شود. جستجو در هر نقش مستقل است.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(
-                    horizontal = 4.dp,
-                    vertical = 4.dp
                 )
             )
 
@@ -245,6 +252,7 @@ fun DialogueReaderScreen(
                         }
 
                         val query = queryByRole[group.roleId].orEmpty()
+
                         val activeMatch =
                             activeMatchByRole[group.roleId] ?: 0
 
@@ -256,15 +264,21 @@ fun DialogueReaderScreen(
                             expanded = expandedRoleId == group.roleId,
                             onQueryChange = { value ->
                                 queryByRole[group.roleId] = value
+
+                                // با هر تغییر عبارت، جستجو از نتیجه اول آغاز می‌شود.
                                 activeMatchByRole[group.roleId] = 0
                             },
                             onNavigateMatch = { direction, matchCount ->
                                 if (matchCount > 0) {
-                                    val current =
+                                    val current = (
                                         activeMatchByRole[group.roleId] ?: 0
+                                    ).coerceIn(0, matchCount - 1)
 
-                                    activeMatchByRole[group.roleId] =
-                                        (current + direction + matchCount) % matchCount
+                                    val next = (
+                                        current + direction
+                                    ).mod(matchCount)
+
+                                    activeMatchByRole[group.roleId] = next
                                 }
                             },
                             onExpand = {
@@ -381,7 +395,10 @@ private fun RoleStudyCardBody(
     onExpand: () -> Unit
 ) {
     val matches = remember(group.numberedTurns, query) {
-        findRoleSearchMatches(group.numberedTurns, query)
+        findRoleSearchMatches(
+            numberedTurns = group.numberedTurns,
+            query = query
+        )
     }
 
     val safeActiveIndex = if (matches.isEmpty()) {
@@ -391,13 +408,17 @@ private fun RoleStudyCardBody(
     }
 
     val currentMatch = matches.getOrNull(safeActiveIndex)
+
     val turnListState = rememberLazyListState()
 
     val density = LocalDensity.current
     val keyboardVisible = WindowInsets.ime.getBottom(density) > 0
 
-    // با تایپ عبارت، نتیجهٔ اول انتخاب می‌شود.
-    // با قبلی و بعدی، نتیجهٔ فعال عوض شده و فهرست به نوبت مربوط می‌رود.
+    /*
+     * مرحله اول:
+     * با تایپ عبارت یا انتخاب قبلی/بعدی، فهرست به نوبتِ
+     * مربوط به نتیجه فعال منتقل می‌شود.
+     */
     LaunchedEffect(
         currentMatch?.turnId,
         currentMatch?.start,
@@ -540,12 +561,33 @@ private fun RoleStudyCardBody(
                 key = { it.second.turnId }
             ) { (sequenceNumber, turn) ->
 
-                val turnMatches = matches.filter {
-                    it.turnId == turn.turnId
+                val turnMatches = remember(matches, turn.turnId) {
+                    matches.filter {
+                        it.turnId == turn.turnId
+                    }
                 }
 
                 val activeForTurn = currentMatch?.takeIf {
                     it.turnId == turn.turnId
+                }
+
+                /*
+                 * هر نوبت یک درخواست‌کننده مستقل دارد.
+                 * پس از رسیدن فهرست به نوبت هدف، متن همان نوبت
+                 * نیز به محدوده قابل مشاهده آورده می‌شود.
+                 */
+                val textBringIntoViewRequester = remember(turn.turnId) {
+                    BringIntoViewRequester()
+                }
+
+                LaunchedEffect(
+                    activeForTurn?.turnId,
+                    activeForTurn?.start,
+                    activeForTurn?.end
+                ) {
+                    if (activeForTurn != null) {
+                        textBringIntoViewRequester.bringIntoView()
+                    }
                 }
 
                 Card(
@@ -574,6 +616,9 @@ private fun RoleStudyCardBody(
                                 activeHighlight = MaterialTheme.colorScheme.primaryContainer,
                                 activeTextColor = MaterialTheme.colorScheme.onPrimaryContainer
                             ),
+                            modifier = Modifier.bringIntoViewRequester(
+                                textBringIntoViewRequester
+                            ),
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
@@ -596,11 +641,14 @@ private fun findRoleSearchMatches(
     val results = mutableListOf<RoleSearchMatch>()
 
     numberedTurns.forEach { (_, turn) ->
-        val content = normalizeDialogueSearchText(turn.content)
+        val normalizedContent = normalizeDialogueSearchText(turn.content)
         var startAt = 0
 
-        while (startAt <= content.length - needle.length) {
-            val index = content.indexOf(needle, startAt)
+        while (startAt <= normalizedContent.length - needle.length) {
+            val index = normalizedContent.indexOf(
+                string = needle,
+                startIndex = startAt
+            )
 
             if (index < 0) {
                 break
