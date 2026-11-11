@@ -1,5 +1,6 @@
 package com.example.bookapp.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -317,6 +318,7 @@ private fun RoleStudyCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RoleStudyCardBody(
     group: RoleStudyGroup,
