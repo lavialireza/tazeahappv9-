@@ -96,7 +96,7 @@ object ViewerAccessPolicy {
         "taziehCorrections.delete" to "اصلاحات تعزیه: حذف اصلاح",
         "taziehCorrections.apply" to "اصلاحات تعزیه: اعمال اصلاح بر متن",
         "calendar.view" to "تقویم محرم: مشاهده",
-        "calendar.suggestions" to "تقویم محرم: پیشنهاد تعزیه‌ها"
+        "calendar.suggestions" to "تقویم محرم: پیشنهاد تعزیه‌ها",
         "dialogues" to "گفتگوهای چندنقشی",
         "dialogues.view" to "گفتگوها: مشاهده",
         "dialogues.create" to "گفتگوها: ساخت گفتگوی جدید",
@@ -127,7 +127,7 @@ object ViewerAccessPolicy {
         "taziehCorrections.edit" to "taziehCorrections", "taziehCorrections.delete" to "taziehCorrections", "taziehCorrections.apply" to "taziehCorrections",
         "calendar.view" to "calendar", "calendar.suggestions" to "calendar",
         "encyclopedia.view" to "encyclopedia",
-        "ai.analysis" to "ai", "ai.speaker" to "ai", "ai.glossary" to "ai", "ai.semanticSearch" to "ai", "ai.transcription" to "ai"
+        "ai.analysis" to "ai", "ai.speaker" to "ai", "ai.glossary" to "ai", "ai.semanticSearch" to "ai", "ai.transcription" to "ai",
  "dialogues.view" to "dialogues",
 "dialogues.create" to "dialogues",
 "dialogues.edit" to "dialogues",
