@@ -1,6 +1,7 @@
 
 package com.example.bookapp.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,7 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoView
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -264,8 +264,6 @@ fun DialogueReaderScreen(
                             expanded = expandedRoleId == group.roleId,
                             onQueryChange = { value ->
                                 queryByRole[group.roleId] = value
-
-                                // با هر تغییر عبارت، جستجو از نتیجه اول آغاز می‌شود.
                                 activeMatchByRole[group.roleId] = 0
                             },
                             onNavigateMatch = { direction, matchCount ->
@@ -274,11 +272,8 @@ fun DialogueReaderScreen(
                                         activeMatchByRole[group.roleId] ?: 0
                                     ).coerceIn(0, matchCount - 1)
 
-                                    val next = (
-                                        current + direction
-                                    ).mod(matchCount)
-
-                                    activeMatchByRole[group.roleId] = next
+                                    activeMatchByRole[group.roleId] =
+                                        (current + direction).mod(matchCount)
                                 }
                             },
                             onExpand = {
@@ -383,6 +378,7 @@ private fun RoleStudyCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RoleStudyCardBody(
     group: RoleStudyGroup,
@@ -408,16 +404,15 @@ private fun RoleStudyCardBody(
     }
 
     val currentMatch = matches.getOrNull(safeActiveIndex)
-
     val turnListState = rememberLazyListState()
 
     val density = LocalDensity.current
     val keyboardVisible = WindowInsets.ime.getBottom(density) > 0
 
     /*
-     * مرحله اول:
-     * با تایپ عبارت یا انتخاب قبلی/بعدی، فهرست به نوبتِ
-     * مربوط به نتیجه فعال منتقل می‌شود.
+     * ابتدا فهرست داخلی به نوبت مربوط به نتیجه فعال می‌رود.
+     * پس از ساخته‌شدن آیتم هدف، درخواست نمایش متن همان نتیجه
+     * از داخل آیتم اجرا می‌شود.
      */
     LaunchedEffect(
         currentMatch?.turnId,
@@ -473,9 +468,7 @@ private fun RoleStudyCardBody(
                             append("منبع: ${group.versionLabel} · ")
                         }
 
-                        append(
-                            "${group.numberedTurns.size} بخش انتخاب‌شده"
-                        )
+                        append("${group.numberedTurns.size} بخش انتخاب‌شده")
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -571,15 +564,15 @@ private fun RoleStudyCardBody(
                     it.turnId == turn.turnId
                 }
 
-                /*
-                 * هر نوبت یک درخواست‌کننده مستقل دارد.
-                 * پس از رسیدن فهرست به نوبت هدف، متن همان نوبت
-                 * نیز به محدوده قابل مشاهده آورده می‌شود.
-                 */
                 val textBringIntoViewRequester = remember(turn.turnId) {
                     BringIntoViewRequester()
                 }
 
+                /*
+                 * این اثر فقط برای نوبتی اجرا می‌شود که نتیجه فعال
+                 * در آن قرار دارد. در نتیجه جابه‌جایی بین چند نتیجه
+                 * داخل یک نوبت نیز درخواست نمایش مجدد ایجاد می‌کند.
+                 */
                 LaunchedEffect(
                     activeForTurn?.turnId,
                     activeForTurn?.start,
