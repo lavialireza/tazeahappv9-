@@ -39,12 +39,12 @@ private data class ConversationRoleText(
     val text: String
 )
 
-private data class RoleSearchMatch(
+private data class CompareRoleSearchMatch(
     val start: Int,
     val end: Int
 )
 
-private fun normalizeDialogueSearchText(value: String): String {
+private fun normalizeCompareSearchText(value: String): String {
     return buildString(value.length) {
         value.forEach { character ->
             append(
@@ -60,18 +60,18 @@ private fun normalizeDialogueSearchText(value: String): String {
     }.lowercase()
 }
 
-private fun findRoleSearchMatches(
+private fun findCompareRoleSearchMatches(
     text: String,
     query: String
-): List<RoleSearchMatch> {
+): List<CompareRoleSearchMatch> {
     if (query.isBlank()) return emptyList()
 
-    val normalizedText = normalizeDialogueSearchText(text)
-    val normalizedQuery = normalizeDialogueSearchText(query)
+    val normalizedText = normalizeCompareSearchText(text)
+    val normalizedQuery = normalizeCompareSearchText(query)
 
     if (normalizedQuery.isBlank()) return emptyList()
 
-    val results = mutableListOf<RoleSearchMatch>()
+    val results = mutableListOf<CompareRoleSearchMatch>()
     var startIndex = 0
 
     while (startIndex <= normalizedText.length - normalizedQuery.length) {
@@ -83,7 +83,7 @@ private fun findRoleSearchMatches(
         if (foundIndex < 0) break
 
         results.add(
-            RoleSearchMatch(
+            CompareRoleSearchMatch(
                 start = foundIndex,
                 end = foundIndex + normalizedQuery.length
             )
@@ -95,16 +95,17 @@ private fun findRoleSearchMatches(
     return results
 }
 
-private fun buildHighlightedText(
+private fun buildCompareHighlightedText(
     text: String,
-    matches: List<RoleSearchMatch>,
+    matches: List<CompareRoleSearchMatch>,
     selectedIndex: Int
 ): AnnotatedString {
     return buildAnnotatedString {
         var currentPosition = 0
 
         matches.forEachIndexed { index, match ->
-            if (match.start < currentPosition ||
+            if (
+                match.start < currentPosition ||
                 match.start >= text.length ||
                 match.end > text.length
             ) {
@@ -233,7 +234,7 @@ private fun RoleStudyCard(
     }
 
     val matches = remember(item.text, searchQuery) {
-        findRoleSearchMatches(item.text, searchQuery)
+        findCompareRoleSearchMatches(item.text, searchQuery)
     }
 
     val scrollState = rememberScrollState()
@@ -248,7 +249,7 @@ private fun RoleStudyCard(
         matches,
         selectedMatchIndex
     ) {
-        buildHighlightedText(
+        buildCompareHighlightedText(
             text = item.text,
             matches = matches,
             selectedIndex = selectedMatchIndex
@@ -306,8 +307,6 @@ private fun RoleStudyCard(
                     vertical = 8.dp
                 )
         ) {
-
-            // عنوان و دکمه تمام‌صفحه ثابت می‌مانند.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -334,7 +333,6 @@ private fun RoleStudyCard(
                 color = titleColor.copy(alpha = 0.25f)
             )
 
-            // کادر جستجو خارج از اسکرول متن است.
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = {
@@ -415,7 +413,6 @@ private fun RoleStudyCard(
                 color = titleColor.copy(alpha = 0.2f)
             )
 
-            // فقط متن اسکرول می‌شود؛ عنوان و جستجو ثابت هستند.
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -566,9 +563,7 @@ fun CompareScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
-
             if (!isShowingConversation) {
-
                 Text(
                     "نمایش هم‌زمان مکالمه نقش‌ها",
                     style = MaterialTheme.typography.titleMedium,
@@ -616,7 +611,6 @@ fun CompareScreen(
                 }
 
             } else if (isPreparingConversation) {
-
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -631,9 +625,7 @@ fun CompareScreen(
                 }
 
             } else {
-
                 if (fullscreenRoleId == null) {
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -686,7 +678,6 @@ fun CompareScreen(
 
                     Spacer(Modifier.height(6.dp))
 
-                    // فهرست اصلی نقش‌ها؛ اسکرول هر کارت مستقل است.
                     LazyColumn(
                         modifier = Modifier
                             .weight(1f)
@@ -720,7 +711,6 @@ fun CompareScreen(
                     }
 
                 } else {
-
                     val fullscreenIndex =
                         conversationTexts.indexOfFirst {
                             it.roleId == fullscreenRoleId
@@ -730,7 +720,6 @@ fun CompareScreen(
                         conversationTexts.getOrNull(fullscreenIndex)
 
                     if (fullscreenItem != null) {
-
                         RoleStudyCard(
                             item = fullscreenItem,
                             fontSize = conversationFontSize,
