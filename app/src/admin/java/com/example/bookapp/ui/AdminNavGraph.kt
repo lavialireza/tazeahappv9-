@@ -51,6 +51,7 @@ import com.example.bookapp.data.syncLocalContentFiles
 import com.example.bookapp.data.syncRemoteContent
 import com.example.bookapp.ui.screens.*
 import kotlinx.coroutines.launch
+import com.example.bookapp.ui.screens.SectionPickerItem
 
 private const val ROUTE_VIEWER_ACCESS = "viewer_access"
 private const val ROUTE_SPECIAL_USERS = "special_users"
@@ -813,130 +814,157 @@ fun NavGraphBuilder.adminOnlyRoutes(
                 }
             }
         } else {
-            DialogueBuilderScreen(
-                allSections = allSections,
-                onSave = { title, orderedSectionIds ->
-                    val expectedVersionUid = currentVersionUid
-
-                    if (expectedVersionUid != null) {
-                        scope.launch {
-                            try {
-                                db.withTransaction {
-                                    val tazieh = db.taziehDao()
-                                        .getById(taziehId)
-                                        ?: error("تعزیه انتخاب‌شده دیگر وجود ندارد.")
-
-                                    val latestVersion = db.archiveDao()
-                                        .currentVersion(tazieh.uid)
-                                        ?: error("نسخه جاری آرشیو پیدا نشد.")
-
-                                    check(latestVersion.uid == expectedVersionUid) {
-                                        "نسخه جاری تعزیه هنگام ساخت گفتگو تغییر کرده است. صفحه را دوباره باز کنید."
-                                    }
-
-                                    require(orderedSectionIds.size >= 2) {
-                                        "برای ساخت گفتگو حداقل دو نوبت لازم است."
-                                    }
-
-                                    require(
-                                        orderedSectionIds.distinct().size ==
-                                            orderedSectionIds.size
-                                    ) {
-                                        "یک بخش بیش از یک بار انتخاب شده است."
-                                    }
-
-                                    val selectedSections = orderedSectionIds.map {
-                                        db.sectionDao().getById(it)
-                                    }
-
-                                    val selectedRoles = selectedSections.map {
-                                        db.roleDao().getById(it.roleId)
-                                    }
-
-                                    check(
-                                        selectedRoles.all { role ->
-                                            role.taziehId == taziehId &&
-                                                role.versionUid == expectedVersionUid
-                                        }
-                                    ) {
-                                        "همه نقش‌ها و بخش‌ها باید متعلق به همان نسخه جاری تعزیه باشند."
-                                    }
-
-                                    val distinctRoles = selectedRoles.distinctBy {
-                                        it.id
-                                    }
-
-                                    require(distinctRoles.size in 2..4) {
-                                        "گفتگو باید شامل ۲ تا ۴ نقش متفاوت باشد."
-                                    }
-
-                                    // گفت‌وگو به نسخه جاری متصل می‌شود.
-                                    val dialogueId = db.dialogueDao().insert(
-                                        com.example.bookapp.data.DialogueEntity(
-                                            taziehId = taziehId,
-                                            title = title.trim(),
-                                            versionUid = expectedVersionUid
-                                        )
-                                    )
-
-                                    // نقش‌های انتخاب‌شده و ترتیب نمایشی آن‌ها ثبت می‌شود.
-                                    distinctRoles.forEachIndexed { index, role ->
-                                        val insertedId =
-                                            db.dialogueRoleSelectionDao().insert(
-                                                com.example.bookapp.data.DialogueRoleSelectionEntity(
-                                                    dialogueId = dialogueId,
-                                                    roleId = role.id,
-                                                    versionUid = expectedVersionUid,
-                                                    displayOrder = index
-                                                )
-                                            )
-
-                                        check(insertedId > 0L) {
-                                            "ثبت یکی از نقش‌های گفتگو ناموفق بود."
-                                        }
-                                    }
-
-                                    // نوبت‌ها و metadata اولیه هر نوبت ثبت می‌شوند.
-                                    selectedSections.forEachIndexed { index, section ->
-                                        val turnId = db.dialogueTurnDao().insert(
-                                            com.example.bookapp.data.DialogueTurnEntity(
-                                                dialogueId = dialogueId,
-                                                sectionId = section.id,
-                                                orderIndex = index
-                                            )
-                                        )
-
-                                        db.dialogueTurnMetadataDao().upsert(
-                                            com.example.bookapp.data.DialogueTurnMetadataEntity(
-                                                turnId = turnId,
-                                                sourceSequenceIndex = null,
-                                                sourceSequenceStatus =
-                                                    com.example.bookapp.data.DialogueTurnMetadataEntity
-                                                        .SOURCE_UNVERIFIED,
-                                                rehearsalOrderIndex = index,
-                                                expectsResponse = false,
-                                                replyToTurnId = null,
-                                                expectedResponderRoleId = null
-                                            )
-                                        )
-                                    }
-                                }
-
-                                navController.popBackStack()
-                            } catch (e: Exception) {
-                                saveError = e.message
-                                    ?: "ذخیره گفتگو ناموفق بود."
-                            }
-                        }
-                    } else {
-                        saveError = "نسخه جاری تعزیه مشخص نیست. صفحه را دوباره باز کنید."
+         
+DialogueBuilderScreen(
+    allSections = allSections,
+    onSave = { title, orderedSections: List<SectionPickerItem> ->
+        scope.launch {
+            try {
+                db.withTransaction {
+                    val tazieh = requireNotNull(
+                        db.taziehDao().getById(taziehId)
+                    ) {
+                        "تعزیه انتخاب‌شده دیگر وجود ندارد."
                     }
-                },
-                onBack = {
-                    navController.popBackStack()
+
+                    require(title.isNotBlank()) {
+                        "نام گفتگو را وارد کنید."
+                    }
+
+                    require(orderedSections.size >= 2) {
+                        "برای ساخت گفتگو حداقل دو نوبت لازم است."
+                    }
+
+                    require(
+                        orderedSections.map { it.sectionId }.distinct().size ==
+                            orderedSections.size
+                    ) {
+                        "یک بخش بیش از یک بار انتخاب شده است."
+                    }
+
+                    // هر بخش همراه با نقش و نسخه واقعی خودش بررسی می‌شود.
+                    val selectedRecords = orderedSections.map { item ->
+                        val section = requireNotNull(
+                            db.sectionDao().getById(item.sectionId)
+                        ) {
+                            "یکی از بخش‌های انتخاب‌شده پیدا نشد."
+                        }
+
+                        val role = requireNotNull(
+                            db.roleDao().getById(section.roleId)
+                        ) {
+                            "نقش یکی از بخش‌های انتخاب‌شده پیدا نشد."
+                        }
+
+                        val version = requireNotNull(
+                            db.archiveDao().versionByUid(item.versionUid)
+                        ) {
+                            "نسخهٔ منبع یکی از نقش‌ها پیدا نشد."
+                        }
+
+                        check(version.taziehUid == tazieh.uid) {
+                            "نسخهٔ انتخاب‌شده متعلق به این تعزیه نیست."
+                        }
+
+                        check(
+                            role.taziehId == taziehId &&
+                                role.versionUid == item.versionUid &&
+                                role.id == item.roleId
+                        ) {
+                            "اطلاعات نقش یا نسخهٔ یکی از بخش‌ها تغییر کرده است."
+                        }
+
+                        Triple(item, section, role)
+                    }
+
+                    // تشخیص نقش‌های متمایز با عنوان نرمال‌شده؛
+                    // زیرا شناسه نقش در نسخه‌های منشعب ممکن است متفاوت باشد.
+                    fun normalizeRoleTitle(value: String): String =
+                        value.trim()
+                            .replace('ي', 'ی')
+                            .replace('ك', 'ک')
+                            .replace("ـ", "")
+                            .lowercase(java.util.Locale.ROOT)
+                            .filterNot {
+                                it.isWhitespace() || it == '\u200c'
+                            }
+
+                    val distinctRoleRecords = selectedRecords.distinctBy {
+                        normalizeRoleTitle(it.third.title)
+                    }
+
+                    require(distinctRoleRecords.size in 2..4) {
+                        "گفتگو باید شامل ۲ تا ۴ نقش متفاوت باشد."
+                    }
+
+                    // ایجاد گفتگو؛ نسخه اصلی صرفاً نسخه پایه گفتگو است.
+                    val dialogueId = db.dialogueDao().insert(
+                        com.example.bookapp.data.DialogueEntity(
+                            taziehId = taziehId,
+                            title = title.trim(),
+                            versionUid = selectedRecords.first().first.versionUid
+                        )
+                    )
+
+                    // ثبت هر نقش با نسخه مستقل خودش و ترتیب انتخاب کاربر.
+                    distinctRoleRecords.forEachIndexed { index, record ->
+                        val item = record.first
+                        val role = record.third
+
+                        val insertedId =
+                            db.dialogueRoleSelectionDao().insert(
+                                com.example.bookapp.data.DialogueRoleSelectionEntity(
+                                    dialogueId = dialogueId,
+                                    roleId = role.id,
+                                    versionUid = item.versionUid,
+                                    displayOrder = index
+                                )
+                            )
+
+                        check(insertedId > 0L) {
+                            "ثبت یکی از نقش‌های گفتگو ناموفق بود."
+                        }
+                    }
+
+                    // ثبت نوبت‌ها دقیقاً با ترتیب انتخاب‌شده کاربر.
+                    selectedRecords.forEachIndexed { index, record ->
+                        val section = record.second
+
+                        val turnId = db.dialogueTurnDao().insert(
+                            com.example.bookapp.data.DialogueTurnEntity(
+                                dialogueId = dialogueId,
+                                sectionId = section.id,
+                                orderIndex = index
+                            )
+                        )
+
+                        db.dialogueTurnMetadataDao().upsert(
+                            com.example.bookapp.data.DialogueTurnMetadataEntity(
+                                turnId = turnId,
+                                sourceSequenceIndex = null,
+                                sourceSequenceStatus =
+                                    com.example.bookapp.data.DialogueTurnMetadataEntity
+                                        .SOURCE_UNVERIFIED,
+                                rehearsalOrderIndex = index,
+                                expectsResponse = false,
+                                replyToTurnId = null,
+                                expectedResponderRoleId = null
+                            )
+                        )
+                    }
                 }
-            )
+
+                navController.popBackStack()
+
+            } catch (e: Exception) {
+                saveError = e.message ?: "ذخیره گفتگو ناموفق بود."
+            }
         }
+    },
+    onBack = {
+        navController.popBackStack()
+    }
+)
 
         if (saveError != null) {
             AlertDialog(
