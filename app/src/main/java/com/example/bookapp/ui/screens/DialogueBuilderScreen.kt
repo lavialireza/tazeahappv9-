@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -36,8 +35,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,17 +61,22 @@ fun DialogueBuilderScreen(
     onSave: (title: String, orderedSections: List<SectionPickerItem>) -> Unit,
     onBack: () -> Unit
 ) {
-    var selectedSequence by remember {
+    // وضعیت‌ها بدون delegated properties نگهداری می‌شوند.
+    val selectedSequenceState = remember {
         mutableStateOf<List<SectionPickerItem>>(emptyList())
     }
 
-    var title by remember {
+    val titleState = remember {
         mutableStateOf("")
     }
 
-    var expandedVersionRoleKey by remember {
+    val expandedVersionRoleKeyState = remember {
         mutableStateOf<String?>(null)
     }
+
+    val selectedSequence = selectedSequenceState.value
+    val title = titleState.value
+    val expandedVersionRoleKey = expandedVersionRoleKeyState.value
 
     val roleGroups = remember(allSections) {
         allSections
@@ -154,7 +156,9 @@ fun DialogueBuilderScreen(
 
             OutlinedTextField(
                 value = title,
-                onValueChange = { title = it },
+                onValueChange = {
+                    titleState.value = it
+                },
                 label = {
                     Text("نام گفتگو")
                 },
@@ -197,8 +201,8 @@ fun DialogueBuilderScreen(
 
                         AssistChip(
                             onClick = {
-                                selectedSequence =
-                                    selectedSequence.toMutableList().apply {
+                                selectedSequenceState.value =
+                                    selectedSequenceState.value.toMutableList().apply {
                                         removeAt(index)
                                     }
                             },
@@ -288,7 +292,7 @@ fun DialogueBuilderScreen(
 
                                     OutlinedButton(
                                         onClick = {
-                                            expandedVersionRoleKey =
+                                            expandedVersionRoleKeyState.value =
                                                 if (versionMenuExpanded) {
                                                     null
                                                 } else {
@@ -309,7 +313,7 @@ fun DialogueBuilderScreen(
                                     DropdownMenu(
                                         expanded = versionMenuExpanded,
                                         onDismissRequest = {
-                                            expandedVersionRoleKey = null
+                                            expandedVersionRoleKeyState.value = null
                                         }
                                     ) {
 
@@ -333,13 +337,13 @@ fun DialogueBuilderScreen(
 
                                                     // با تغییر نسخهٔ نقش،
                                                     // نوبت‌های قبلی همان نقش حذف می‌شوند.
-                                                    selectedSequence =
-                                                        selectedSequence.filter { item ->
+                                                    selectedSequenceState.value =
+                                                        selectedSequenceState.value.filter { item ->
                                                             dialogueRoleKey(item.roleTitle) !=
                                                                 group.key
                                                         }
 
-                                                    expandedVersionRoleKey = null
+                                                    expandedVersionRoleKeyState.value = null
                                                 }
                                             )
                                         }
@@ -387,8 +391,8 @@ fun DialogueBuilderScreen(
                                     OutlinedButton(
                                         onClick = {
                                             if (!alreadyAdded && !roleLimitReached) {
-                                                selectedSequence =
-                                                    selectedSequence + item
+                                                selectedSequenceState.value =
+                                                    selectedSequenceState.value + item
                                             }
                                         },
                                         enabled = !alreadyAdded && !roleLimitReached,
@@ -424,8 +428,8 @@ fun DialogueBuilderScreen(
             Button(
                 onClick = {
                     onSave(
-                        title.trim(),
-                        selectedSequence
+                        titleState.value.trim(),
+                        selectedSequenceState.value
                     )
                 },
                 enabled = valid,
