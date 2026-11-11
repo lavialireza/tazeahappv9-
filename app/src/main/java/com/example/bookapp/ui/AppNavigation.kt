@@ -1130,12 +1130,21 @@ fun AppNavigation(
                 items = roleItems,
                 onOpen = { item -> navController.navigate("sections/${item.id}/${item.title}") },
                 onSetMine = { item ->
-                    if (featureEnabled("myRole.select")) {
-                        Prefs.setMyRole(context, taziehId, item.id)
-                        myRoleId = item.id
-                        scope.launch { reloadRoles() }
-                    }
-                },
+    if (featureEnabled("myRole.select")) {
+        if (Prefs.getMyRole(context, taziehId) == item.id) {
+            // اگر همین نقش قبلاً انتخاب شده، انتخاب را لغو کن
+            Prefs.clearMyRole(context, taziehId)
+        } else {
+            // در غیر این صورت نقش جدید را ثبت کن
+            Prefs.setMyRole(context, taziehId, item.id)
+        }
+
+        myRoleId = Prefs.getMyRole(context, taziehId)
+        scope.launch {
+            reloadRoles()
+        }
+    }
+},
                 onCompare = { navController.navigate("compare/$taziehId") },
                 onOpenGallery = { if (featureEnabled("gallery.view")) navController.navigate("tazieh_gallery/$taziehId") },
                 showGallery = featureEnabled("gallery.view"),
