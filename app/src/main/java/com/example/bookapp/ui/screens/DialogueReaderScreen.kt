@@ -1,6 +1,7 @@
 
 package com.example.bookapp.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -381,6 +382,7 @@ private fun RoleStudyCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RoleStudyCardBody(
     group: RoleStudyGroup,
@@ -411,10 +413,6 @@ private fun RoleStudyCardBody(
     val density = LocalDensity.current
     val keyboardVisible = WindowInsets.ime.getBottom(density) > 0
 
-    /*
-     * فقط فهرست داخلی کارت به نوبت دارای نتیجه می‌رود.
-     * هیچ درخواست اسکرولی به کارت یا صفحه والد ارسال نمی‌شود.
-     */
     LaunchedEffect(
         currentMatch?.turnId,
         currentMatch?.start,
@@ -637,11 +635,6 @@ private fun RoleStudyCardBody(
                             fontWeight = FontWeight.Bold
                         )
 
-                        /*
-                         * حالت عادی: ارتفاع ۲۲۰dp.
-                         * حالت تمام‌صفحه: تمام فضای باقی‌مانده کارت.
-                         * اسکرول فقط محتوای متن را حرکت می‌دهد.
-                         */
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
