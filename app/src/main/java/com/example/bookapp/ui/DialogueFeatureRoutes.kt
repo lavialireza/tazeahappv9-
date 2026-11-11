@@ -182,8 +182,8 @@ fun NavGraphBuilder.dialogueFeatureRoutes(
                 else -> DialogueBuilderScreen(
                     allSections = sections,
                     onBack = { navController.popBackStack() },
-                    onSave = { dialogueTitle, orderedSections ->
-                        scope.launch {
+onSave = { dialogueTitle: String, orderedSections: List<SectionPickerItem> ->
+                    scope.launch {
                             runCatching {
                                 if (!featureEnabled("dialogues.create")) {
                                     throw SecurityException("مجوز ساخت گفتگو فعال نیست.")
@@ -473,8 +473,17 @@ fun NavGraphBuilder.dialogueFeatureRoutes(
                             scope.launch {
                                 runCatching {
                                     db.withTransaction {
-                                        DialogueRepository.requireAccessibleDialogue(db, dialogueId, isAdmin, ownerId)
-                                        val allowedFresh = DialogueRepository.loadAllowedSections(db, dialogue)
+                                      val freshDialogue = DialogueRepository.requireAccessibleDialogue(
+    db,
+    dialogueId,
+    isAdmin,
+    ownerId
+)
+
+val allowedFresh = DialogueRepository.loadAllowedSections(
+    db,
+    freshDialogue
+)
                                         require(allowedFresh.any {
                                             it.sectionId == selected.sectionId &&
                                                 it.roleId == selected.roleId &&
