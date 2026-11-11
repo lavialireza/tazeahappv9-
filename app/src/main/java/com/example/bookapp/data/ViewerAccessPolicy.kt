@@ -101,8 +101,7 @@ object ViewerAccessPolicy {
         "dialogues.view" to "گفتگوها: مشاهده",
         "dialogues.create" to "گفتگوها: ساخت گفتگوی جدید",
         "dialogues.edit" to "گفتگوها: ویرایش گفتگوی شخصی",
-        "dialogues.delete" to "گفتگوها: حذف گفتگوی شخصی",
-        "dialogues.practice" to "گفتگوها: تمرین و اجرای گفتگو"
+        "dialogues.delete" to "گفتگوها: حذف گفتگوی شخصی"
     )
 
     /** والد هر مجوز فرزند. اگر والد خاموش باشد، فرزند نیز مؤثرًا خاموش است. */
@@ -131,8 +130,7 @@ object ViewerAccessPolicy {
  "dialogues.view" to "dialogues",
 "dialogues.create" to "dialogues",
 "dialogues.edit" to "dialogues",
-"dialogues.delete" to "dialogues",
-"dialogues.practice" to "dialogues"
+"dialogues.delete" to "dialogues"
     )
 
     data class SpecialUser(

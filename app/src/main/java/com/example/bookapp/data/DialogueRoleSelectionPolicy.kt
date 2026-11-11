@@ -1,18 +1,21 @@
 package com.example.bookapp.data
 
-/** Rules for constructing a multi-role rehearsal dialogue without changing source sections. */
+/**
+ * Rules for constructing a multi-role study dialogue without changing source sections.
+ * There is no upper limit on the number of distinct roles.
+ */
 object DialogueRoleSelectionPolicy {
-    fun distinctRoleCount(roleIds: Iterable<Long>): Int = roleIds.filter { it > 0L }.distinct().size
+    fun distinctRoleCount(roleIds: Iterable<Long>): Int =
+        roleIds.filter { it > 0L }.distinct().size
 
-    fun canAddRole(roleId: Long, selectedRoleIds: Iterable<Long>, maxRoles: Int = 4): Boolean {
-        require(maxRoles in 2..4) { "maxRoles must be between 2 and 4" }
+    fun canAddRole(
+        roleId: Long,
+        selectedRoleIds: Iterable<Long>
+    ): Boolean {
         if (roleId <= 0L) return false
-        val selected = selectedRoleIds.filter { it > 0L }.toSet()
-        return roleId in selected || selected.size < maxRoles
+        return roleId !in selectedRoleIds.filter { it > 0L }.toSet()
     }
 
-    fun isValid(roleIds: Iterable<Long>, turnCount: Int): Boolean {
-        val count = distinctRoleCount(roleIds)
-        return turnCount >= 2 && count in 2..4
-    }
+    fun isValid(roleIds: Iterable<Long>, turnCount: Int): Boolean =
+        turnCount >= 2 && distinctRoleCount(roleIds) >= 2
 }

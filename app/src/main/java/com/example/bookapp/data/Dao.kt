@@ -247,6 +247,23 @@ interface DialogueDao {
 
     @Query("""
         UPDATE dialogues
+        SET taziehId = :taziehId,
+            title = :title,
+            uid = :uid,
+            versionUid = :versionUid,
+            ownerInstallationId = ''
+        WHERE id = :dialogueId
+    """)
+    suspend fun updateFromBackup(
+        dialogueId: Long,
+        taziehId: Long,
+        title: String,
+        uid: String,
+        versionUid: String
+    )
+
+    @Query("""
+        UPDATE dialogues
         SET title = :title
         WHERE id = :dialogueId
           AND ownerInstallationId = :ownerId

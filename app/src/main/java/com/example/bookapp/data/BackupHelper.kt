@@ -2,6 +2,7 @@ package com.example.bookapp.data
 
 import android.content.Context
 import android.net.Uri
+import com.example.bookapp.BuildConfig
 import androidx.room.withTransaction
 import org.json.JSONArray
 import org.json.JSONObject
@@ -27,7 +28,24 @@ private suspend fun buildBackupJsonInTransaction(context: Context, db: AppDataba
         // This portable file contains user-specific records only; it is not a full
         // database/content/archive image. Keep the scope explicit for safe restore.
         put("scope", "personal_user_data")
-        put("includedData", JSONArray(listOf("notes", "bookmarks", "recent", "readSections", "activeDays", "tags", "footnotes", "myRoles", "dialogues")))
+        put(
+            "includedData",
+            JSONArray(
+                buildList {
+                    addAll(
+                        listOf(
+                            "notes", "bookmarks", "recent", "readSections",
+                            "activeDays", "tags", "footnotes", "myRoles"
+                        )
+                    )
+                    if (!BuildConfig.PUBLIC_VIEWER) add("dialogues")
+                }
+            )
+        )
+        put(
+            "dialogueDataScope",
+            if (BuildConfig.PUBLIC_VIEWER) "device_local_only" else "admin_archive"
+        )
     }
 
     root.put("notes", JSONArray().apply {
@@ -98,25 +116,52 @@ private suspend fun buildBackupJsonInTransaction(context: Context, db: AppDataba
     })
 
     root.put("dialogues", JSONArray().apply {
-        taziehsById.values.forEach { tazieh ->
-            db.dialogueDao().getByTazieh(tazieh.id).forEach { dialogue ->
-                val turns = JSONArray().apply {
-                    db.dialogueTurnDao().getByDialogue(dialogue.id).forEach { turn ->
-                        sectionsById[turn.sectionId]?.let { section ->
-                            put(JSONObject().apply {
-                                put("uid", turn.uid)
-                                put("sectionUid", section.uid)
-                                put("orderIndex", turn.orderIndex)
-                            })
+        // گفت‌وگوهای Viewer دادهٔ محلی همان نصب هستند و نباید در فایل
+        // پشتیبان قابل انتقال یا آرشیو Admin قرار بگیرند.
+        if (!BuildConfig.PUBLIC_VIEWER) {
+            taziehsById.values.forEach { tazieh ->
+                db.dialogueDao().getByTazieh(tazieh.id)
+                    .filter { it.ownerInstallationId.isBlank() }
+                    .forEach { dialogue ->
+                        val turns = JSONArray().apply {
+                            db.dialogueTurnDao().getByDialogue(dialogue.id).forEach { turn ->
+                                sectionsById[turn.sectionId]?.let { section ->
+                                    val metadata = db.dialogueTurnMetadataDao()
+                                        .getByTurn(turn.id)
+                                    put(JSONObject().apply {
+                                        put("uid", turn.uid)
+                                        put("sectionUid", section.uid)
+                                        put("orderIndex", turn.orderIndex)
+                                        put(
+                                            "rehearsalOrderIndex",
+                                            metadata?.rehearsalOrderIndex ?: turn.orderIndex
+                                        )
+                                    })
+                                }
+                            }
                         }
+                        val roleSelections = JSONArray().apply {
+                            db.dialogueRoleSelectionDao()
+                                .getByDialogue(dialogue.id)
+                                .forEach { selection ->
+                                    val role = rolesById[selection.roleId]
+                                        ?: db.roleDao().getById(selection.roleId)
+                                    put(JSONObject().apply {
+                                        put("roleUid", role.uid)
+                                        put("versionUid", selection.versionUid)
+                                        put("displayOrder", selection.displayOrder)
+                                    })
+                                }
+                        }
+                        put(JSONObject().apply {
+                            put("uid", dialogue.uid)
+                            put("taziehUid", tazieh.uid)
+                            put("title", dialogue.title)
+                            put("versionUid", dialogue.versionUid)
+                            put("roleSelections", roleSelections)
+                            put("turns", turns)
+                        })
                     }
-                }
-                put(JSONObject().apply {
-                    put("uid", dialogue.uid)
-                    put("taziehUid", tazieh.uid)
-                    put("title", dialogue.title)
-                    put("turns", turns)
-                })
             }
         }
     })
@@ -211,7 +256,13 @@ suspend fun restoreBackupFromUri(context: Context, db: AppDatabase, uri: Uri, pa
             restoreTags(context, db, root.optJSONArray("tags") ?: JSONArray(), version)
             restoreFootnotes(db, root.optJSONArray("footnotes") ?: JSONArray(), version)
             restoreMyRoles(context, db, root.optJSONArray("myRoles") ?: JSONArray(), version)
-            restoreDialogues(db, root.optJSONArray("dialogues") ?: JSONArray(), version)
+            // Viewer گفتگوهای شخصی را از پشتیبان قابل انتقال وارد نمی‌کند؛
+            // این داده‌ها فقط متعلق به نصب سازنده هستند.
+            if (!BuildConfig.PUBLIC_VIEWER &&
+                root.optString("dialogueDataScope") != "device_local_only"
+            ) {
+                restoreDialogues(db, root.optJSONArray("dialogues") ?: JSONArray(), version)
+            }
         }
         Result.success(Unit)
     } catch (e: Exception) {
@@ -338,11 +389,52 @@ private suspend fun restoreDialogues(db: AppDatabase, arr: JSONArray, version: I
         val taziehId = resolveTaziehId(db, taziehKey, version) ?: continue
         val uid = o.optString("uid").ifBlank { ContentUid.new() }
         val existing = db.dialogueDao().getByUid(uid)
+        val versionUid = o.optString("versionUid").ifBlank {
+            existing?.versionUid.orEmpty()
+        }
         val dialogueId = if (existing == null) {
-            db.dialogueDao().insert(DialogueEntity(taziehId = taziehId, title = o.getString("title"), uid = uid))
+            db.dialogueDao().insert(
+                DialogueEntity(
+                    taziehId = taziehId,
+                    title = o.getString("title"),
+                    uid = uid,
+                    versionUid = versionUid,
+                    ownerInstallationId = ""
+                )
+            )
         } else {
-            db.dialogueDao().updateIdentity(existing.id, taziehId, o.getString("title"), uid)
+            db.dialogueDao().updateFromBackup(
+                dialogueId = existing.id,
+                taziehId = taziehId,
+                title = o.getString("title"),
+                uid = uid,
+                versionUid = versionUid
+            )
             existing.id
+        }
+
+        // نقش‌های منبع مستقل، در صورت وجود در پشتیبان، به همان ترتیب بازسازی می‌شوند.
+        if (o.has("roleSelections")) {
+            db.dialogueRoleSelectionDao().deleteAllForDialogue(dialogueId)
+            val roleSelections = o.optJSONArray("roleSelections") ?: JSONArray()
+            for (j in 0 until roleSelections.length()) {
+                val selection = roleSelections.optJSONObject(j) ?: continue
+                val roleUid = selection.optString("roleUid")
+                val selectedVersionUid = selection.optString("versionUid")
+                if (roleUid.isBlank() || selectedVersionUid.isBlank()) continue
+                val role = db.roleDao().getByUid(roleUid) ?: continue
+                if (role.taziehId != taziehId ||
+                    role.versionUid != selectedVersionUid
+                ) continue
+                db.dialogueRoleSelectionDao().insert(
+                    DialogueRoleSelectionEntity(
+                        dialogueId = dialogueId,
+                        roleId = role.id,
+                        versionUid = selectedVersionUid,
+                        displayOrder = selection.optInt("displayOrder", j)
+                    )
+                )
+            }
         }
 
         // A dialogue is a snapshot; replace its turns atomically to avoid duplicate turns.
@@ -352,7 +444,7 @@ private suspend fun restoreDialogues(db: AppDatabase, arr: JSONArray, version: I
             val t = turnsArr.getJSONObject(j)
             val sectionKey = if (version >= 2) t.optString("sectionUid") else t.optString("sectionId")
             val sectionId = resolveSectionId(db, sectionKey, version) ?: continue
-            db.dialogueTurnDao().insert(
+            val turnId = db.dialogueTurnDao().insert(
                 DialogueTurnEntity(
                     dialogueId = dialogueId,
                     sectionId = sectionId,
@@ -360,6 +452,17 @@ private suspend fun restoreDialogues(db: AppDatabase, arr: JSONArray, version: I
                     uid = t.optString("uid").ifBlank { ContentUid.new() }
                 )
             )
+            if (turnId > 0L) {
+                db.dialogueTurnMetadataDao().upsert(
+                    DialogueTurnMetadataEntity(
+                        turnId = turnId,
+                        rehearsalOrderIndex = t.optInt(
+                            "rehearsalOrderIndex",
+                            t.optInt("orderIndex", j)
+                        )
+                    )
+                )
+            }
         }
     }
 }

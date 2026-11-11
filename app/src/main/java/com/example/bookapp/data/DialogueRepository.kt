@@ -80,8 +80,8 @@ object DialogueRepository {
         }
 
         val roleGroups = verifiedItems.groupBy { roleKey(it.roleTitle) }
-        require(roleGroups.size in 2..4) {
-            "گفتگو باید از دو تا چهار نقش متفاوت تشکیل شود."
+        require(roleGroups.size >= 2) {
+            "گفتگو باید دست‌کم از دو نقش متفاوت تشکیل شود."
         }
         roleGroups.values.forEach { items ->
             require(items.map { it.roleId }.distinct().size == 1 &&
@@ -200,10 +200,10 @@ object DialogueRepository {
         taziehId: Long,
         isAdmin: Boolean,
         ownerInstallationId: String
-    ): List<DialogueEntity> = if (isAdmin) {
-        db.dialogueDao().getByTazieh(taziehId)
-    } else {
-        db.dialogueDao().getOwnedByTazieh(taziehId, ownerInstallationId)
+    ): List<DialogueEntity> = when {
+        isAdmin -> db.dialogueDao().getByTazieh(taziehId)
+        ownerInstallationId.isBlank() -> emptyList()
+        else -> db.dialogueDao().getOwnedByTazieh(taziehId, ownerInstallationId)
     }
 
     suspend fun renameDialogue(
