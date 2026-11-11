@@ -413,7 +413,7 @@ private fun RoleStudyCardBody(
 
     /*
      * فقط فهرست داخلی کارت به نوبت دارای نتیجه می‌رود.
-     * هیچ درخواست bringIntoView به کارت یا صفحه والد ارسال نمی‌شود.
+     * هیچ درخواست اسکرولی به کارت یا صفحه والد ارسال نمی‌شود.
      */
     LaunchedEffect(
         currentMatch?.turnId,
@@ -484,10 +484,6 @@ private fun RoleStudyCardBody(
             }
         }
 
-        /*
-         * کادر جستجو بیرون از محدوده اسکرول متن قرار دارد
-         * و هنگام حرکت بین نتایج جابه‌جا نمی‌شود.
-         */
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
@@ -538,10 +534,6 @@ private fun RoleStudyCardBody(
             }
         }
 
-        /*
-         * فهرست نوبت‌ها یک ناحیه اسکرول مستقل دارد.
-         * کادر جستجو و کنترل‌های قبلی/بعدی خارج از این ناحیه هستند.
-         */
         LazyColumn(
             state = turnListState,
             modifier = if (fullscreen) {
@@ -573,19 +565,12 @@ private fun RoleStudyCardBody(
                     it.turnId == turn.turnId
                 }
 
-                /*
-                 * وضعیت اسکرول مستقل برای متن همین نوبت.
-                 * این اسکرول فقط محتوای Text را حرکت می‌دهد.
-                 */
                 val textScrollState = rememberScrollState()
+
                 var textLayoutResult by remember(turn.turnId) {
                     mutableStateOf<TextLayoutResult?>(null)
                 }
 
-                /*
-                 * پس از فعال‌شدن نتیجه، محل خط آن در متن محاسبه
-                 * و فقط اسکرول داخلی متن جابه‌جا می‌شود.
-                 */
                 LaunchedEffect(
                     activeForTurn?.turnId,
                     activeForTurn?.start,
@@ -622,14 +607,28 @@ private fun RoleStudyCardBody(
                 }
 
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (fullscreen) {
+                                Modifier.fillParentMaxHeight()
+                            } else {
+                                Modifier
+                            }
+                        ),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surface
                     ),
                     shape = RoundedCornerShape(14.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = if (fullscreen) {
+                            Modifier
+                                .fillMaxSize()
+                                .padding(12.dp)
+                        } else {
+                            Modifier.padding(12.dp)
+                        },
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
@@ -639,14 +638,20 @@ private fun RoleStudyCardBody(
                         )
 
                         /*
-                         * ارتفاع کادر متن ثابت است.
-                         * فقط محتوای داخل آن اسکرول می‌شود؛
-                         * خود کارت و کادر جستجو ثابت می‌مانند.
+                         * حالت عادی: ارتفاع ۲۲۰dp.
+                         * حالت تمام‌صفحه: تمام فضای باقی‌مانده کارت.
+                         * اسکرول فقط محتوای متن را حرکت می‌دهد.
                          */
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(220.dp)
+                                .then(
+                                    if (fullscreen) {
+                                        Modifier.weight(1f)
+                                    } else {
+                                        Modifier.height(220.dp)
+                                    }
+                                )
                                 .verticalScroll(textScrollState)
                         ) {
                             Text(
