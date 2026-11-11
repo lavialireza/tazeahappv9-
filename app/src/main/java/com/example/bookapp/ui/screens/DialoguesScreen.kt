@@ -53,6 +53,7 @@ fun DialoguesScreen(
     onEditDialogue: (DialogueSummary, String) -> Unit,
     onDeleteDialogue: (DialogueSummary) -> Unit,
     onCreateNew: () -> Unit,
+    onAddVersion: (DialogueSummary) -> Unit = {},
     onBack: () -> Unit,
     readOnly: Boolean = false,
     canCreate: Boolean = !readOnly,
@@ -132,6 +133,14 @@ fun DialoguesScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            }
+                            if (canEdit) {
+                                IconButton(onClick = { onAddVersion(dialogue) }) {
+                                    Icon(
+                                        Icons.Filled.Add,
+                                        contentDescription = "افزودن نسخه یا متن به گفتگو"
+                                    )
+                                }
                             }
                             IconButton(onClick = { onOpenDialogue(dialogue) }) {
                                 Icon(

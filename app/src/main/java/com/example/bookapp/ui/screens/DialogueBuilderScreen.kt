@@ -1,5 +1,6 @@
 package com.example.bookapp.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,6 +23,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -39,6 +41,8 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Locale
@@ -154,6 +158,7 @@ fun DialogueBuilderScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color(0xFFF0F4F8))
                 .padding(padding)
                 .imePadding()
         ) {
@@ -254,7 +259,18 @@ fun DialogueBuilderScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (roleAlreadySelected) {
+                                Color(0xFFE6F1E8)
+                            } else {
+                                Color(0xFFE8EFF7)
+                            }
+                        ),
+                        border = BorderStroke(
+                            1.dp,
+                            if (roleAlreadySelected) Color(0xFF78A985) else Color(0xFF9CB4CE)
+                        )
                     ) {
 
                         Column(
@@ -384,20 +400,22 @@ fun DialogueBuilderScreen(
                                                     selectedSequenceState.value + item
                                             }
                                         },
-                                        enabled = !alreadyAdded,
+                                        enabled = true,
+                                        border = BorderStroke(
+                                            1.5.dp,
+                                            if (alreadyAdded) Color(0xFF43845A) else Color(0xFF8CA6C0)
+                                        ),
                                         colors = ButtonDefaults.outlinedButtonColors(
                                             containerColor = if (alreadyAdded) {
-                                                MaterialTheme.colorScheme.secondaryContainer
+                                                Color(0xFFBFE2C7)
                                             } else {
-                                                MaterialTheme.colorScheme.surface
+                                                Color(0xFFF7FAFD)
                                             },
                                             contentColor = if (alreadyAdded) {
-                                                MaterialTheme.colorScheme.onSecondaryContainer
+                                                Color(0xFF174D2B)
                                             } else {
-                                                MaterialTheme.colorScheme.primary
-                                            },
-                                            disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                            disabledContentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                                Color(0xFF27445F)
+                                            }
                                         ),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
@@ -413,7 +431,7 @@ fun DialogueBuilderScreen(
 
                                             Text(
                                                 text = if (alreadyAdded) {
-                                                    "به توالی افزوده شده"
+                                                    "✓ به توالی افزوده شده است"
                                                 } else {
                                                     item.versionLabel
                                                 },

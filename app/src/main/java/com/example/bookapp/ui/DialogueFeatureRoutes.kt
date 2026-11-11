@@ -103,6 +103,13 @@ fun NavGraphBuilder.dialogueFeatureRoutes(
                 onOpenDialogue = { dialogue ->
                     navController.navigate("dialogue_reader/${dialogue.id}")
                 },
+                onAddVersion = { dialogue ->
+                    navController.navigate("dialogue_reader/${dialogue.id}")
+                    navController.currentBackStackEntry?.savedStateHandle?.set(
+                        "openAddTurnOnEnter",
+                        true
+                    )
+                },
                 onEditDialogue = { dialogue, newTitle ->
                     scope.launch {
                         runCatching {
@@ -320,6 +327,11 @@ fun NavGraphBuilder.dialogueFeatureRoutes(
                 mutableStateOf(emptyList<Long>())
             }
             var showAddTurn by remember(dialogueId) { mutableStateOf(false) }
+            LaunchedEffect(dialogueId) {
+                if (entry.savedStateHandle.remove<Boolean>("openAddTurnOnEnter") == true) {
+                    showAddTurn = true
+                }
+            }
             var canEdit by remember(dialogueId) { mutableStateOf(false) }
             var loadError by remember(dialogueId) { mutableStateOf<String?>(null) }
             val scope = rememberCoroutineScope()
@@ -657,7 +669,7 @@ fun NavGraphBuilder.dialogueFeatureRoutes(
                                                 )
                                             } else {
                                                 require(existingSelection.versionUid == selected.versionUid) {
-                                                    "نسخهٔ منبع این نقش با انتخاب قبلی سازگار نیست."
+                                                    "این نقش از همین نسخه قبلاً به گفتگو افزوده شده است."
                                                 }
                                             }
 

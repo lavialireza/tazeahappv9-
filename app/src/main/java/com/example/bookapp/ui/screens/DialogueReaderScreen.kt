@@ -1,6 +1,8 @@
 package com.example.bookapp.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -32,6 +34,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -335,13 +338,25 @@ private fun RoleStudyCardBody(
     }
     val currentMatch = matches.getOrNull(safeActiveIndex)
     val turnListState = rememberLazyListState()
+    val requesterByTurn = remember(group.roleId) {
+        mutableStateMapOf<Long, BringIntoViewRequester>()
+    }
 
-    LaunchedEffect(currentMatch?.turnId, group.numberedTurns) {
+    LaunchedEffect(
+        currentMatch?.turnId,
+        currentMatch?.start,
+        currentMatch?.end,
+        safeActiveIndex,
+        group.numberedTurns
+    ) {
         val targetIndex = currentMatch?.let { match ->
             group.numberedTurns.indexOfFirst { it.second.turnId == match.turnId }
         } ?: -1
         if (targetIndex >= 0) {
             turnListState.animateScrollToItem(targetIndex)
+            // پس از ساخته‌شدن آیتم LazyColumn، خود متن فعال نیز به محدودهٔ دید آورده می‌شود.
+            androidx.compose.runtime.withFrameNanos { }
+            requesterByTurn[currentMatch!!.turnId]?.bringIntoView()
         }
     }
 
@@ -431,6 +446,8 @@ private fun RoleStudyCardBody(
             ) { (sequenceNumber, turn) ->
                 val turnMatches = matches.filter { it.turnId == turn.turnId }
                 val activeForTurn = currentMatch?.takeIf { it.turnId == turn.turnId }
+                val textRequester = remember(turn.turnId) { BringIntoViewRequester() }
+                SideEffect { requesterByTurn[turn.turnId] = textRequester }
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -456,6 +473,7 @@ private fun RoleStudyCardBody(
                                 activeHighlight = MaterialTheme.colorScheme.primaryContainer,
                                 activeTextColor = MaterialTheme.colorScheme.onPrimaryContainer
                             ),
+                            modifier = Modifier.bringIntoViewRequester(textRequester),
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
