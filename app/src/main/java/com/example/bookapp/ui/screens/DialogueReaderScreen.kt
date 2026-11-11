@@ -1,7 +1,6 @@
 
 package com.example.bookapp.ui.screens
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
@@ -16,8 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -50,12 +50,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.yield
+import kotlin.math.roundToInt
 
 data class DialogueTurnDisplay(
     val turnId: Long,
@@ -378,7 +381,6 @@ private fun RoleStudyCard(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RoleStudyCardBody(
     group: RoleStudyGroup,
@@ -410,9 +412,8 @@ private fun RoleStudyCardBody(
     val keyboardVisible = WindowInsets.ime.getBottom(density) > 0
 
     /*
-     * ابتدا فهرست داخلی به نوبت مربوط به نتیجه فعال می‌رود.
-     * پس از ساخته‌شدن آیتم هدف، درخواست نمایش متن همان نتیجه
-     * از داخل آیتم اجرا می‌شود.
+     * فقط فهرست داخلی کارت به نوبت دارای نتیجه می‌رود.
+     * هیچ درخواست bringIntoView به کارت یا صفحه والد ارسال نمی‌شود.
      */
     LaunchedEffect(
         currentMatch?.turnId,
@@ -483,6 +484,10 @@ private fun RoleStudyCardBody(
             }
         }
 
+        /*
+         * کادر جستجو بیرون از محدوده اسکرول متن قرار دارد
+         * و هنگام حرکت بین نتایج جابه‌جا نمی‌شود.
+         */
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
@@ -533,6 +538,10 @@ private fun RoleStudyCardBody(
             }
         }
 
+        /*
+         * فهرست نوبت‌ها یک ناحیه اسکرول مستقل دارد.
+         * کادر جستجو و کنترل‌های قبلی/بعدی خارج از این ناحیه هستند.
+         */
         LazyColumn(
             state = turnListState,
             modifier = if (fullscreen) {
@@ -564,22 +573,51 @@ private fun RoleStudyCardBody(
                     it.turnId == turn.turnId
                 }
 
-                val textBringIntoViewRequester = remember(turn.turnId) {
-                    BringIntoViewRequester()
+                /*
+                 * وضعیت اسکرول مستقل برای متن همین نوبت.
+                 * این اسکرول فقط محتوای Text را حرکت می‌دهد.
+                 */
+                val textScrollState = rememberScrollState()
+                var textLayoutResult by remember(turn.turnId) {
+                    mutableStateOf<TextLayoutResult?>(null)
                 }
 
                 /*
-                 * این اثر فقط برای نوبتی اجرا می‌شود که نتیجه فعال
-                 * در آن قرار دارد. در نتیجه جابه‌جایی بین چند نتیجه
-                 * داخل یک نوبت نیز درخواست نمایش مجدد ایجاد می‌کند.
+                 * پس از فعال‌شدن نتیجه، محل خط آن در متن محاسبه
+                 * و فقط اسکرول داخلی متن جابه‌جا می‌شود.
                  */
                 LaunchedEffect(
                     activeForTurn?.turnId,
                     activeForTurn?.start,
-                    activeForTurn?.end
+                    activeForTurn?.end,
+                    textLayoutResult
                 ) {
-                    if (activeForTurn != null) {
-                        textBringIntoViewRequester.bringIntoView()
+                    val match = activeForTurn
+                    val layout = textLayoutResult
+
+                    if (match != null && layout != null) {
+                        yield()
+
+                        val safeOffset = match.start.coerceIn(
+                            0,
+                            turn.content.length
+                        )
+
+                        val lineIndex = layout.getLineForOffset(
+                            safeOffset
+                        )
+
+                        val lineTop = layout.getLineTop(lineIndex)
+
+                        val targetScroll = with(density) {
+                            (
+                                lineTop - 24.dp.toPx()
+                            ).coerceAtLeast(0f).roundToInt()
+                        }
+
+                        textScrollState.animateScrollTo(targetScroll)
+                    } else if (match == null) {
+                        textScrollState.animateScrollTo(0)
                     }
                 }
 
@@ -600,20 +638,32 @@ private fun RoleStudyCardBody(
                             fontWeight = FontWeight.Bold
                         )
 
-                        Text(
-                            text = buildHighlightedText(
-                                text = turn.content,
-                                matches = turnMatches,
-                                activeMatch = activeForTurn,
-                                normalHighlight = MaterialTheme.colorScheme.tertiaryContainer,
-                                activeHighlight = MaterialTheme.colorScheme.primaryContainer,
-                                activeTextColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            ),
-                            modifier = Modifier.bringIntoViewRequester(
-                                textBringIntoViewRequester
-                            ),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+                        /*
+                         * ارتفاع کادر متن ثابت است.
+                         * فقط محتوای داخل آن اسکرول می‌شود؛
+                         * خود کارت و کادر جستجو ثابت می‌مانند.
+                         */
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(220.dp)
+                                .verticalScroll(textScrollState)
+                        ) {
+                            Text(
+                                text = buildHighlightedText(
+                                    text = turn.content,
+                                    matches = turnMatches,
+                                    activeMatch = activeForTurn,
+                                    normalHighlight = MaterialTheme.colorScheme.tertiaryContainer,
+                                    activeHighlight = MaterialTheme.colorScheme.primaryContainer,
+                                    activeTextColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                ),
+                                onTextLayout = { layoutResult ->
+                                    textLayoutResult = layoutResult
+                                },
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
                     }
                 }
             }
