@@ -1,7 +1,7 @@
+
 package com.example.bookapp.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
-
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -33,7 +33,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -117,25 +116,35 @@ fun DialogueReaderScreen(
 
         val idsInOrder = buildList {
             roleOrder.forEach { id ->
-                if (id in turnsByRole && id !in this) add(id)
+                if (id in turnsByRole && id !in this) {
+                    add(id)
+                }
             }
             turnsByRole.keys.forEach { id ->
-                if (id !in this) add(id)
+                if (id !in this) {
+                    add(id)
+                }
             }
         }
 
         idsInOrder.mapNotNull { roleId ->
             val roleTurns = turnsByRole[roleId].orEmpty()
+
             if (roleTurns.isEmpty()) {
                 null
             } else {
                 val title = roleTurns.first().roleTitle
+
                 RoleStudyGroup(
                     roleId = roleId,
                     roleTitle = title,
                     versionLabel = roleTurns.first().versionLabel,
                     numberedTurns = roleTurns.map { turn ->
-                        (orderedTurns.indexOfFirst { it.turnId == turn.turnId } + 1) to turn
+                        (
+                            orderedTurns.indexOfFirst {
+                                it.turnId == turn.turnId
+                            } + 1
+                        ) to turn
                     }
                 )
             }
@@ -145,7 +154,9 @@ fun DialogueReaderScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(dialogueTitle, maxLines = 1) },
+                title = {
+                    Text(dialogueTitle, maxLines = 1)
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -156,16 +167,26 @@ fun DialogueReaderScreen(
                 },
                 actions = {
                     if (!readOnly) {
-                        TextButton(onClick = { showOrderEditor = true }) {
+                        TextButton(
+                            onClick = { showOrderEditor = true }
+                        ) {
                             Text("ترتیب نوبت‌ها")
                         }
+
                         IconButton(onClick = onAddTurn) {
-                            Icon(Icons.Default.Add, contentDescription = "افزودن متن")
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "افزودن متن"
+                            )
                         }
                     }
+
                     if (showPdf) {
                         IconButton(onClick = onExportPdf) {
-                            Icon(Icons.Default.Share, contentDescription = "خروجی PDF")
+                            Icon(
+                                Icons.Default.Share,
+                                contentDescription = "خروجی PDF"
+                            )
                         }
                     }
                 }
@@ -182,14 +203,20 @@ fun DialogueReaderScreen(
                 text = "مطالعهٔ نقش‌ها",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp)
+                modifier = Modifier.padding(
+                    horizontal = 4.dp,
+                    vertical = 6.dp
+                )
             )
 
             Text(
                 text = "متن هر نقش از نسخهٔ منبع انتخاب‌شده نمایش داده می‌شود. جستجو در هر نقش مستقل است.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                modifier = Modifier.padding(
+                    horizontal = 4.dp,
+                    vertical = 4.dp
+                )
             )
 
             if (roleGroups.isEmpty()) {
@@ -204,10 +231,18 @@ fun DialogueReaderScreen(
                     contentPadding = PaddingValues(vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(roleGroups, key = { it.roleId }) { group ->
-                        val roleIndex = roleGroups.indexOfFirst { it.roleId == group.roleId }
+                    items(
+                        items = roleGroups,
+                        key = { it.roleId }
+                    ) { group ->
+
+                        val roleIndex = roleGroups.indexOfFirst {
+                            it.roleId == group.roleId
+                        }
+
                         val query = queryByRole[group.roleId].orEmpty()
-                        val activeMatch = activeMatchByRole[group.roleId] ?: 0
+                        val activeMatch =
+                            activeMatchByRole[group.roleId] ?: 0
 
                         RoleStudyCard(
                             group = group,
@@ -221,13 +256,19 @@ fun DialogueReaderScreen(
                             },
                             onNavigateMatch = { direction, matchCount ->
                                 if (matchCount > 0) {
-                                    val current = activeMatchByRole[group.roleId] ?: 0
+                                    val current =
+                                        activeMatchByRole[group.roleId] ?: 0
+
                                     activeMatchByRole[group.roleId] =
                                         (current + direction + matchCount) % matchCount
                                 }
                             },
-                            onExpand = { expandedRoleId = group.roleId },
-                            onCollapse = { expandedRoleId = null }
+                            onExpand = {
+                                expandedRoleId = group.roleId
+                            },
+                            onCollapse = {
+                                expandedRoleId = null
+                            }
                         )
                     }
                 }
@@ -240,7 +281,9 @@ fun DialogueReaderScreen(
             turns = orderedTurns,
             onMove = onMoveTurn,
             onDelete = onDeleteTurn,
-            onDismiss = { showOrderEditor = false }
+            onDismiss = {
+                showOrderEditor = false
+            }
         )
     }
 }
@@ -263,12 +306,14 @@ private fun RoleStudyCard(
         MaterialTheme.colorScheme.tertiaryContainer,
         MaterialTheme.colorScheme.surfaceVariant
     )
+
     val titleColors = listOf(
         MaterialTheme.colorScheme.onPrimaryContainer,
         MaterialTheme.colorScheme.onSecondaryContainer,
         MaterialTheme.colorScheme.onTertiaryContainer,
         MaterialTheme.colorScheme.onSurfaceVariant
     )
+
     val cardColor = cardColors[colorIndex % cardColors.size]
     val titleColor = titleColors[colorIndex % titleColors.size]
 
@@ -276,7 +321,9 @@ private fun RoleStudyCard(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
-            colors = CardDefaults.cardColors(containerColor = cardColor)
+            colors = CardDefaults.cardColors(
+                containerColor = cardColor
+            )
         ) {
             RoleStudyCardBody(
                 group = group,
@@ -294,7 +341,9 @@ private fun RoleStudyCard(
     if (expanded) {
         Dialog(
             onDismissRequest = onCollapse,
-            properties = DialogProperties(usePlatformDefaultWidth = false)
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false
+            )
         ) {
             Surface(
                 modifier = Modifier.fillMaxSize(),
@@ -316,7 +365,6 @@ private fun RoleStudyCard(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RoleStudyCardBody(
     group: RoleStudyGroup,
@@ -331,68 +379,79 @@ private fun RoleStudyCardBody(
     val matches = remember(group.numberedTurns, query) {
         findRoleSearchMatches(group.numberedTurns, query)
     }
+
     val safeActiveIndex = if (matches.isEmpty()) {
         0
     } else {
         activeMatchIndex.coerceIn(0, matches.lastIndex)
     }
+
     val currentMatch = matches.getOrNull(safeActiveIndex)
     val turnListState = rememberLazyListState()
-   
-LaunchedEffect(
-    currentMatch?.turnId,
-    safeActiveIndex,
-    group.numberedTurns
-) {
-    val targetIndex = currentMatch?.let { match ->
-        group.numberedTurns.indexOfFirst {
-            it.second.turnId == match.turnId
-        }
-    } ?: -1
 
-    if (targetIndex >= 0) {
-        turnListState.animateScrollToItem(targetIndex)
-    }
-}
+    // فقط فهرست داخلی متن‌های نقش پیمایش می‌شود.
+    // از bringIntoView استفاده نمی‌کنیم تا کادر جستجو مخفی نشود.
+    LaunchedEffect(
+        currentMatch?.turnId,
+        safeActiveIndex,
+        group.numberedTurns
+    ) {
+        val targetIndex = currentMatch?.let { match ->
+            group.numberedTurns.indexOfFirst {
+                it.second.turnId == match.turnId
+            }
+        } ?: -1
+
         if (targetIndex >= 0) {
             turnListState.animateScrollToItem(targetIndex)
-            // پس از ساخته‌شدن آیتم LazyColumn، خود متن فعال نیز به محدودهٔ دید آورده می‌شود.
-            androidx.compose.runtime.withFrameNanos { }
-            requesterByTurn[currentMatch!!.turnId]?.bringIntoView()
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (fullscreen) Modifier.fillMaxSize() else Modifier)
-            .padding(if (fullscreen) 16.dp else 12.dp),
+            .then(
+                if (fullscreen) Modifier.fillMaxSize()
+                else Modifier
+            )
+            .padding(
+                if (fullscreen) 16.dp else 12.dp
+            ),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
                     text = group.roleTitle,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = titleColor
                 )
+
                 Text(
                     text = buildString {
                         if (group.versionLabel.isNotBlank()) {
                             append("منبع: ${group.versionLabel} · ")
                         }
-                        append("${group.numberedTurns.size} بخش انتخاب‌شده")
+                        append(
+                            "${group.numberedTurns.size} بخش انتخاب‌شده"
+                        )
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
             TextButton(onClick = onExpand) {
-                Text(if (fullscreen) "بازگشت به کارت" else "تمام‌صفحه")
+                Text(
+                    if (fullscreen) "بازگشت به کارت"
+                    else "تمام‌صفحه"
+                )
             }
         }
 
@@ -401,7 +460,9 @@ LaunchedEffect(
             onValueChange = onQueryChange,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            label = { Text("جستجو در متن نقش ${group.roleTitle}") }
+            label = {
+                Text("جستجو در متن نقش ${group.roleTitle}")
+            }
         )
 
         if (query.isNotBlank()) {
@@ -419,12 +480,24 @@ LaunchedEffect(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
                 if (matches.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(onClick = { onNavigateMatch(-1, matches.size) }) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        TextButton(
+                            onClick = {
+                                onNavigateMatch(-1, matches.size)
+                            }
+                        ) {
                             Text("قبلی")
                         }
-                        TextButton(onClick = { onNavigateMatch(1, matches.size) }) {
+
+                        TextButton(
+                            onClick = {
+                                onNavigateMatch(1, matches.size)
+                            }
+                        ) {
                             Text("بعدی")
                         }
                     }
@@ -435,9 +508,13 @@ LaunchedEffect(
         LazyColumn(
             state = turnListState,
             modifier = if (fullscreen) {
-                Modifier.weight(1f).fillMaxWidth()
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
             } else {
-                Modifier.fillMaxWidth().heightIn(max = 480.dp)
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 480.dp)
             },
             contentPadding = PaddingValues(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -446,9 +523,15 @@ LaunchedEffect(
                 items = group.numberedTurns,
                 key = { it.second.turnId }
             ) { (sequenceNumber, turn) ->
-                val turnMatches = matches.filter { it.turnId == turn.turnId }
-                val activeForTurn = currentMatch?.takeIf { it.turnId == turn.turnId }
-               
+
+                val turnMatches = matches.filter {
+                    it.turnId == turn.turnId
+                }
+
+                val activeForTurn = currentMatch?.takeIf {
+                    it.turnId == turn.turnId
+                }
+
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -465,6 +548,7 @@ LaunchedEffect(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold
                         )
+
                         Text(
                             text = buildHighlightedText(
                                 text = turn.content,
@@ -488,27 +572,40 @@ private fun findRoleSearchMatches(
     query: String
 ): List<RoleSearchMatch> {
     val needle = normalizeDialogueSearchText(query.trim())
-    if (needle.isBlank()) return emptyList()
+
+    if (needle.isBlank()) {
+        return emptyList()
+    }
 
     val results = mutableListOf<RoleSearchMatch>()
+
     numberedTurns.forEach { (_, turn) ->
         val content = normalizeDialogueSearchText(turn.content)
         var startAt = 0
+
         while (startAt <= content.length - needle.length) {
             val index = content.indexOf(needle, startAt)
-            if (index < 0) break
+
+            if (index < 0) {
+                break
+            }
+
             results += RoleSearchMatch(
                 turnId = turn.turnId,
                 start = index,
                 end = index + needle.length
             )
+
             startAt = index + needle.length.coerceAtLeast(1)
         }
     }
+
     return results
 }
 
-private fun normalizeDialogueSearchText(value: String): String = buildString(value.length) {
+private fun normalizeDialogueSearchText(
+    value: String
+): String = buildString(value.length) {
     value.forEach { character ->
         append(
             when (character) {
@@ -529,26 +626,50 @@ private fun buildHighlightedText(
     activeTextColor: Color
 ): AnnotatedString = buildAnnotatedString {
     var cursor = 0
+
     matches.sortedBy { it.start }.forEach { match ->
-        if (match.start < cursor || match.start !in text.indices || match.end > text.length) {
+        if (
+            match.start < cursor ||
+            match.start !in text.indices ||
+            match.end > text.length
+        ) {
             return@forEach
         }
+
         append(text.substring(cursor, match.start))
+
         val isActive = activeMatch?.let {
             it.start == match.start && it.end == match.end
         } == true
+
         withStyle(
             SpanStyle(
-                background = if (isActive) activeHighlight else normalHighlight,
-                color = if (isActive) activeTextColor else Color.Unspecified,
-                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
+                background = if (isActive) {
+                    activeHighlight
+                } else {
+                    normalHighlight
+                },
+                color = if (isActive) {
+                    activeTextColor
+                } else {
+                    Color.Unspecified
+                },
+                fontWeight = if (isActive) {
+                    FontWeight.Bold
+                } else {
+                    FontWeight.Normal
+                }
             )
         ) {
             append(text.substring(match.start, match.end))
         }
+
         cursor = match.end
     }
-    if (cursor < text.length) append(text.substring(cursor))
+
+    if (cursor < text.length) {
+        append(text.substring(cursor))
+    }
 }
 
 @Composable
@@ -560,48 +681,82 @@ private fun TurnOrderEditorDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("تنظیم ترتیب متن‌ها") },
+        title = {
+            Text("تنظیم ترتیب متن‌ها")
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
                     "ترتیب زیر، ترتیب نمایش و مطالعهٔ نوبت‌هاست و متن اصلی آرشیو را تغییر نمی‌دهد.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
                 LazyColumn(
                     modifier = Modifier.heightIn(max = 520.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    items(turns, key = { it.turnId }) { turn ->
-                        val index = turns.indexOfFirst { it.turnId == turn.turnId }
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                    items(
+                        items = turns,
+                        key = { it.turnId }
+                    ) { turn ->
+
+                        val index = turns.indexOfFirst {
+                            it.turnId == turn.turnId
+                        }
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
+                                Column(
+                                    modifier = Modifier.weight(1f)
+                                ) {
                                     Text(
                                         "${index + 1}. ${turn.roleTitle}",
                                         fontWeight = FontWeight.Bold
                                     )
+
                                     Text(
                                         turn.sectionTitle,
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
                                     TextButton(
                                         enabled = index > 0,
-                                        onClick = { onMove(index, -1) }
-                                    ) { Text("بالا") }
+                                        onClick = {
+                                            onMove(index, -1)
+                                        }
+                                    ) {
+                                        Text("بالا")
+                                    }
+
                                     TextButton(
                                         enabled = index < turns.lastIndex,
-                                        onClick = { onMove(index, 1) }
-                                    ) { Text("پایین") }
+                                        onClick = {
+                                            onMove(index, 1)
+                                        }
+                                    ) {
+                                        Text("پایین")
+                                    }
                                 }
-                                TextButton(onClick = { onDelete(turn) }) {
+
+                                TextButton(
+                                    onClick = {
+                                        onDelete(turn)
+                                    }
+                                ) {
                                     Text("حذف")
                                 }
                             }
@@ -611,7 +766,9 @@ private fun TurnOrderEditorDialog(
             }
         },
         confirmButton = {
-            Button(onClick = onDismiss) { Text("پایان") }
+            Button(onClick = onDismiss) {
+                Text("پایان")
+            }
         }
     )
 }
