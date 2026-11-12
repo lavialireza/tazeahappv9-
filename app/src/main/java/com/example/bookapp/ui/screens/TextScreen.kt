@@ -167,6 +167,7 @@ private fun findReaderSearchMatches(
             startIndex = searchFrom,
             ignoreCase = true
         )
+        }
 
         if (foundIndex < 0) break
 
