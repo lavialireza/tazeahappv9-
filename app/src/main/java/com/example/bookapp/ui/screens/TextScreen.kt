@@ -928,7 +928,7 @@ var textLayoutResult by remember {
                 }
             }
         }
-        }
+        
     }
 
     if (showReaderSettings) {
