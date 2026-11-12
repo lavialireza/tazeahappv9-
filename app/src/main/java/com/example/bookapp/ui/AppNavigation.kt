@@ -1327,14 +1327,22 @@ fun AppNavigation(
                     navController.navigate("text_pager/$roleId/$index")
                 },
                 onBack = { navController.popBackStack() },
-                topBarAction = if (featureEnabled("compare")) {
-                    {
-                        TextButton(
-                            onClick = { taziehIdForCompare?.let { navController.navigate("compare/$it") } },
-                            enabled = taziehIdForCompare != null
-                        ) { Text("مقایسه") }
-                    }
-                } else null,
+                // فعال‌سازی رنگ‌بندی اختصاصی کارت‌های بخش‌ها
+                colorfulCards = true,
+               topBarAction = if (featureEnabled("compare.view")) {
+    {
+        TextButton(
+            onClick = {
+                taziehIdForCompare?.let {
+                    navController.navigate("compare/$it")
+                }
+            },
+            enabled = taziehIdForCompare != null
+        ) {
+            Text("نمایش چند نقش")
+        }
+    }
+} else null,
                 floatingAction = if (featureEnabled("pdf") && featureEnabled("pdf.create") && featureEnabled("pdf.save")) {
                     {
                         androidx.compose.material3.ExtendedFloatingActionButton(
