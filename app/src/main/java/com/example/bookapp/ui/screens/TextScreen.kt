@@ -274,12 +274,19 @@ var textTopInRoot by remember {
 var textLayoutResult by remember {
     mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null)
 }
-   LaunchedEffect(selectedSearchHighlight, content) {
+    var textLayoutRevision by remember {
+    mutableIntStateOf(0)
+}
+ LaunchedEffect(
+    selectedSearchHighlight,
+    content,
+    textLayoutRevision
+) {
     val range = selectedSearchHighlight
 
     if (range != null && content.isNotEmpty()) {
 
-        // صبر برای اعمال تغییر نتیجه و تکمیل چیدمان متن
+        // منتظر می‌مانیم چیدمان جدید متن کامل شود.
         withFrameNanos { }
         withFrameNanos { }
 
@@ -291,20 +298,21 @@ var textLayoutResult by remember {
             content.lastIndex
         )
 
-        // شماره خطی که نتیجه جستجو در آن قرار دارد
+        // خطی که نتیجه جستجو در آن قرار دارد.
         val line = layout.getLineForOffset(offset)
 
-        // موقعیت عمودی ابتدای خط
         val lineTop = layout.getLineTop(line)
 
         val density = context.resources.displayMetrics.density
-        val topSpacing = 12f * density
 
-        // موقعیت واقعی متن نسبت به محدوده اسکرول
+        // فاصله مناسب از بالای محدوده قابل مشاهده متن.
+        val topSpacing = 48f * density
+
+        // موقعیت متن نسبت به محدوده اسکرول.
         val textPositionInScroll =
             textTopInRoot - scrollContainerTopInRoot
 
-        // محاسبه موقعیت دقیق نتیجه در محدوده اسکرول
+        // محاسبه موقعیت جدید نتیجه.
         val target = (
             scrollState.value +
                 textPositionInScroll +
@@ -315,6 +323,7 @@ var textLayoutResult by remember {
                 scrollState.maxValue
             )
 
+        // حرکت به محل نتیجه انتخاب‌شده.
         scrollState.animateScrollTo(target)
     }
 }
@@ -792,9 +801,10 @@ var textLayoutResult by remember {
     modifier = Modifier.onGloballyPositioned { coordinates ->
         textTopInRoot = coordinates.positionInRoot().y
     },
-    onTextLayout = { result ->
-        textLayoutResult = result
-    },
+  onTextLayout = { result ->
+    textLayoutResult = result
+    textLayoutRevision++
+},
     onClick = { offset ->
                     val footnote = annotatedContent.getStringAnnotations("FOOTNOTE", offset, offset).firstOrNull()
                     if (footnote != null) selectedFootnote = footnotes.getOrNull(footnote.item.toIntOrNull() ?: -1)
