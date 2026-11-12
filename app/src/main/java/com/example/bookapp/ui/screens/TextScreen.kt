@@ -59,6 +59,8 @@ import com.example.bookapp.data.Prefs
 import com.example.bookapp.data.SearchResult
 import com.example.bookapp.data.SpeechHelper
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -347,25 +349,67 @@ localSearchResultIsCurrentSection: Boolean = true,
         onDispose { applyImmersive(false) } // با خروج از صفحه، نوارهای سیستم برمی‌گردند
     }
 
-    var lineSpacing by remember { mutableFloatStateOf(Prefs.getLineSpacing(context)) }
-    // تنظیمات خواننده را محلی هم نگه می‌داریم تا تغییرات داخل همین صفحه
-    // بدون وابستگی به بازسازی NavHost فوراً روی متن دیده شوند.
-    var readerFontScale by remember { mutableFloatStateOf(fontScale) }
-    var readerDarkMode by remember { mutableStateOf(darkMode) }
-    var readerFontChoice by remember { mutableStateOf(fontChoice) }
+    var lineSpacing by remember {
+        mutableFloatStateOf(Prefs.getLineSpacing(context))
+    }
+
+    // تنظیمات مستقل صفحه مطالعه
+    var readerFontScale by remember {
+        mutableFloatStateOf(Prefs.getReaderFontScale(context))
+    }
+    var readerDarkMode by remember {
+        mutableStateOf(Prefs.getReaderDarkMode(context))
+    }
+    var readerFontChoice by remember {
+        mutableStateOf(Prefs.getReaderFontChoice(context))
+    }
+
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                readerFontScale = Prefs.getFontScale(context)
+                readerFontScale = Prefs.getReaderFontScale(context)
+                readerDarkMode = Prefs.getReaderDarkMode(context)
+                readerFontChoice = Prefs.getReaderFontChoice(context)
                 lineSpacing = Prefs.getLineSpacing(context)
-                readerFontChoice = Prefs.getFontChoice(context)
             }
         }
+
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
-    val scrollState = rememberScrollState()
+
+    val initialScrollPosition = remember(sectionId) {
+        sectionId?.let { Prefs.getReaderScrollPosition(context, it) } ?: 0
+    }
+    val scrollState = rememberScrollState(initial = initialScrollPosition)
+
+    LaunchedEffect(sectionId, scrollState) {
+        val currentSectionId = sectionId ?: return@LaunchedEffect
+
+        androidx.compose.runtime.snapshotFlow { scrollState.value }
+            .distinctUntilChanged()
+            .collectLatest { position ->
+                kotlinx.coroutines.delay(400)
+                Prefs.setReaderScrollPosition(
+                    context,
+                    currentSectionId,
+                    position
+                )
+            }
+    }
+
+    DisposableEffect(sectionId, scrollState) {
+        onDispose {
+            sectionId?.let {
+                Prefs.setReaderScrollPosition(context, it, scrollState.value)
+            }
+        }
+    }
+
     val textScope = rememberCoroutineScope()
 
     var textTopInScrollContent by remember { mutableFloatStateOf(0f) }
@@ -395,9 +439,6 @@ localSearchResultIsCurrentSection: Boolean = true,
             scrollState.animateScrollTo(target)
         }
     }
-    LaunchedEffect(fontScale) { readerFontScale = fontScale }
-    LaunchedEffect(darkMode) { readerDarkMode = darkMode }
-    LaunchedEffect(fontChoice) { readerFontChoice = fontChoice }
     var autoScroll by remember { mutableStateOf(Prefs.isReaderAutoScroll(context)) }
     var showReaderSettings by remember { mutableStateOf(false) }
     var isSpeaking by remember { mutableStateOf(false) }
@@ -1129,6 +1170,7 @@ localSearchResultIsCurrentSection: Boolean = true,
                         value = readerFontScale,
                         onValueChange = { value ->
                             readerFontScale = value
+                            Prefs.setReaderFontScale(context, value)
                             onFontScaleChange(value)
                         },
                         valueRange = 0.8f..2.0f,
@@ -1144,6 +1186,7 @@ localSearchResultIsCurrentSection: Boolean = true,
                             checked = readerDarkMode,
                             onCheckedChange = { enabled ->
                                 readerDarkMode = enabled
+                                Prefs.setReaderDarkMode(context, enabled)
                                 onDarkModeChange(enabled)
                             }
                         )
@@ -1184,6 +1227,7 @@ localSearchResultIsCurrentSection: Boolean = true,
                                 selected = readerFontChoice == key,
                                 onClick = {
                                     readerFontChoice = key
+                                    Prefs.setReaderFontChoice(context, key)
                                     onFontChoiceChange(key)
                                 },
                                 label = { Text(label, fontFamily = FontChoices[key]) }
@@ -1202,6 +1246,30 @@ localSearchResultIsCurrentSection: Boolean = true,
                                 autoScroll = it
                                 Prefs.setReaderAutoScroll(context, it)
                             }
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    HorizontalDivider()
+
+                    TextButton(
+                        onClick = {
+                            Prefs.resetReaderSettings(context)
+
+                            readerFontScale = 1.0f
+                            readerDarkMode = false
+                            readerFontChoice = "titr"
+                            lineSpacing = 1.4f
+                            autoScroll = false
+
+                            onFontScaleChange(1.0f)
+                            onDarkModeChange(false)
+                            onFontChoiceChange("titr")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "بازگشت به تنظیمات پیش‌فرض",
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
