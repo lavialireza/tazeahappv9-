@@ -401,7 +401,7 @@ fun ProfessionalRoleScreen(
                                                 ),
                                                 modifier = Modifier.weight(1f)
                                             ) {
-                                                Text("مقایسه نقش")
+                                                Text("نمایش چند نقش")
                                             }
                                         }
                                     }
