@@ -496,24 +496,187 @@ var textLayoutResult by remember {
             }
         }
     ) { padding ->
-        Column(
+      Column(
     modifier = Modifier
         .fillMaxSize()
-        .then(if (immersive) Modifier.clickable { immersive = false; applyImmersive(false) } else Modifier)
-        .padding(padding)
+        .then(
+            if (immersive) {
+                Modifier.clickable {
+                    immersive = false
+                    applyImmersive(false)
+                }
+            } else {
+                Modifier
+            }
+        )
+        .padding(padding),
+    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+) {
+          if (localSearchVisible && !immersive) {
+    Card(
+        modifier = Modifier
+            .widthIn(max = 640.dp)
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Text(
+                    "جستجو در متن",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelLarge
+                )
+
+                Spacer(Modifier.weight(1f))
+
+                TextButton(
+                    onClick = onCloseLocalSearch,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                ) {
+                    Text("بستن")
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                OutlinedTextField(
+                    value = localSearchQuery,
+                    onValueChange = onLocalSearchQueryChange,
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    label = { Text("عبارت مورد جستجو") },
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Search
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onSearch = { onExecuteLocalSearch() }
+                    )
+                )
+
+                Button(
+                    onClick = onExecuteLocalSearch,
+                    enabled = localSearchQuery.isNotBlank(),
+                    contentPadding = PaddingValues(
+                        horizontal = 12.dp,
+                        vertical = 8.dp
+                    )
+                ) {
+                    Icon(
+                        Icons.Filled.Search,
+                        contentDescription = null
+                    )
+                    Text("جستجو")
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                FilterChip(
+                    selected = localSearchScope == "section",
+                    onClick = {
+                        onLocalSearchScopeChange("section")
+                    },
+                    label = { Text("همین بخش") }
+                )
+
+                FilterChip(
+                    selected = localSearchScope == "role",
+                    onClick = {
+                        onLocalSearchScopeChange("role")
+                    },
+                    label = { Text("تمام بخش‌های نقش") }
+                )
+
+                Spacer(Modifier.weight(1f))
+
+                TextButton(
+                    onClick = onAdvancedSearch,
+                    contentPadding = PaddingValues(
+                        horizontal = 4.dp,
+                        vertical = 0.dp
+                    )
+                ) {
+                    Text(
+                        "پیشرفته",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+
+            if (localSearchHasExecuted) {
+                if (localSearchResultCount > 0) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "نتیجه $localSearchResultPosition از $localSearchResultCount",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Spacer(Modifier.weight(1f))
+
+                        OutlinedButton(
+                            onClick = onPreviousLocalSearchResult,
+                            contentPadding = PaddingValues(
+                                horizontal = 10.dp,
+                                vertical = 4.dp
+                            )
+                        ) {
+                            Text("قبلی")
+                        }
+
+                        Button(
+                            onClick = onNextLocalSearchResult,
+                            contentPadding = PaddingValues(
+                                horizontal = 10.dp,
+                                vertical = 4.dp
+                            )
+                        ) {
+                            Text("بعدی")
+                        }
+                    }
+                } else {
+                    Text(
+                        "عبارت مورد نظر پیدا نشد.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+        }
+    }
+}
+        // روی صفحه‌های بزرگ (تبلت) عرض متن محدود می‌شود تا طول خط زیاد نشود و خواندن راحت بماند
+      Column(
+    modifier = Modifier
+        .widthIn(max = 640.dp)
+        .fillMaxWidth()
+        .weight(1f)
         .verticalScroll(scrollState)
         .onGloballyPositioned { coordinates ->
             scrollContainerTopInRoot = coordinates.positionInRoot().y
-        },
-            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
-        ) {
-        // روی صفحه‌های بزرگ (تبلت) عرض متن محدود می‌شود تا طول خط زیاد نشود و خواندن راحت بماند
-        Column(
-            modifier = Modifier
-                .widthIn(max = 640.dp)
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
+        }
+        .padding(16.dp)
+) {
             if (!immersive && (fieldTitle != null || taziehTitle != null || roleTitle != null)) {
                 val breadcrumb = listOfNotNull(fieldTitle, taziehTitle, roleTitle).joinToString(" ← ")
                 val verseCount = content.lineSequence().count { it.isNotBlank() }
@@ -533,137 +696,7 @@ var textLayoutResult by remember {
                 AssistChip(onClick = { showTagDialog = true }, label = { Text(tag!!) })
                 Spacer(Modifier.height(8.dp))
             }
-                        if (localSearchVisible) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "جستجو در متن",
-                                fontWeight = FontWeight.Bold
-                            )
-
-                            TextButton(onClick = onCloseLocalSearch) {
-                                Text("بستن")
-                            }
-                        }
-
-                        OutlinedTextField(
-                            value = localSearchQuery,
-                            onValueChange = onLocalSearchQueryChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            label = { Text("عبارت مورد جستجو") },
-                            leadingIcon = {
-                                Icon(Icons.Filled.Search, contentDescription = null)
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                imeAction = ImeAction.Search
-                            ),
-                            keyboardActions = KeyboardActions(
-                                onSearch = { onExecuteLocalSearch() }
-                            )
-                        )
-
-                        Text(
-                            "محدوده جستجو",
-                            style = MaterialTheme.typography.labelMedium
-                        )
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            FilterChip(
-                                selected = localSearchScope == "section",
-                                onClick = {
-                                    onLocalSearchScopeChange("section")
-                                },
-                                label = { Text("همین بخش") }
-                            )
-
-                            FilterChip(
-                                selected = localSearchScope == "role",
-                                onClick = {
-                                    onLocalSearchScopeChange("role")
-                                },
-                                label = { Text("تمام بخش‌های نقش") }
-                            )
-                        }
-
-                        Button(
-                            onClick = onExecuteLocalSearch,
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = localSearchQuery.isNotBlank()
-                        ) {
-                            Icon(
-                                Icons.Filled.Search,
-                                contentDescription = null
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text("جستجو")
-                        }
-
-                        if (localSearchHasExecuted) {
-                            if (localSearchResultCount > 0) {
-                                Text(
-                                    "نتیجه $localSearchResultPosition از $localSearchResultCount",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    OutlinedButton(
-                                        onClick = onPreviousLocalSearchResult,
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text("نتیجه قبلی")
-                                    }
-
-                                    Button(
-                                        onClick = onNextLocalSearchResult,
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text("نتیجه بعدی")
-                                    }
-                                }
-                            } else {
-                                Text(
-                                    "عبارت مورد نظر پیدا نشد.",
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-
-                        TextButton(
-                            onClick = onAdvancedSearch,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("رفتن به جستجوی پیشرفته")
-                        }
-                    }
-                }
-            }
+                  
             // تنظیمات محلی صفحه مطالعه مستقیماً از همین state خوانده می‌شوند تا
             // تغییر اندازه و فونت داخل همین پنجره، بدون بستن پنجره، فوراً روی متن دیده شود.
             // سایر بخش‌های برنامه همچنان از MaterialTheme سراسری استفاده می‌کنند.
