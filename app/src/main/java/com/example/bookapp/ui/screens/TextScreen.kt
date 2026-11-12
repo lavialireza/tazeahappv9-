@@ -634,57 +634,45 @@ var textLayoutResult by remember {
                     )
                 }
             }
+            if (localSearchHasExecuted) {
+                if (localSearchResultCount > 0) {
 
-          if (localSearchHasExecuted) {
-    if (localSearchResultCount > 0) {
+                    Text(
+                        "نتیجه $localSearchResultPosition از $localSearchResultCount",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
 
-        Text(
-            "نتیجه $localSearchResultPosition از $localSearchResultCount",
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
+                    Text(
+                        text = "بخش نتیجه: $localSearchResultSectionTitle",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF795548)
+                    )
 
-        Text(
-            text = if (localSearchResultIsCurrentSection) {
-                "نتیجه در این بخش: $localSearchResultSectionTitle"
-            } else {
-                "در حال انتقال به بخش: $localSearchResultSectionTitle"
-            },
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF795548)
-        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = onPreviousLocalSearchResult,
+                            modifier = Modifier.weight(1f),
+                            enabled = localSearchResultCount > 1
+                        ) {
+                            Text("نتیجه قبلی")
+                        }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(
-                onClick = onPreviousLocalSearchResult,
-                modifier = Modifier.weight(1f),
-                enabled = localSearchResultCount > 1
-            ) {
-                Text("نتیجه قبلی")
-            }
+                        Button(
+                            onClick = onNextLocalSearchResult,
+                            modifier = Modifier.weight(1f),
+                            enabled = localSearchResultCount > 1
+                        ) {
+                            Text("نتیجه بعدی")
+                        }
+                    }
 
-            Button(
-                onClick = onNextLocalSearchResult,
-                modifier = Modifier.weight(1f),
-                enabled = localSearchResultCount > 1
-            ) {
-                Text("نتیجه بعدی")
-            }
-        }
-
-    } else {
-        Text(
-            "عبارت مورد نظر پیدا نشد.",
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.labelSmall
-        )
-    }
-}
+                } else {
                     Text(
                         "عبارت مورد نظر پیدا نشد.",
                         color = MaterialTheme.colorScheme.error,
@@ -695,6 +683,7 @@ var textLayoutResult by remember {
         }
     }
 }
+          
         // روی صفحه‌های بزرگ (تبلت) عرض متن محدود می‌شود تا طول خط زیاد نشود و خواندن راحت بماند
       Column(
     modifier = Modifier
