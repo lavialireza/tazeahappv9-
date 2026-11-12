@@ -1,3 +1,4 @@
+
 package com.example.bookapp.ui.screens
 
 import androidx.compose.foundation.BorderStroke
@@ -5,7 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -24,10 +25,6 @@ data class ListItemData(
     val subtitle: String? = null
 )
 
-/**
- * صفحه فهرست عمومی به شکل کارت‌های گرافیکی.
- * برای دسته‌بندی‌ها، زمینه‌ها، کتاب‌ها، فصل‌ها و بخش‌ها استفاده می‌شود.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GenericListScreen(
@@ -39,7 +36,8 @@ fun GenericListScreen(
     selectedIds: Set<Long> = emptySet(),
     onToggleSelect: ((ListItemData) -> Unit)? = null,
     topBarAction: (@Composable () -> Unit)? = null,
-    snackbarHostState: SnackbarHostState? = null
+    snackbarHostState: SnackbarHostState? = null,
+    colorfulCards: Boolean = false
 ) {
     Scaffold(
         containerColor = Color(0xFFF2F7EF),
@@ -103,13 +101,15 @@ fun GenericListScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(
+                itemsIndexed(
                     items = items,
-                    key = { it.id }
-                ) { item ->
+                    key = { _, item -> item.id }
+                ) { index, item ->
                     ListCard(
                         item = item,
+                        index = index,
                         selected = item.id in selectedIds,
+                        colorful = colorfulCards,
                         onClick = {
                             if (onToggleSelect != null) {
                                 onToggleSelect(item)
@@ -127,31 +127,57 @@ fun GenericListScreen(
 @Composable
 private fun ListCard(
     item: ListItemData,
+    index: Int,
     selected: Boolean = false,
+    colorful: Boolean = false,
     onClick: () -> Unit
 ) {
+    val cardBackground = when {
+        selected -> Color(0xFFE0EEDB)
+        !colorful -> Color(0xFFFFFEFA)
+        else -> when (index % 4) {
+            0 -> Color(0xFFE5F0DF)
+            1 -> Color(0xFFE3EDF8)
+            2 -> Color(0xFFF5EEDC)
+            else -> Color(0xFFF5E5E8)
+        }
+    }
+
+    val cardBorder = when {
+        selected -> Color(0xFF8EAD86)
+        !colorful -> Color(0xFFDCE8D8)
+        else -> when (index % 4) {
+            0 -> Color(0xFFBDD3B5)
+            1 -> Color(0xFFB9CDE2)
+            2 -> Color(0xFFE1D2AC)
+            else -> Color(0xFFE0C3CA)
+        }
+    }
+
+    val iconBackground = when {
+        selected -> Color(0xFFCCDFC5)
+        !colorful -> Color(0xFFE5EFE0)
+        else -> when (index % 4) {
+            0 -> Color(0xFFD0E3C7)
+            1 -> Color(0xFFCFDEEF)
+            2 -> Color(0xFFECE1C4)
+            else -> Color(0xFFECD4DB)
+        }
+    }
+
+    val iconTint = Color(0xFF55765B)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(18.dp),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 1.dp
+            defaultElevation = 2.dp
         ),
-        border = BorderStroke(
-            1.dp,
-            if (selected) {
-                Color(0xFF8EAD86)
-            } else {
-                Color(0xFFDCE8D8)
-            }
-        ),
+        border = BorderStroke(1.dp, cardBorder),
         colors = CardDefaults.cardColors(
-            containerColor = if (selected) {
-                Color(0xFFE0EEDB)
-            } else {
-                Color(0xFFFFFEFA)
-            }
+            containerColor = cardBackground
         )
     ) {
         Row(
@@ -167,13 +193,13 @@ private fun ListCard(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(Color(0xFFE5EFE0)),
+                    .background(iconBackground),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.MenuBook,
                     contentDescription = null,
-                    tint = Color(0xFF55765B)
+                    tint = iconTint
                 )
             }
 
@@ -202,7 +228,7 @@ private fun ListCard(
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = null,
-                tint = Color(0xFF9AAA96)
+                tint = Color(0xFF829681)
             )
         }
     }
