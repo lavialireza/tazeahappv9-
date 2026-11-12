@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,6 +37,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -612,7 +614,23 @@ localSearchResultIsCurrentSection: Boolean = true,
             verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(localSearchVisible) {
+                        var totalDrag = 0f
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { change, dragAmount ->
+                                totalDrag += dragAmount
+                                if (totalDrag <= -48.dp.toPx()) {
+                                    onCloseLocalSearch()
+                                    totalDrag = 0f
+                                }
+                                change.consume()
+                            },
+                            onDragEnd = { totalDrag = 0f },
+                            onDragCancel = { totalDrag = 0f }
+                        )
+                    },
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
             ) {
                 Text(
