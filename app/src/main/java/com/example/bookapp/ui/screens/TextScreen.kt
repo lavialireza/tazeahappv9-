@@ -637,7 +637,7 @@ localSearchResultIsCurrentSection: Boolean = true,
         ) {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxWidth(),
                    
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
             ) {
