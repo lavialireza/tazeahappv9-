@@ -61,6 +61,7 @@ private data class ReaderSearchMatch(
     val start: Int,
     val end: Int
 )
+
 private fun normalizeReaderSearchText(value: String): String {
     return value
         .replace('ي', 'ی')
@@ -75,6 +76,7 @@ private fun normalizeReaderSearchText(value: String): String {
         .replace(Regex("\\s+"), " ")
         .trim()
 }
+
 private fun findReaderSearchMatches(
     text: String,
     query: String,
@@ -85,30 +87,74 @@ private fun findReaderSearchMatches(
     if (normalizedQuery.isBlank()) return emptyList()
 
     val normalizedText = StringBuilder()
-    val originalPositions = mutableListOf<Int>()
+    val originalStarts = mutableListOf<Int>()
+    val originalEnds = mutableListOf<Int>()
 
     text.forEachIndexed { index, originalChar ->
 
-        val normalizedChar = normalizeReaderSearchText(
-            originalChar.toString()
-        )
+        val normalizedChar = when (originalChar) {
+            'ي' -> "ی"
+            'ك' -> "ک"
+            'ة', 'ۀ' -> "ه"
+            'أ', 'إ', 'آ' -> "ا"
+            '\u0640' -> " "
+            else -> originalChar.toString()
+        }
 
         normalizedChar.forEach { char ->
 
-            if (char == ' ') {
-                if (normalizedText.isNotEmpty() &&
-                    normalizedText.last() != ' '
-                ) {
+            if (char in '\u064B'..'\u065F' || char == '\u0670') {
+                return@forEach
+            }
+
+            if (char.isWhitespace()) {
+                if (normalizedText.isNotEmpty() && normalizedText.last() != ' ') {
                     normalizedText.append(' ')
-                    originalPositions.add(index)
+                    originalStarts.add(index)
+                    originalEnds.add(index + 1)
+                } else if (normalizedText.isNotEmpty()) {
+                    originalEnds[originalEnds.lastIndex] = index + 1
                 }
             } else {
                 normalizedText.append(char)
-                originalPositions.add(index)
+                originalStarts.add(index)
+                originalEnds.add(index + 1)
             }
         }
     }
 
+    val source = normalizedText.toString()
+    val matches = mutableListOf<ReaderSearchMatch>()
+
+    var searchFrom = 0
+
+    while (searchFrom <= source.length - normalizedQuery.length) {
+
+        val foundIndex = source.indexOf(
+            string = normalizedQuery,
+            startIndex = searchFrom,
+            ignoreCase = true
+        )
+
+        if (foundIndex < 0) break
+
+        val lastIndex = foundIndex + normalizedQuery.length - 1
+
+        if (lastIndex < originalStarts.size) {
+            matches.add(
+                ReaderSearchMatch(
+                    sectionIndex = sectionIndex,
+                    start = originalStarts[foundIndex],
+                    end = originalEnds[lastIndex]
+                )
+            )
+        }
+
+        searchFrom = foundIndex + normalizedQuery.length
+    }
+
+    return matches
+}
     val source = normalizedText.toString()
     val matches = mutableListOf<ReaderSearchMatch>()
 
@@ -169,7 +215,22 @@ fun TextScreen(
     canEditFootnote: Boolean = true,
     canDeleteFootnote: Boolean = true,
     canAddFootnoteToDictionary: Boolean = true,
-    onOpenSearch: () -> Unit = {},
+     onOpenSearch: () -> Unit = {},
+    onAdvancedSearch: () -> Unit = {},
+    localSearchVisible: Boolean = false,
+    localSearchQuery: String = "",
+    onLocalSearchQueryChange: (String) -> Unit = {},
+    localSearchScope: String = "section",
+    onLocalSearchScopeChange: (String) -> Unit = {},
+    onExecuteLocalSearch: () -> Unit = {},
+    localSearchResultPosition: Int = 0,
+    localSearchResultCount: Int = 0,
+    localSearchHasExecuted: Boolean = false,
+    onPreviousLocalSearchResult: () -> Unit = {},
+    onNextLocalSearchResult: () -> Unit = {},
+    onCloseLocalSearch: () -> Unit = {},
+    searchHighlights: List<IntRange> = emptyList(),
+    selectedSearchHighlight: IntRange? = null,
     onOpenSettings: () -> Unit = {},
     hasPrevSection: Boolean = false,
     hasNextSection: Boolean = false,
@@ -227,6 +288,22 @@ fun TextScreen(
     }
     val scrollState = rememberScrollState()
     val textScope = rememberCoroutineScope()
+        LaunchedEffect(selectedSearchHighlight, content) {
+        val range = selectedSearchHighlight
+
+        if (range != null && content.isNotEmpty()) {
+            kotlinx.coroutines.delay(120)
+
+            val ratio = range.first.toFloat() /
+                content.length.coerceAtLeast(1)
+
+            val target = (
+                scrollState.maxValue * ratio
+            ).toInt().coerceIn(0, scrollState.maxValue)
+
+            scrollState.animateScrollTo(target)
+        }
+    }
     LaunchedEffect(fontScale) { readerFontScale = fontScale }
     LaunchedEffect(darkMode) { readerDarkMode = darkMode }
     LaunchedEffect(fontChoice) { readerFontChoice = fontChoice }
@@ -449,6 +526,137 @@ fun TextScreen(
                 AssistChip(onClick = { showTagDialog = true }, label = { Text(tag!!) })
                 Spacer(Modifier.height(8.dp))
             }
+                        if (localSearchVisible) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "جستجو در متن",
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            TextButton(onClick = onCloseLocalSearch) {
+                                Text("بستن")
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = localSearchQuery,
+                            onValueChange = onLocalSearchQueryChange,
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text("عبارت مورد جستجو") },
+                            leadingIcon = {
+                                Icon(Icons.Filled.Search, contentDescription = null)
+                            },
+                            keyboardOptions = KeyboardOptions(
+                                imeAction = ImeAction.Search
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onSearch = { onExecuteLocalSearch() }
+                            )
+                        )
+
+                        Text(
+                            "محدوده جستجو",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = localSearchScope == "section",
+                                onClick = {
+                                    onLocalSearchScopeChange("section")
+                                },
+                                label = { Text("همین بخش") }
+                            )
+
+                            FilterChip(
+                                selected = localSearchScope == "role",
+                                onClick = {
+                                    onLocalSearchScopeChange("role")
+                                },
+                                label = { Text("تمام بخش‌های نقش") }
+                            )
+                        }
+
+                        Button(
+                            onClick = onExecuteLocalSearch,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = localSearchQuery.isNotBlank()
+                        ) {
+                            Icon(
+                                Icons.Filled.Search,
+                                contentDescription = null
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("جستجو")
+                        }
+
+                        if (localSearchHasExecuted) {
+                            if (localSearchResultCount > 0) {
+                                Text(
+                                    "نتیجه $localSearchResultPosition از $localSearchResultCount",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = onPreviousLocalSearchResult,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("نتیجه قبلی")
+                                    }
+
+                                    Button(
+                                        onClick = onNextLocalSearchResult,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("نتیجه بعدی")
+                                    }
+                                }
+                            } else {
+                                Text(
+                                    "عبارت مورد نظر پیدا نشد.",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+
+                        TextButton(
+                            onClick = onAdvancedSearch,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("رفتن به جستجوی پیشرفته")
+                        }
+                    }
+                }
+            }
             // تنظیمات محلی صفحه مطالعه مستقیماً از همین state خوانده می‌شوند تا
             // تغییر اندازه و فونت داخل همین پنجره، بدون بستن پنجره، فوراً روی متن دیده شود.
             // سایر بخش‌های برنامه همچنان از MaterialTheme سراسری استفاده می‌کنند.
@@ -458,9 +666,50 @@ fun TextScreen(
             var selectedFootnote by remember(footnotes) { mutableStateOf<FootnoteEntity?>(null) }
             var selectedGlossary by remember(sectionId) { mutableStateOf<GlossaryOccurrence?>(null) }
             val glossaryHighlightColor = MaterialTheme.colorScheme.tertiary
-            val annotatedContent = remember(content, footnotes, glossaryOccurrences, glossaryHighlightColor) {
+            val annotatedContent = remember(
+                content,
+                footnotes,
+                glossaryOccurrences,
+                glossaryHighlightColor,
+                searchHighlights,
+                selectedSearchHighlight
+            ) {
                 buildAnnotatedString {
                     append(content)
+                                        searchHighlights.forEach { range ->
+                        if (
+                            range.first >= 0 &&
+                            range.last < length &&
+                            range.first <= range.last
+                        ) {
+                            addStyle(
+                                SpanStyle(
+                                    background = Color(0xFFFFF0A8),
+                                    color = Color.Black
+                                ),
+                                range.first,
+                                range.last + 1
+                            )
+                        }
+                    }
+
+                    selectedSearchHighlight?.let { range ->
+                        if (
+                            range.first >= 0 &&
+                            range.last < length &&
+                            range.first <= range.last
+                        ) {
+                            addStyle(
+                                SpanStyle(
+                                    background = Color(0xFFFFB74D),
+                                    color = Color.Black,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                range.first,
+                                range.last + 1
+                            )
+                        }
+                    }
                     footnotes.forEachIndexed { index, fn ->
                         var start = 0
                         while (start < length) {
@@ -1017,7 +1266,9 @@ fun TextPagerScreen(
     onAttachAudio: (sectionId: Long, uri: android.net.Uri) -> Unit = { _, _ -> },
     onRemoveAudio: (sectionId: Long) -> Unit = {},
     footnotesForSection: suspend (Long) -> List<com.example.bookapp.data.FootnoteEntity> = { emptyList() },
-    onAddFootnote: suspend (Long, String, String) -> Result<Unit> = { _, _, _ -> Result.failure(IllegalStateException("ذخیره پاورقی در دسترس نیست")) },
+    onAddFootnote: suspend (Long, String, String) -> Result<Unit> = { _, _, _ ->
+        Result.failure(IllegalStateException("ذخیره پاورقی در دسترس نیست"))
+    },
     onEditFootnote: (Long, com.example.bookapp.data.FootnoteEntity, String, String) -> Unit = { _, _, _, _ -> },
     onDeleteFootnote: (Long, com.example.bookapp.data.FootnoteEntity) -> Unit = { _, _ -> },
     canViewFootnotes: Boolean = true,
@@ -1038,170 +1289,283 @@ fun TextPagerScreen(
     onBack: () -> Unit
 ) {
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(
-        initialPage = startIndex.coerceIn(0, (sections.size - 1).coerceAtLeast(0))
-    ) { sections.size }
-    var searchPanelVisible by remember {
-    androidx.compose.runtime.mutableStateOf(false)
-}
+        initialPage = startIndex.coerceIn(
+            0,
+            (sections.size - 1).coerceAtLeast(0)
+        )
+    ) {
+        sections.size
+    }
 
-var searchQuery by remember {
-    androidx.compose.runtime.mutableStateOf("")
-}
+    val pagerScope = rememberCoroutineScope()
 
-var searchScope by remember {
-    androidx.compose.runtime.mutableStateOf("section")
-}
+    var searchPanelVisible by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var searchScope by remember { mutableStateOf("section") }
+    var searchMatches by remember {
+        mutableStateOf(emptyList<ReaderSearchMatch>())
+    }
+    var selectedSearchIndex by remember { mutableIntStateOf(0) }
+    var searchHasExecuted by remember { mutableStateOf(false) }
 
-var searchMatches by remember {
-    androidx.compose.runtime.mutableStateOf(
-        emptyList<ReaderSearchMatch>()
-    )
-}
+    val executeReaderSearch: () -> Unit = {
+        val query = searchQuery.trim()
 
-var selectedSearchIndex by remember {
-    androidx.compose.runtime.mutableIntStateOf(0)
-}
+        searchHasExecuted = true
+        selectedSearchIndex = 0
 
-var searchHasExecuted by remember {
-    androidx.compose.runtime.mutableStateOf(false)
-}
-val executeReaderSearch: () -> Unit = {
-    val query = searchQuery.trim()
+        searchMatches = if (query.isBlank()) {
+            emptyList()
+        } else {
+            val result = mutableListOf<ReaderSearchMatch>()
 
-    searchHasExecuted = true
-    selectedSearchIndex = 0
+            val indexes = when (searchScope) {
+                "section" -> listOf(pagerState.currentPage)
+                "role" -> sections.indices.toList()
+                else -> emptyList()
+            }
 
-    searchMatches = if (query.isBlank()) {
-        emptyList()
-    } else {
-        val result = mutableListOf<ReaderSearchMatch>()
+            indexes.forEach { index ->
+                if (index in sections.indices) {
+                    result.addAll(
+                        findReaderSearchMatches(
+                            text = sections[index].content,
+                            query = query,
+                            sectionIndex = index
+                        )
+                    )
+                }
+            }
 
-        val indexes = when (searchScope) {
-            "section" -> listOf(pagerState.currentPage)
-            "role" -> sections.indices.toList()
-            else -> emptyList()
+            result
         }
 
-        indexes.forEach { index ->
-            if (index in sections.indices) {
-                result.addAll(
-                    findReaderSearchMatches(
-                        text = sections[index].content,
-                        query = query,
-                        sectionIndex = index
-                    )
-                )
+        searchMatches.firstOrNull()?.let { first ->
+            pagerScope.launch {
+                pagerState.animateScrollToPage(first.sectionIndex)
             }
         }
-
-        result
     }
-}
-val moveToReaderSearchResult: suspend (Int) -> Unit = { direction ->
 
-    if (searchMatches.isNotEmpty()) {
+    val moveToReaderSearchResult: (Int) -> Unit = { direction ->
+        if (searchMatches.isNotEmpty()) {
+            val nextIndex = (
+                selectedSearchIndex + direction + searchMatches.size
+            ) % searchMatches.size
 
-        val nextIndex = (
-            selectedSearchIndex + direction + searchMatches.size
-        ) % searchMatches.size
+            selectedSearchIndex = nextIndex
 
-        selectedSearchIndex = nextIndex
+            val targetMatch = searchMatches[nextIndex]
 
-        val targetMatch = searchMatches[nextIndex]
-
-        if (targetMatch.sectionIndex in sections.indices) {
-            pagerState.animateScrollToPage(
-                targetMatch.sectionIndex
-            )
+            if (targetMatch.sectionIndex in sections.indices) {
+                pagerScope.launch {
+                    pagerState.animateScrollToPage(
+                        targetMatch.sectionIndex
+                    )
+                }
+            }
         }
     }
-}
 
-val currentReaderSearchMatch = searchMatches.getOrNull(
-    selectedSearchIndex
-)
-val currentSearchResultPosition = if (searchMatches.isEmpty()) {
-    0
-} else {
-    selectedSearchIndex + 1
-}
+    val currentReaderSearchMatch =
+        searchMatches.getOrNull(selectedSearchIndex)
 
-val currentSearchResultCount = searchMatches.size
+    val currentSearchResultPosition =
+        if (searchMatches.isEmpty()) 0 else selectedSearchIndex + 1
 
-val currentSearchResultRange = currentReaderSearchMatch?.let {
-    it.start until it.end
-}
-    val pagerScope = androidx.compose.runtime.rememberCoroutineScope()
+    val currentSearchResultCount = searchMatches.size
 
     LaunchedEffect(pagerState.currentPage) {
-        if (sections.isNotEmpty()) {
+        if (sections.isNotEmpty() &&
+            pagerState.currentPage in sections.indices
+        ) {
             onPageShown(sections[pagerState.currentPage].id)
         }
     }
 
     Column(Modifier.fillMaxSize()) {
+
         if (sections.isNotEmpty()) {
             LinearProgressIndicator(
-                progress = { (pagerState.currentPage + 1).toFloat() / sections.size.toFloat() },
+                progress = {
+                    (pagerState.currentPage + 1).toFloat() /
+                        sections.size.toFloat()
+                },
                 modifier = Modifier.fillMaxWidth()
             )
-        }
-        androidx.compose.foundation.pager.HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
-        val section = sections[page]
-        var pageFootnotes by remember(section.id) { mutableStateOf(listOf<com.example.bookapp.data.FootnoteEntity>()) }
-        LaunchedEffect(section.id) { pageFootnotes = footnotesForSection(section.id) }
-        Column(Modifier.fillMaxSize()) {
-            TextScreen(
-                title = "${section.title}  (${page + 1}/${sections.size})",
-                content = section.content,
-                isBookmarked = isBookmarked(section.id),
-                onToggleBookmark = { if ((isBookmarked(section.id) && canBookmarkDelete) || (!isBookmarked(section.id) && canBookmark)) onToggleBookmark(section.id) },
-                sectionId = section.id,
-                audioUrl = section.audioUrl,
-                onOpenSearch = onOpenSearch,
-                onOpenSettings = onOpenSettings,
-                hasPrevSection = page > 0,
-                hasNextSection = page < sections.size - 1,
-                canNavigate = canNavigate,
-                onPrevSection = {
-                    pagerScope.launch { pagerState.animateScrollToPage(page - 1) }
-                },
-                onNextSection = {
-                    pagerScope.launch { pagerState.animateScrollToPage(page + 1) }
-                },
-                onAttachAudio = { uri -> onAttachAudio(section.id, uri) },
-                onRemoveAudio = { onRemoveAudio(section.id) },
-                footnotes = pageFootnotes,
-                onAddFootnote = { term, explanation ->
-                    val result = onAddFootnote(section.id, term, explanation)
-                    if (result.isSuccess) pageFootnotes = footnotesForSection(section.id)
-                    result
-                },
-                onEditFootnote = { fn, term, explanation ->
-                    onEditFootnote(section.id, fn, term, explanation)
-                    pagerScope.launch { pageFootnotes = footnotesForSection(section.id) }
-                },
-                onDeleteFootnote = { fn ->
-                    onDeleteFootnote(section.id, fn)
-                    pagerScope.launch { pageFootnotes = footnotesForSection(section.id) }
-                },
-                canViewFootnotes = canViewFootnotes,
-                canAddFootnote = canAddFootnote,
-                canEditFootnote = canEditFootnote,
-                canDeleteFootnote = canDeleteFootnote,
-                canAddFootnoteToDictionary = canAddFootnoteToDictionary,
-                canBookmark = canBookmark,
-                canBookmarkDelete = canBookmarkDelete,
-                canAudio = canAudio,
-                canTts = canTts,
-                canCopy = canCopy,
-                canShare = canShare,
-                fieldTitle = fieldTitle,
-                taziehTitle = taziehTitle,
-                roleTitle = roleTitle,
-                onBack = onBack
-            )
-        }
+
+            androidx.compose.foundation.pager.HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f)
+            ) { page ->
+
+                val section = sections[page]
+
+                var pageFootnotes by remember(section.id) {
+                    mutableStateOf(
+                        listOf<com.example.bookapp.data.FootnoteEntity>()
+                    )
+                }
+
+                LaunchedEffect(section.id) {
+                    pageFootnotes = footnotesForSection(section.id)
+                }
+
+                val pageMatches = searchMatches
+                    .filter { it.sectionIndex == page }
+                    .map { it.start until it.end }
+
+                val selectedRange = currentReaderSearchMatch
+                    ?.takeIf { it.sectionIndex == page }
+                    ?.let { it.start until it.end }
+
+                Column(Modifier.fillMaxSize()) {
+
+                    TextScreen(
+                        title = "${section.title}  (${page + 1}/${sections.size})",
+                        content = section.content,
+                        isBookmarked = isBookmarked(section.id),
+
+                        onToggleBookmark = {
+                            if (
+                                (isBookmarked(section.id) && canBookmarkDelete) ||
+                                (!isBookmarked(section.id) && canBookmark)
+                            ) {
+                                onToggleBookmark(section.id)
+                            }
+                        },
+
+                        sectionId = section.id,
+                        audioUrl = section.audioUrl,
+
+                        onOpenSearch = {
+                            searchPanelVisible = !searchPanelVisible
+                        },
+
+                        onAdvancedSearch = onOpenSearch,
+
+                        localSearchVisible = searchPanelVisible,
+                        localSearchQuery = searchQuery,
+                        onLocalSearchQueryChange = {
+                            searchQuery = it
+                            searchHasExecuted = false
+                            searchMatches = emptyList()
+                            selectedSearchIndex = 0
+                        },
+
+                        localSearchScope = searchScope,
+                        onLocalSearchScopeChange = {
+                            searchScope = it
+                            searchHasExecuted = false
+                            searchMatches = emptyList()
+                            selectedSearchIndex = 0
+                        },
+
+                        onExecuteLocalSearch = executeReaderSearch,
+
+                        localSearchResultPosition = currentSearchResultPosition,
+                        localSearchResultCount = currentSearchResultCount,
+                        localSearchHasExecuted = searchHasExecuted,
+
+                        onPreviousLocalSearchResult = {
+                            moveToReaderSearchResult(-1)
+                        },
+
+                        onNextLocalSearchResult = {
+                            moveToReaderSearchResult(1)
+                        },
+
+                        onCloseLocalSearch = {
+                            searchPanelVisible = false
+                        },
+
+                        searchHighlights = pageMatches,
+                        selectedSearchHighlight = selectedRange,
+
+                        onOpenSettings = onOpenSettings,
+
+                        hasPrevSection = page > 0,
+                        hasNextSection = page < sections.size - 1,
+                        canNavigate = canNavigate,
+
+                        onPrevSection = {
+                            pagerScope.launch {
+                                pagerState.animateScrollToPage(page - 1)
+                            }
+                        },
+
+                        onNextSection = {
+                            pagerScope.launch {
+                                pagerState.animateScrollToPage(page + 1)
+                            }
+                        },
+
+                        onAttachAudio = { uri ->
+                            onAttachAudio(section.id, uri)
+                        },
+
+                        onRemoveAudio = {
+                            onRemoveAudio(section.id)
+                        },
+
+                        footnotes = pageFootnotes,
+
+                        onAddFootnote = { term, explanation ->
+                            val result = onAddFootnote(
+                                section.id,
+                                term,
+                                explanation
+                            )
+
+                            if (result.isSuccess) {
+                                pageFootnotes = footnotesForSection(section.id)
+                            }
+
+                            result
+                        },
+
+                        onEditFootnote = { fn, term, explanation ->
+                            onEditFootnote(
+                                section.id,
+                                fn,
+                                term,
+                                explanation
+                            )
+
+                            pagerScope.launch {
+                                pageFootnotes = footnotesForSection(section.id)
+                            }
+                        },
+
+                        onDeleteFootnote = { fn ->
+                            onDeleteFootnote(section.id, fn)
+
+                            pagerScope.launch {
+                                pageFootnotes = footnotesForSection(section.id)
+                            }
+                        },
+
+                        canViewFootnotes = canViewFootnotes,
+                        canAddFootnote = canAddFootnote,
+                        canEditFootnote = canEditFootnote,
+                        canDeleteFootnote = canDeleteFootnote,
+                        canAddFootnoteToDictionary = canAddFootnoteToDictionary,
+
+                        canBookmark = canBookmark,
+                        canBookmarkDelete = canBookmarkDelete,
+                        canAudio = canAudio,
+                        canTts = canTts,
+                        canCopy = canCopy,
+                        canShare = canShare,
+
+                        fieldTitle = fieldTitle,
+                        taziehTitle = taziehTitle,
+                        roleTitle = roleTitle,
+
+                        onBack = onBack
+                    )
+                }
+            }
         }
     }
 }
