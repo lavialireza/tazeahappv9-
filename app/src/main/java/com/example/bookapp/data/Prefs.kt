@@ -375,7 +375,65 @@ object Prefs {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putFloat(KEY_LINE_SPACING, value).apply()
     }
+// تنظیمات مستقل صفحه مطالعه
+private const val KEY_READER_DARK_MODE = "reader_dark_mode"
+private const val KEY_READER_FONT_SCALE = "reader_font_scale"
+private const val KEY_READER_FONT_CHOICE = "reader_font_choice"
+private const val KEY_READER_SCROLL_PREFIX = "reader_scroll_"
 
+fun getReaderDarkMode(context: Context): Boolean {
+    return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getBoolean(KEY_READER_DARK_MODE, false)
+}
+
+fun setReaderDarkMode(context: Context, value: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit().putBoolean(KEY_READER_DARK_MODE, value).apply()
+}
+
+fun getReaderFontScale(context: Context): Float {
+    return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getFloat(KEY_READER_FONT_SCALE, 1.0f)
+}
+
+fun setReaderFontScale(context: Context, value: Float) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit().putFloat(KEY_READER_FONT_SCALE, value).apply()
+}
+
+fun getReaderFontChoice(context: Context): String {
+    return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getString(KEY_READER_FONT_CHOICE, "titr") ?: "titr"
+}
+
+fun setReaderFontChoice(context: Context, value: String) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit().putString(KEY_READER_FONT_CHOICE, value).apply()
+}
+
+fun getReaderScrollPosition(context: Context, sectionId: Long): Int {
+    return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getInt("$KEY_READER_SCROLL_PREFIX$sectionId", 0)
+}
+
+fun setReaderScrollPosition(context: Context, sectionId: Long, position: Int) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putInt("$KEY_READER_SCROLL_PREFIX$sectionId", position.coerceAtLeast(0))
+        .apply()
+}
+
+/** بازگرداندن تنظیمات صفحه مطالعه به حالت اولیه */
+fun resetReaderSettings(context: Context) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putBoolean(KEY_READER_DARK_MODE, false)
+        .putFloat(KEY_READER_FONT_SCALE, 1.0f)
+        .putString(KEY_READER_FONT_CHOICE, "titr")
+        .putFloat(KEY_LINE_SPACING, 1.4f)
+        .putBoolean(KEY_AUTO_SCROLL_READER, false)
+        .apply()
+}
     private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
 
     /** آیا صفحه گوشی حین استفاده از برنامه خاموش/قفل نشود (پیش‌فرض: فعال) */
