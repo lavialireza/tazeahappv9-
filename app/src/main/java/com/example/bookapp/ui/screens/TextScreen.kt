@@ -155,39 +155,7 @@ private fun findReaderSearchMatches(
 
     return matches
 }
-    val source = normalizedText.toString()
-    val matches = mutableListOf<ReaderSearchMatch>()
-
-    var searchFrom = 0
-
-    while (searchFrom <= source.length - normalizedQuery.length) {
-
-        val foundIndex = source.indexOf(
-            string = normalizedQuery,
-            startIndex = searchFrom,
-            ignoreCase = true
-        )
-        }
-
-        if (foundIndex < 0) break
-
-        val lastIndex = foundIndex + normalizedQuery.length - 1
-
-        if (lastIndex < originalPositions.size) {
-            matches.add(
-                ReaderSearchMatch(
-                    sectionIndex = sectionIndex,
-                    start = originalPositions[foundIndex],
-                    end = originalPositions[lastIndex] + 1
-                )
-            )
-        }
-
-        searchFrom = foundIndex + 1
-    }
-
-    return matches
-}
+ 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TextScreen(
