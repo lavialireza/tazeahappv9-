@@ -601,10 +601,32 @@ localSearchResultIsCurrentSection: Boolean = true,
 ) {
           if (localSearchVisible && !immersive) {
     Card(
-        modifier = Modifier
-            .widthIn(max = 640.dp)
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+    modifier = Modifier
+        .widthIn(max = 640.dp)
+        .fillMaxWidth()
+        .padding(horizontal = 16.dp, vertical = 4.dp)
+        .pointerInput(localSearchVisible) {
+            var totalDrag = 0f
+
+            detectVerticalDragGestures(
+                onVerticalDrag = { change, dragAmount ->
+                    totalDrag += dragAmount
+
+                    if (totalDrag <= -48.dp.toPx()) {
+                        onCloseLocalSearch()
+                        totalDrag = 0f
+                    }
+
+                    change.consume()
+                },
+                onDragEnd = {
+                    totalDrag = 0f
+                },
+                onDragCancel = {
+                    totalDrag = 0f
+                }
+            )
+        },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
@@ -616,21 +638,7 @@ localSearchResultIsCurrentSection: Boolean = true,
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .pointerInput(localSearchVisible) {
-                        var totalDrag = 0f
-                        detectVerticalDragGestures(
-                            onVerticalDrag = { change, dragAmount ->
-                                totalDrag += dragAmount
-                                if (totalDrag <= -48.dp.toPx()) {
-                                    onCloseLocalSearch()
-                                    totalDrag = 0f
-                                }
-                                change.consume()
-                            },
-                            onDragEnd = { totalDrag = 0f },
-                            onDragCancel = { totalDrag = 0f }
-                        )
-                    },
+                   
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
             ) {
                 Text(
