@@ -1041,7 +1041,8 @@ var textLayoutResult by remember {
         )
     }
 }
-
+// پایان تابع اصلی TextScreen
+}
 private fun copyToClipboard(context: Context, title: String, content: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     val clip = ClipData.newPlainText(title, content)
