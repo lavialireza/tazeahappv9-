@@ -12,6 +12,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
@@ -53,6 +56,91 @@ import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 
+private data class ReaderSearchMatch(
+    val sectionIndex: Int,
+    val start: Int,
+    val end: Int
+)
+private fun normalizeReaderSearchText(value: String): String {
+    return value
+        .replace('ي', 'ی')
+        .replace('ك', 'ک')
+        .replace('ة', 'ه')
+        .replace('ۀ', 'ه')
+        .replace('أ', 'ا')
+        .replace('إ', 'ا')
+        .replace('آ', 'ا')
+        .replace('\u0640', ' ')
+        .replace(Regex("[\\u064B-\\u065F\\u0670]"), "")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
+private fun findReaderSearchMatches(
+    text: String,
+    query: String,
+    sectionIndex: Int
+): List<ReaderSearchMatch> {
+
+    val normalizedQuery = normalizeReaderSearchText(query)
+    if (normalizedQuery.isBlank()) return emptyList()
+
+    val normalizedText = StringBuilder()
+    val originalPositions = mutableListOf<Int>()
+
+    text.forEachIndexed { index, originalChar ->
+
+        val normalizedChar = normalizeReaderSearchText(
+            originalChar.toString()
+        )
+
+        normalizedChar.forEach { char ->
+
+            if (char == ' ') {
+                if (normalizedText.isNotEmpty() &&
+                    normalizedText.last() != ' '
+                ) {
+                    normalizedText.append(' ')
+                    originalPositions.add(index)
+                }
+            } else {
+                normalizedText.append(char)
+                originalPositions.add(index)
+            }
+        }
+    }
+
+    val source = normalizedText.toString()
+    val matches = mutableListOf<ReaderSearchMatch>()
+
+    var searchFrom = 0
+
+    while (searchFrom <= source.length - normalizedQuery.length) {
+
+        val foundIndex = source.indexOf(
+            string = normalizedQuery,
+            startIndex = searchFrom,
+            ignoreCase = true
+        )
+
+        if (foundIndex < 0) break
+
+        val lastIndex = foundIndex + normalizedQuery.length - 1
+
+        if (lastIndex < originalPositions.size) {
+            matches.add(
+                ReaderSearchMatch(
+                    sectionIndex = sectionIndex,
+                    start = originalPositions[foundIndex],
+                    end = originalPositions[lastIndex] + 1
+                )
+            )
+        }
+
+        searchFrom = foundIndex + 1
+    }
+
+    return matches
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TextScreen(
@@ -952,6 +1040,97 @@ fun TextPagerScreen(
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(
         initialPage = startIndex.coerceIn(0, (sections.size - 1).coerceAtLeast(0))
     ) { sections.size }
+    var searchPanelVisible by remember {
+    androidx.compose.runtime.mutableStateOf(false)
+}
+
+var searchQuery by remember {
+    androidx.compose.runtime.mutableStateOf("")
+}
+
+var searchScope by remember {
+    androidx.compose.runtime.mutableStateOf("section")
+}
+
+var searchMatches by remember {
+    androidx.compose.runtime.mutableStateOf(
+        emptyList<ReaderSearchMatch>()
+    )
+}
+
+var selectedSearchIndex by remember {
+    androidx.compose.runtime.mutableIntStateOf(0)
+}
+
+var searchHasExecuted by remember {
+    androidx.compose.runtime.mutableStateOf(false)
+}
+val executeReaderSearch: () -> Unit = {
+    val query = searchQuery.trim()
+
+    searchHasExecuted = true
+    selectedSearchIndex = 0
+
+    searchMatches = if (query.isBlank()) {
+        emptyList()
+    } else {
+        val result = mutableListOf<ReaderSearchMatch>()
+
+        val indexes = when (searchScope) {
+            "section" -> listOf(pagerState.currentPage)
+            "role" -> sections.indices.toList()
+            else -> emptyList()
+        }
+
+        indexes.forEach { index ->
+            if (index in sections.indices) {
+                result.addAll(
+                    findReaderSearchMatches(
+                        text = sections[index].content,
+                        query = query,
+                        sectionIndex = index
+                    )
+                )
+            }
+        }
+
+        result
+    }
+}
+val moveToReaderSearchResult: suspend (Int) -> Unit = { direction ->
+
+    if (searchMatches.isNotEmpty()) {
+
+        val nextIndex = (
+            selectedSearchIndex + direction + searchMatches.size
+        ) % searchMatches.size
+
+        selectedSearchIndex = nextIndex
+
+        val targetMatch = searchMatches[nextIndex]
+
+        if (targetMatch.sectionIndex in sections.indices) {
+            pagerState.animateScrollToPage(
+                targetMatch.sectionIndex
+            )
+        }
+    }
+}
+
+val currentReaderSearchMatch = searchMatches.getOrNull(
+    selectedSearchIndex
+)
+val currentSearchResultPosition = if (searchMatches.isEmpty()) {
+    0
+} else {
+    selectedSearchIndex + 1
+}
+
+val currentSearchResultCount = searchMatches.size
+
+val currentSearchResultRange = currentReaderSearchMatch?.let {
+    it.start until it.end
+}
     val pagerScope = androidx.compose.runtime.rememberCoroutineScope()
 
     LaunchedEffect(pagerState.currentPage) {
