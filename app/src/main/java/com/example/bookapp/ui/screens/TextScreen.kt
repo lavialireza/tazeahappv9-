@@ -55,6 +55,8 @@ import com.example.bookapp.data.SpeechHelper
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 
 private data class ReaderSearchMatch(
     val sectionIndex: Int,
@@ -255,24 +257,57 @@ fun TextScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    val scrollState = rememberScrollState()
-    val textScope = rememberCoroutineScope()
-        LaunchedEffect(selectedSearchHighlight, content) {
-        val range = selectedSearchHighlight
+  val scrollState = rememberScrollState()
+val textScope = rememberCoroutineScope()
 
-        if (range != null && content.isNotEmpty()) {
-            kotlinx.coroutines.delay(120)
+var scrollContainerTopInRoot by remember {
+    mutableFloatStateOf(0f)
+}
 
-            val ratio = range.first.toFloat() /
-                content.length.coerceAtLeast(1)
+var textTopInRoot by remember {
+    mutableFloatStateOf(0f)
+}
+
+var textLayoutResult by remember {
+    mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null)
+}
+       LaunchedEffect(selectedSearchHighlight, content) {
+    val range = selectedSearchHighlight
+
+    if (range != null && content.isNotEmpty()) {
+        kotlinx.coroutines.delay(180)
+
+        val layout = textLayoutResult
+
+        if (layout != null && textTopInRoot > 0f) {
+            val offset = range.first.coerceIn(
+                0,
+                content.lastIndex
+            )
+
+            val line = layout.getLineForOffset(offset)
+            val lineTop = layout.getLineTop(line)
+
+            val density = context.resources.displayMetrics.density
+            val topSpacing = 12f * density
+
+            val textPositionInScroll =
+                textTopInRoot - scrollContainerTopInRoot
 
             val target = (
-                scrollState.maxValue * ratio
-            ).toInt().coerceIn(0, scrollState.maxValue)
+                scrollState.value +
+                    textPositionInScroll +
+                    lineTop -
+                    topSpacing
+                ).toInt().coerceIn(
+                    0,
+                    scrollState.maxValue
+                )
 
             scrollState.animateScrollTo(target)
         }
     }
+}
     LaunchedEffect(fontScale) { readerFontScale = fontScale }
     LaunchedEffect(darkMode) { readerDarkMode = darkMode }
     LaunchedEffect(fontChoice) { readerFontChoice = fontChoice }
@@ -462,11 +497,14 @@ fun TextScreen(
         }
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .then(if (immersive) Modifier.clickable { immersive = false; applyImmersive(false) } else Modifier)
-                .padding(padding)
-                .verticalScroll(scrollState),
+    modifier = Modifier
+        .fillMaxSize()
+        .then(if (immersive) Modifier.clickable { immersive = false; applyImmersive(false) } else Modifier)
+        .padding(padding)
+        .verticalScroll(scrollState)
+        .onGloballyPositioned { coordinates ->
+            scrollContainerTopInRoot = coordinates.positionInRoot().y
+        },
             horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
         ) {
         // روی صفحه‌های بزرگ (تبلت) عرض متن محدود می‌شود تا طول خط زیاد نشود و خواندن راحت بماند
@@ -697,9 +735,15 @@ fun TextScreen(
                     }
                 }
             }
-            ClickableText(
-                text = annotatedContent,
-                onClick = { offset ->
+           ClickableText(
+    text = annotatedContent,
+    modifier = Modifier.onGloballyPositioned { coordinates ->
+        textTopInRoot = coordinates.positionInRoot().y
+    },
+    onTextLayout = { result ->
+        textLayoutResult = result
+    },
+    onClick = { offset ->
                     val footnote = annotatedContent.getStringAnnotations("FOOTNOTE", offset, offset).firstOrNull()
                     if (footnote != null) selectedFootnote = footnotes.getOrNull(footnote.item.toIntOrNull() ?: -1)
                     else annotatedContent.getStringAnnotations("GLOSSARY", offset, offset).firstOrNull()?.let { ann ->
