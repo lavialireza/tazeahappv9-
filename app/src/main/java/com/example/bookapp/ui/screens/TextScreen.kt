@@ -8,6 +8,8 @@ import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.ClickableText
@@ -18,6 +20,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Label
@@ -57,7 +60,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.positionInParent
 
 private data class ReaderSearchMatch(
     val sectionIndex: Int,
@@ -83,7 +86,8 @@ private fun normalizeReaderSearchText(value: String): String {
 private fun findReaderSearchMatches(
     text: String,
     query: String,
-    sectionIndex: Int
+    sectionIndex: Int,
+    matchMode: String = "exact"
 ): List<ReaderSearchMatch> {
 
     val normalizedQuery = normalizeReaderSearchText(query)
@@ -94,7 +98,6 @@ private fun findReaderSearchMatches(
     val originalEnds = mutableListOf<Int>()
 
     text.forEachIndexed { index, originalChar ->
-
         val normalizedChar = when (originalChar) {
             'ي' -> "ی"
             'ك' -> "ک"
@@ -105,7 +108,6 @@ private fun findReaderSearchMatches(
         }
 
         normalizedChar.forEach { char ->
-
             if (char in '\u064B'..'\u065F' || char == '\u0670') {
                 return@forEach
             }
@@ -128,22 +130,29 @@ private fun findReaderSearchMatches(
 
     val source = normalizedText.toString()
     val matches = mutableListOf<ReaderSearchMatch>()
-
     var searchFrom = 0
 
     while (searchFrom <= source.length - normalizedQuery.length) {
-
         val foundIndex = source.indexOf(
             string = normalizedQuery,
             startIndex = searchFrom,
             ignoreCase = true
         )
-
         if (foundIndex < 0) break
 
         val lastIndex = foundIndex + normalizedQuery.length - 1
+        val exactMode = matchMode == "exact"
+        val leftBoundaryOk = !exactMode ||
+            foundIndex == 0 ||
+            !source[foundIndex - 1].isLetterOrDigit()
+        val rightBoundaryOk = !exactMode ||
+            lastIndex == source.lastIndex ||
+            !source[lastIndex + 1].isLetterOrDigit()
 
-        if (lastIndex < originalStarts.size) {
+        if (leftBoundaryOk && rightBoundaryOk &&
+            foundIndex < originalStarts.size &&
+            lastIndex < originalEnds.size
+        ) {
             matches.add(
                 ReaderSearchMatch(
                     sectionIndex = sectionIndex,
@@ -153,11 +162,98 @@ private fun findReaderSearchMatches(
             )
         }
 
-        searchFrom = foundIndex + normalizedQuery.length
+        // +1 keeps overlapping partial matches available as well.
+        searchFrom = foundIndex + 1
     }
 
     return matches
 }
+
+data class ReaderSearchPreview(
+    val matchIndex: Int,
+    val sectionTitle: String,
+    val snippet: String
+)
+
+private fun buildReaderSearchSnippet(
+    text: String,
+    match: ReaderSearchMatch,
+    maxLength: Int = 180
+): String {
+    if (text.isBlank()) return ""
+
+    val safeStart = match.start.coerceIn(0, text.length)
+    val safeEnd = match.end.coerceIn(safeStart, text.length)
+
+    val lineStart = text.lastIndexOf('\n', (safeStart - 1).coerceAtLeast(0))
+        .let { if (it < 0) 0 else it + 1 }
+    val lineEndFound = text.indexOf('\n', safeEnd)
+    val lineEnd = if (lineEndFound < 0) text.length else lineEndFound
+
+    val line = text.substring(lineStart, lineEnd).trim()
+    if (line.length <= maxLength) return line
+
+    val localStart = (safeStart - lineStart).coerceIn(0, line.length)
+    val from = (localStart - maxLength / 2).coerceAtLeast(0)
+    val to = (from + maxLength).coerceAtMost(line.length)
+    return buildString {
+        if (from > 0) append("…")
+        append(line.substring(from, to))
+        if (to < line.length) append("…")
+    }
+}
+
+private data class ReaderSearchSuggestionSource(
+    val titles: List<String>,
+    val words: List<Pair<String, Int>>
+)
+
+private fun buildReaderSearchSuggestionSource(
+    sections: List<com.example.bookapp.data.SectionEntity>
+): ReaderSearchSuggestionSource {
+    val frequencies = linkedMapOf<String, Pair<String, Int>>()
+    val tokenRegex = Regex("[\\p{L}\\p{N}]{2,}")
+
+    sections.forEach { section ->
+        tokenRegex.findAll(section.content).forEach { match ->
+            val display = match.value
+            val normalized = normalizeReaderSearchText(display)
+            val old = frequencies[normalized]
+            frequencies[normalized] = display to ((old?.second ?: 0) + 1)
+        }
+    }
+
+    return ReaderSearchSuggestionSource(
+        titles = sections.map { it.title.trim() }.filter { it.isNotBlank() }.distinct(),
+        words = frequencies.values.map { it.first to it.second }
+    )
+}
+
+private fun filterReaderSearchSuggestions(
+    source: ReaderSearchSuggestionSource,
+    query: String
+): List<String> {
+    val normalizedFullQuery = normalizeReaderSearchText(query)
+    val normalizedLastWord = normalizeReaderSearchText(query.substringAfterLast(' '))
+    if (normalizedLastWord.length < 2) return emptyList()
+
+    val titles = source.titles.filter {
+        normalizeReaderSearchText(it).contains(normalizedFullQuery, ignoreCase = true)
+    }.take(3)
+
+    val words = source.words
+        .filter { normalizeReaderSearchText(it.first).startsWith(normalizedLastWord) }
+        .sortedByDescending { it.second }
+        .map { it.first }
+        .distinct()
+        .take(5)
+
+    return (titles + words)
+        .distinct()
+        .filter { normalizeReaderSearchText(it) != normalizedFullQuery }
+        .take(6)
+}
+
  
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -193,6 +289,13 @@ fun TextScreen(
     localSearchQuery: String = "",
     onLocalSearchQueryChange: (String) -> Unit = {},
     localSearchScope: String = "section",
+    localSearchMode: String = "exact",
+    onLocalSearchModeChange: (String) -> Unit = {},
+    onClearLocalSearch: () -> Unit = {},
+    localSearchSuggestions: List<String> = emptyList(),
+    onSelectLocalSearchSuggestion: (String) -> Unit = {},
+    localSearchResultSnippets: List<ReaderSearchPreview> = emptyList(),
+    onSelectLocalSearchResult: (Int) -> Unit = {},
     onLocalSearchScopeChange: (String) -> Unit = {},
     onExecuteLocalSearch: () -> Unit = {},
     localSearchResultPosition: Int = 0,
@@ -260,73 +363,36 @@ localSearchResultIsCurrentSection: Boolean = true,
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-  val scrollState = rememberScrollState()
-val textScope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
+    val textScope = rememberCoroutineScope()
 
-var scrollContainerTopInRoot by remember {
-    mutableFloatStateOf(0f)
-}
-
-var textTopInRoot by remember {
-    mutableFloatStateOf(0f)
-}
-
-var textLayoutResult by remember {
-    mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null)
-}
-    var textLayoutRevision by remember {
-    mutableIntStateOf(0)
-}
- LaunchedEffect(
-    selectedSearchHighlight,
-    content,
-    textLayoutRevision
-) {
-    val range = selectedSearchHighlight
-
-    if (range != null && content.isNotEmpty()) {
-
-        // منتظر می‌مانیم چیدمان جدید متن کامل شود.
-        withFrameNanos { }
-        withFrameNanos { }
-
-        val layout = textLayoutResult
-            ?: return@LaunchedEffect
-
-        val offset = range.first.coerceIn(
-            0,
-            content.lastIndex
-        )
-
-        // خطی که نتیجه جستجو در آن قرار دارد.
-        val line = layout.getLineForOffset(offset)
-
-        val lineTop = layout.getLineTop(line)
-
-        val density = context.resources.displayMetrics.density
-
-        // فاصله مناسب از بالای محدوده قابل مشاهده متن.
-        val topSpacing = 48f * density
-
-        // موقعیت متن نسبت به محدوده اسکرول.
-        val textPositionInScroll =
-            textTopInRoot - scrollContainerTopInRoot
-
-        // محاسبه موقعیت جدید نتیجه.
-        val target = (
-            scrollState.value +
-                textPositionInScroll +
-                lineTop -
-                topSpacing
-            ).toInt().coerceIn(
-                0,
-                scrollState.maxValue
-            )
-
-        // حرکت به محل نتیجه انتخاب‌شده.
-        scrollState.animateScrollTo(target)
+    var textTopInScrollContent by remember { mutableFloatStateOf(0f) }
+    var textLayoutResult by remember {
+        mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null)
     }
-}
+
+    LaunchedEffect(selectedSearchHighlight, content) {
+        val range = selectedSearchHighlight
+        if (range != null && content.isNotEmpty()) {
+            // Wait for the target page and its text layout to be composed.
+            repeat(3) { withFrameNanos { } }
+
+            val layout = textLayoutResult ?: return@LaunchedEffect
+            val offset = range.first.coerceIn(0, content.lastIndex)
+            val line = layout.getLineForOffset(offset)
+            val lineTop = layout.getLineTop(line)
+            val density = context.resources.displayMetrics.density
+
+            // positionInParent is relative to the scroll content Column,
+            // so it is stable and must NOT be combined with scrollState.value.
+            val topSpacing = 36f * density
+            val target = (
+                textTopInScrollContent + lineTop - topSpacing
+                ).toInt().coerceIn(0, scrollState.maxValue)
+
+            scrollState.animateScrollTo(target)
+        }
+    }
     LaunchedEffect(fontScale) { readerFontScale = fontScale }
     LaunchedEffect(darkMode) { readerDarkMode = darkMode }
     LaunchedEffect(fontChoice) { readerFontChoice = fontChoice }
@@ -577,6 +643,16 @@ var textLayoutResult by remember {
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodyMedium,
                     label = { Text("عبارت مورد جستجو") },
+                    trailingIcon = {
+                        if (localSearchQuery.isNotEmpty()) {
+                            IconButton(onClick = onClearLocalSearch) {
+                                Icon(
+                                    Icons.Filled.Close,
+                                    contentDescription = "پاک کردن جستجو"
+                                )
+                            }
+                        }
+                    },
                     keyboardOptions = KeyboardOptions(
                         imeAction = ImeAction.Search
                     ),
@@ -643,6 +719,96 @@ var textLayoutResult by remember {
                     )
                 }
             }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Text(
+                    "نوع تطبیق:",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                FilterChip(
+                    selected = localSearchMode == "exact",
+                    onClick = { onLocalSearchModeChange("exact") },
+                    label = { Text("دقیق (کلمه/عبارت کامل)") }
+                )
+                FilterChip(
+                    selected = localSearchMode == "partial",
+                    onClick = { onLocalSearchModeChange("partial") },
+                    label = { Text("جزئی") }
+                )
+            }
+
+            if (localSearchQuery.isNotBlank() &&
+                localSearchSuggestions.isNotEmpty() &&
+                !localSearchHasExecuted
+            ) {
+                Text(
+                    "پیشنهادها",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Column(
+                    modifier = Modifier.heightIn(max = 112.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    localSearchSuggestions.forEach { suggestion ->
+                        Text(
+                            text = suggestion,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelectLocalSearchSuggestion(suggestion) }
+                                .padding(horizontal = 8.dp, vertical = 5.dp),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+
+            if (localSearchHasExecuted && localSearchResultSnippets.isNotEmpty()) {
+                Text(
+                    "نمونه بیت‌های پیدا شده",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 150.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    itemsIndexed(localSearchResultSnippets) { _, preview ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSelectLocalSearchResult(preview.matchIndex)
+                                },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (preview.matchIndex + 1 == localSearchResultPosition)
+                                MaterialTheme.colorScheme.secondaryContainer
+                            else MaterialTheme.colorScheme.surface
+                        ) {
+                            Column(Modifier.padding(horizontal = 8.dp, vertical = 5.dp)) {
+                                Text(
+                                    preview.sectionTitle,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    preview.snippet,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 2
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             if (localSearchHasExecuted) {
                 if (localSearchResultCount > 0) {
 
@@ -700,9 +866,6 @@ var textLayoutResult by remember {
         .fillMaxWidth()
         .weight(1f)
         .verticalScroll(scrollState)
-        .onGloballyPositioned { coordinates ->
-            scrollContainerTopInRoot = coordinates.positionInRoot().y
-        }
         .padding(16.dp)
 ) {
             if (!immersive && (fieldTitle != null || taziehTitle != null || roleTitle != null)) {
@@ -799,11 +962,10 @@ var textLayoutResult by remember {
            ClickableText(
     text = annotatedContent,
     modifier = Modifier.onGloballyPositioned { coordinates ->
-        textTopInRoot = coordinates.positionInRoot().y
+        textTopInScrollContent = coordinates.positionInParent().y
     },
   onTextLayout = { result ->
     textLayoutResult = result
-    textLayoutRevision++
 },
     onClick = { offset ->
                     val footnote = annotatedContent.getStringAnnotations("FOOTNOTE", offset, offset).firstOrNull()
@@ -1378,6 +1540,7 @@ fun TextPagerScreen(
     var searchPanelVisible by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var searchScope by remember { mutableStateOf("section") }
+    var searchMode by remember { mutableStateOf("exact") }
     var searchMatches by remember {
         mutableStateOf(emptyList<ReaderSearchMatch>())
     }
@@ -1407,7 +1570,8 @@ fun TextPagerScreen(
                         findReaderSearchMatches(
                             text = sections[index].content,
                             query = query,
-                            sectionIndex = index
+                            sectionIndex = index,
+                            matchMode = searchMode
                         )
                     )
                 }
@@ -1420,6 +1584,17 @@ fun TextPagerScreen(
             pagerScope.launch {
                 pagerState.animateScrollToPage(first.sectionIndex)
             }
+        }
+    }
+
+    LaunchedEffect(searchQuery, searchScope, searchMode) {
+        if (searchQuery.isBlank()) {
+            searchMatches = emptyList()
+            selectedSearchIndex = 0
+            searchHasExecuted = false
+        } else {
+            kotlinx.coroutines.delay(280)
+            executeReaderSearch()
         }
     }
 
@@ -1451,10 +1626,31 @@ fun TextPagerScreen(
 
     val currentSearchResultCount = searchMatches.size
 val currentSearchResultSectionTitle =
-    currentReaderSearchMatch
-        ?.sectionIndex
-        ?.let { sections.getOrNull(it)?.title }
-        .orEmpty()
+        currentReaderSearchMatch
+            ?.sectionIndex
+            ?.let { sections.getOrNull(it)?.title }
+            .orEmpty()
+
+    val currentSearchResultSnippets = remember(searchMatches, sections) {
+        searchMatches.mapIndexed { index, match ->
+            val matchedSection = sections.getOrNull(match.sectionIndex)
+            ReaderSearchPreview(
+                matchIndex = index,
+                sectionTitle = matchedSection?.title.orEmpty(),
+                snippet = matchedSection?.let {
+                    buildReaderSearchSnippet(it.content, match)
+                }.orEmpty()
+            )
+        }
+    }
+
+    val readerSearchSuggestionSource = remember(sections) {
+        buildReaderSearchSuggestionSource(sections)
+    }
+    val currentSearchSuggestions = remember(readerSearchSuggestionSource, searchQuery) {
+        filterReaderSearchSuggestions(readerSearchSuggestionSource, searchQuery)
+    }
+
     LaunchedEffect(pagerState.currentPage) {
         if (sections.isNotEmpty() &&
             pagerState.currentPage in sections.indices
@@ -1528,17 +1724,53 @@ val currentSearchResultSectionTitle =
                         localSearchQuery = searchQuery,
                         onLocalSearchQueryChange = {
                             searchQuery = it
-                            searchHasExecuted = false
                             searchMatches = emptyList()
                             selectedSearchIndex = 0
+                            searchHasExecuted = false
+                        },
+
+                        onLocalSearchModeChange = {
+                            searchMode = it
+                            searchMatches = emptyList()
+                            selectedSearchIndex = 0
+                            searchHasExecuted = false
+                        },
+
+                        onClearLocalSearch = {
+                            searchQuery = ""
+                            searchMatches = emptyList()
+                            selectedSearchIndex = 0
+                            searchHasExecuted = false
+                        },
+
+                        onSelectLocalSearchSuggestion = { suggestion ->
+                            searchQuery = suggestion
+                            searchMatches = emptyList()
+                            selectedSearchIndex = 0
+                            searchHasExecuted = false
+                        },
+
+                        localSearchMode = searchMode,
+                        localSearchSuggestions = currentSearchSuggestions,
+                        localSearchResultSnippets = currentSearchResultSnippets,
+                        onSelectLocalSearchResult = { resultIndex ->
+                            if (resultIndex in searchMatches.indices) {
+                                selectedSearchIndex = resultIndex
+                                val selected = searchMatches[resultIndex]
+                                if (selected.sectionIndex in sections.indices) {
+                                    pagerScope.launch {
+                                        pagerState.animateScrollToPage(selected.sectionIndex)
+                                    }
+                                }
+                            }
                         },
 
                         localSearchScope = searchScope,
                         onLocalSearchScopeChange = {
                             searchScope = it
-                            searchHasExecuted = false
                             searchMatches = emptyList()
                             selectedSearchIndex = 0
+                            searchHasExecuted = false
                         },
 
                         onExecuteLocalSearch = executeReaderSearch,
