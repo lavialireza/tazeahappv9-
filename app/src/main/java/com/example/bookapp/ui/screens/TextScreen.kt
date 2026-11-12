@@ -1,6 +1,6 @@
 package com.example.bookapp.ui.screens
 
-
+import androidx.compose.runtime.withFrameNanos
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -42,6 +42,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.ui.graphics.Color
 import com.example.bookapp.data.AudioPlayerHelper
 import com.example.bookapp.data.ViewerAccessPolicy
@@ -197,6 +198,8 @@ fun TextScreen(
     localSearchResultPosition: Int = 0,
     localSearchResultCount: Int = 0,
     localSearchHasExecuted: Boolean = false,
+    localSearchResultSectionTitle: String = "",
+localSearchResultIsCurrentSection: Boolean = true,
     onPreviousLocalSearchResult: () -> Unit = {},
     onNextLocalSearchResult: () -> Unit = {},
     onCloseLocalSearch: () -> Unit = {},
@@ -271,41 +274,48 @@ var textTopInRoot by remember {
 var textLayoutResult by remember {
     mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null)
 }
-       LaunchedEffect(selectedSearchHighlight, content) {
+   LaunchedEffect(selectedSearchHighlight, content) {
     val range = selectedSearchHighlight
 
     if (range != null && content.isNotEmpty()) {
-        kotlinx.coroutines.delay(180)
+
+        // صبر برای اعمال تغییر نتیجه و تکمیل چیدمان متن
+        withFrameNanos { }
+        withFrameNanos { }
 
         val layout = textLayoutResult
+            ?: return@LaunchedEffect
 
-        if (layout != null && textTopInRoot > 0f) {
-            val offset = range.first.coerceIn(
+        val offset = range.first.coerceIn(
+            0,
+            content.lastIndex
+        )
+
+        // شماره خطی که نتیجه جستجو در آن قرار دارد
+        val line = layout.getLineForOffset(offset)
+
+        // موقعیت عمودی ابتدای خط
+        val lineTop = layout.getLineTop(line)
+
+        val density = context.resources.displayMetrics.density
+        val topSpacing = 12f * density
+
+        // موقعیت واقعی متن نسبت به محدوده اسکرول
+        val textPositionInScroll =
+            textTopInRoot - scrollContainerTopInRoot
+
+        // محاسبه موقعیت دقیق نتیجه در محدوده اسکرول
+        val target = (
+            scrollState.value +
+                textPositionInScroll +
+                lineTop -
+                topSpacing
+            ).toInt().coerceIn(
                 0,
-                content.lastIndex
+                scrollState.maxValue
             )
 
-            val line = layout.getLineForOffset(offset)
-            val lineTop = layout.getLineTop(line)
-
-            val density = context.resources.displayMetrics.density
-            val topSpacing = 12f * density
-
-            val textPositionInScroll =
-                textTopInRoot - scrollContainerTopInRoot
-
-            val target = (
-                scrollState.value +
-                    textPositionInScroll +
-                    lineTop -
-                    topSpacing
-                ).toInt().coerceIn(
-                    0,
-                    scrollState.maxValue
-                )
-
-            scrollState.animateScrollTo(target)
-        }
+        scrollState.animateScrollTo(target)
     }
 }
     LaunchedEffect(fontScale) { readerFontScale = fontScale }
@@ -587,22 +597,28 @@ var textLayoutResult by remember {
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                FilterChip(
-                    selected = localSearchScope == "section",
-                    onClick = {
-                        onLocalSearchScopeChange("section")
-                    },
-                    label = { Text("همین بخش") }
-                )
-
-                FilterChip(
-                    selected = localSearchScope == "role",
-                    onClick = {
-                        onLocalSearchScopeChange("role")
-                    },
-                    label = { Text("تمام بخش‌های نقش") }
-                )
-
+               FilterChip(
+    selected = localSearchScope == "section",
+    onClick = {
+        onLocalSearchScopeChange("section")
+    },
+    label = { Text("همین بخش") },
+    colors = FilterChipDefaults.filterChipColors(
+        selectedContainerColor = Color(0xFF795548),
+        selectedLabelColor = Color.White
+    )
+)
+             FilterChip(
+    selected = localSearchScope == "role",
+    onClick = {
+        onLocalSearchScopeChange("role")
+    },
+    label = { Text("تمام بخش‌های نقش") },
+    colors = FilterChipDefaults.filterChipColors(
+        selectedContainerColor = Color(0xFF795548),
+        selectedLabelColor = Color.White
+    )
+)
                 Spacer(Modifier.weight(1f))
 
                 TextButton(
@@ -619,42 +635,56 @@ var textLayoutResult by remember {
                 }
             }
 
-            if (localSearchHasExecuted) {
-                if (localSearchResultCount > 0) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "نتیجه $localSearchResultPosition از $localSearchResultCount",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+          if (localSearchHasExecuted) {
+    if (localSearchResultCount > 0) {
 
-                        Spacer(Modifier.weight(1f))
+        Text(
+            "نتیجه $localSearchResultPosition از $localSearchResultCount",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
 
-                        OutlinedButton(
-                            onClick = onPreviousLocalSearchResult,
-                            contentPadding = PaddingValues(
-                                horizontal = 10.dp,
-                                vertical = 4.dp
-                            )
-                        ) {
-                            Text("قبلی")
-                        }
+        Text(
+            text = if (localSearchResultIsCurrentSection) {
+                "نتیجه در این بخش: $localSearchResultSectionTitle"
+            } else {
+                "در حال انتقال به بخش: $localSearchResultSectionTitle"
+            },
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF795548)
+        )
 
-                        Button(
-                            onClick = onNextLocalSearchResult,
-                            contentPadding = PaddingValues(
-                                horizontal = 10.dp,
-                                vertical = 4.dp
-                            )
-                        ) {
-                            Text("بعدی")
-                        }
-                    }
-                } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = onPreviousLocalSearchResult,
+                modifier = Modifier.weight(1f),
+                enabled = localSearchResultCount > 1
+            ) {
+                Text("نتیجه قبلی")
+            }
+
+            Button(
+                onClick = onNextLocalSearchResult,
+                modifier = Modifier.weight(1f),
+                enabled = localSearchResultCount > 1
+            ) {
+                Text("نتیجه بعدی")
+            }
+        }
+
+    } else {
+        Text(
+            "عبارت مورد نظر پیدا نشد.",
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.labelSmall
+        )
+    }
+}
                     Text(
                         "عبارت مورد نظر پیدا نشد.",
                         color = MaterialTheme.colorScheme.error,
@@ -1420,7 +1450,11 @@ fun TextPagerScreen(
         if (searchMatches.isEmpty()) 0 else selectedSearchIndex + 1
 
     val currentSearchResultCount = searchMatches.size
-
+val currentSearchResultSectionTitle =
+    currentReaderSearchMatch
+        ?.sectionIndex
+        ?.let { sections.getOrNull(it)?.title }
+        .orEmpty()
     LaunchedEffect(pagerState.currentPage) {
         if (sections.isNotEmpty() &&
             pagerState.currentPage in sections.indices
@@ -1508,11 +1542,13 @@ fun TextPagerScreen(
                         },
 
                         onExecuteLocalSearch = executeReaderSearch,
+localSearchResultPosition = currentSearchResultPosition,
+localSearchResultCount = currentSearchResultCount,
+localSearchHasExecuted = searchHasExecuted,
 
-                        localSearchResultPosition = currentSearchResultPosition,
-                        localSearchResultCount = currentSearchResultCount,
-                        localSearchHasExecuted = searchHasExecuted,
-
+localSearchResultSectionTitle = currentSearchResultSectionTitle,
+localSearchResultIsCurrentSection =
+    currentReaderSearchMatch?.sectionIndex == page,
                         onPreviousLocalSearchResult = {
                             moveToReaderSearchResult(-1)
                         },
