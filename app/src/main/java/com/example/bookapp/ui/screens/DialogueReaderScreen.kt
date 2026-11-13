@@ -3,6 +3,8 @@ package com.example.bookapp.ui.screens
 import com.example.bookapp.data.DialogueStageCueEntity
 import com.example.bookapp.data.DialogueTurnMetadataEntity
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.relocation.rememberBringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -18,7 +20,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 data class DialogueTurnDisplay(
     val turnId: Long,
@@ -27,6 +36,7 @@ data class DialogueTurnDisplay(
     val sectionTitle: String,
     val content: String,
     val roleId: Long = 0L,
+    val versionLabel: String = "",
     val sourceSequenceIndex: Int? = null,
     val sourceSequenceStatus: String = DialogueTurnMetadataEntity.SOURCE_UNVERIFIED,
     val rehearsalOrderIndex: Int = 0,
@@ -40,6 +50,12 @@ data class DialogueTurnDisplay(
 )
 
 private enum class DialogueViewMode { GROUP, PERSONAL }
+
+private data class DialogueSearchMatch(
+    val turnId: Long,
+    val start: Int,
+    val end: Int
+)
 
 private data class CueOption(val type: String, val title: String)
 
@@ -58,6 +74,7 @@ private val dialogueCueOptions = listOf(
 fun DialogueReaderScreen(
     dialogueTitle: String,
     turns: List<DialogueTurnDisplay>,
+    roleOrder: List<Long> = emptyList(),
     onMoveTurn: (index: Int, direction: Int) -> Unit,
     onDeleteTurn: (DialogueTurnDisplay) -> Unit,
     onAddTurn: () -> Unit = {},
@@ -84,14 +101,20 @@ fun DialogueReaderScreen(
     }
     var relationEditorTurn by remember { mutableStateOf<DialogueTurnDisplay?>(null) }
     var cueEditorTurn by remember { mutableStateOf<DialogueTurnDisplay?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    var activeSearchIndex by remember { mutableStateOf(0) }
 
     val orderedTurns = remember(turns) {
         turns.sortedWith(compareBy<DialogueTurnDisplay> { it.rehearsalOrderIndex }.thenBy { it.turnId })
     }
-    val roleOptions = remember(orderedTurns) {
-        orderedTurns.filter { it.roleId != 0L }
+    val roleOptions = remember(orderedTurns, roleOrder) {
+        val options = orderedTurns.filter { it.roleId != 0L }
             .distinctBy { it.roleId }
             .map { it.roleId to it.roleTitle }
+        options.sortedBy { (id, _) ->
+            val index = roleOrder.indexOf(id)
+            if (index >= 0) index else Int.MAX_VALUE
+        }
     }
     val personalTurns = remember(orderedTurns, selectedRole) {
         orderedTurns.filter { it.roleId == selectedRole }
@@ -112,6 +135,15 @@ fun DialogueReaderScreen(
     val activeIndex = activeSequence.indexOfFirst { it.turnId == activeTurnId }
         .let { if (it < 0) 0 else it }
     val activeTurn = activeSequence.getOrNull(activeIndex)
+    val searchMatches = remember(activeSequence, searchQuery) {
+        findDialogueSearchMatches(activeSequence, searchQuery)
+    }
+    val safeSearchIndex = if (searchMatches.isEmpty()) 0 else activeSearchIndex.coerceIn(0, searchMatches.lastIndex)
+    val activeSearchMatch = searchMatches.getOrNull(safeSearchIndex)
+
+    LaunchedEffect(activeSearchMatch?.turnId, activeSearchMatch?.start) {
+        activeSearchMatch?.let { activeTurnId = it.turnId }
+    }
 
     Scaffold(
         topBar = {
@@ -194,6 +226,37 @@ fun DialogueReaderScreen(
 
             HorizontalDivider()
 
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = {
+                    searchQuery = it
+                    activeSearchIndex = 0
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("جستجو در متن‌های این حالت") }
+            )
+            if (searchQuery.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        if (searchMatches.isEmpty()) "نتیجه‌ای پیدا نشد."
+                        else "نتیجه ${safeSearchIndex + 1} از ${searchMatches.size}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (searchMatches.isNotEmpty()) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(onClick = { activeSearchIndex = (safeSearchIndex - 1).mod(searchMatches.size) }) { Text("قبلی") }
+                            TextButton(onClick = { activeSearchIndex = (safeSearchIndex + 1).mod(searchMatches.size) }) { Text("بعدی") }
+                        }
+                    }
+                }
+            }
+
             if (mode == DialogueViewMode.GROUP) {
                 if (orderedTurns.isEmpty()) Text("هنوز نوبتی برای این گفت‌وگو ثبت نشده است.")
                 orderedTurns.forEachIndexed { index, turn ->
@@ -205,6 +268,8 @@ fun DialogueReaderScreen(
                         onActivate = { activeTurnId = turn.turnId },
                         onEditRelation = { relationEditorTurn = turn },
                         onEditCues = { cueEditorTurn = turn },
+                        searchMatches = searchMatches.filter { it.turnId == turn.turnId },
+                        activeSearchMatch = activeSearchMatch?.takeIf { it.turnId == turn.turnId },
                         label = "${index + 1}. ${turn.roleTitle}"
                     )
                 }
@@ -231,6 +296,8 @@ fun DialogueReaderScreen(
                         onActivate = { activeTurnId = turn.turnId },
                         onEditRelation = { relationEditorTurn = turn },
                         onEditCues = { cueEditorTurn = turn },
+                        searchMatches = searchMatches.filter { it.turnId == turn.turnId },
+                        activeSearchMatch = activeSearchMatch?.takeIf { it.turnId == turn.turnId },
                         label = "نوبت شما ${index + 1} — ${turn.sectionTitle}"
                     )
                 }
@@ -345,12 +412,24 @@ private fun TurnCard(
     onActivate: () -> Unit,
     onEditRelation: () -> Unit,
     onEditCues: () -> Unit,
+    searchMatches: List<DialogueSearchMatch> = emptyList(),
+    activeSearchMatch: DialogueSearchMatch? = null,
     label: String
 ) {
     val replySource = turn.replyToTurnId?.let { id -> allTurns.firstOrNull { it.turnId == id } }
+    var showFullText by remember(turn.turnId) { mutableStateOf(false) }
+    val bringIntoViewRequester = rememberBringIntoViewRequester()
+
+    LaunchedEffect(activeSearchMatch?.start, activeSearchMatch?.end) {
+        if (activeSearchMatch != null) {
+            bringIntoViewRequester.bringIntoView()
+        }
+    }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .bringIntoViewRequester(bringIntoViewRequester),
         colors = CardDefaults.cardColors(
             containerColor = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
         ),
@@ -376,7 +455,21 @@ private fun TurnCard(
             }
 
             Text(turn.sectionTitle, style = MaterialTheme.typography.titleSmall)
-            Text(turn.content, style = MaterialTheme.typography.bodyLarge)
+            if (turn.versionLabel.isNotBlank()) {
+                Text("منبع: ${turn.versionLabel}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text(
+                text = buildDialogueHighlightedText(
+                    text = turn.content,
+                    matches = searchMatches,
+                    activeMatch = activeSearchMatch,
+                    normalHighlight = MaterialTheme.colorScheme.tertiaryContainer,
+                    activeHighlight = MaterialTheme.colorScheme.primaryContainer,
+                    activeTextColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                style = MaterialTheme.typography.bodyLarge
+            )
+            TextButton(onClick = { showFullText = true }) { Text("نمایش تمام‌صفحه متن") }
 
             if (turn.expectsResponse) {
                 Text(
@@ -451,6 +544,48 @@ private fun TurnCard(
                         Spacer(Modifier.width(4.dp))
                         Text("نشانه صحنه")
                     }
+                }
+            }
+        }
+    }
+    if (showFullText) {
+        Dialog(
+            onDismissRequest = { showFullText = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "${turn.roleTitle} — ${turn.sectionTitle}",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (turn.versionLabel.isNotBlank()) {
+                        Text("منبع: ${turn.versionLabel}", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+                        Text(
+                            buildDialogueHighlightedText(
+                                text = turn.content,
+                                matches = searchMatches,
+                                activeMatch = activeSearchMatch,
+                                normalHighlight = MaterialTheme.colorScheme.tertiaryContainer,
+                                activeHighlight = MaterialTheme.colorScheme.primaryContainer,
+                                activeTextColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                    Button(
+                        onClick = { showFullText = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("بازگشت به گفتگو") }
                 }
             }
         }
@@ -606,4 +741,58 @@ private fun StageCueDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("بستن") } }
     )
+}
+
+
+private fun findDialogueSearchMatches(
+    turns: List<DialogueTurnDisplay>,
+    query: String
+): List<DialogueSearchMatch> {
+    val needle = normalizeDialogueSearchText(query.trim())
+    if (needle.isBlank()) return emptyList()
+    val results = mutableListOf<DialogueSearchMatch>()
+    turns.forEach { turn ->
+        val normalized = normalizeDialogueSearchText(turn.content)
+        var startAt = 0
+        while (startAt <= normalized.length - needle.length) {
+            val index = normalized.indexOf(needle, startAt)
+            if (index < 0) break
+            results += DialogueSearchMatch(turn.turnId, index, index + needle.length)
+            startAt = index + needle.length.coerceAtLeast(1)
+        }
+    }
+    return results
+}
+
+private fun normalizeDialogueSearchText(value: String): String = buildString(value.length) {
+    value.forEach { character ->
+        append(when (character) {
+            'ي', 'ى' -> 'ی'
+            'ك' -> 'ک'
+            else -> character.lowercaseChar()
+        })
+    }
+}
+
+private fun buildDialogueHighlightedText(
+    text: String,
+    matches: List<DialogueSearchMatch>,
+    activeMatch: DialogueSearchMatch?,
+    normalHighlight: Color,
+    activeHighlight: Color,
+    activeTextColor: Color
+): AnnotatedString = buildAnnotatedString {
+    var cursor = 0
+    matches.sortedBy { it.start }.forEach { match ->
+        if (match.start < cursor || match.start !in text.indices || match.end > text.length) return@forEach
+        append(text.substring(cursor, match.start))
+        val active = activeMatch?.let { it.start == match.start && it.end == match.end } == true
+        withStyle(SpanStyle(
+            background = if (active) activeHighlight else normalHighlight,
+            color = if (active) activeTextColor else Color.Unspecified,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal
+        )) { append(text.substring(match.start, match.end)) }
+        cursor = match.end
+    }
+    if (cursor < text.length) append(text.substring(cursor))
 }
