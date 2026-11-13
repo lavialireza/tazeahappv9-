@@ -4,7 +4,7 @@ import com.example.bookapp.data.DialogueStageCueEntity
 import com.example.bookapp.data.DialogueTurnMetadataEntity
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.relocation.rememberBringIntoViewRequester
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.ExperimentalFoundationApi
 
 data class DialogueTurnDisplay(
     val turnId: Long,
@@ -398,7 +399,7 @@ private fun RelatedTurnCard(title: String, turn: DialogueTurnDisplay) {
 private fun RelationWarning(text: String) {
     Text(text, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
 }
-
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TurnCard(
     turn: DialogueTurnDisplay,
@@ -418,8 +419,9 @@ private fun TurnCard(
 ) {
     val replySource = turn.replyToTurnId?.let { id -> allTurns.firstOrNull { it.turnId == id } }
     var showFullText by remember(turn.turnId) { mutableStateOf(false) }
-    val bringIntoViewRequester = rememberBringIntoViewRequester()
-
+val bringIntoViewRequester = remember {
+    BringIntoViewRequester()
+}
     LaunchedEffect(activeSearchMatch?.start, activeSearchMatch?.end) {
         if (activeSearchMatch != null) {
             bringIntoViewRequester.bringIntoView()
