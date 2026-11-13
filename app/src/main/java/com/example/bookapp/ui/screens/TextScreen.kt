@@ -55,7 +55,6 @@ import com.example.bookapp.ui.theme.FontChoiceLabels
 import com.example.bookapp.ui.theme.FontChoices
 import com.example.bookapp.data.FootnoteEntity
 import com.example.bookapp.data.GlossaryOccurrence
-import com.example.bookapp.data.PersianTextNormalizer
 import com.example.bookapp.data.Prefs
 import com.example.bookapp.data.SearchResult
 import com.example.bookapp.data.SpeechHelper
@@ -71,8 +70,20 @@ private data class ReaderSearchMatch(
     val end: Int
 )
 
-private fun normalizeReaderSearchText(value: String): String =
-    PersianTextNormalizer.normalize(value)
+private fun normalizeReaderSearchText(value: String): String {
+    return value
+        .replace('ي', 'ی')
+        .replace('ك', 'ک')
+        .replace('ة', 'ه')
+        .replace('ۀ', 'ه')
+        .replace('أ', 'ا')
+        .replace('إ', 'ا')
+        .replace('آ', 'ا')
+        .replace('\u0640', ' ')
+        .replace(Regex("[\\u064B-\\u065F\\u0670]"), "")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
 
 private fun findReaderSearchMatches(
     text: String,
@@ -80,18 +91,48 @@ private fun findReaderSearchMatches(
     sectionIndex: Int,
     matchMode: String = "exact"
 ): List<ReaderSearchMatch> {
-    val normalizedQuery = PersianTextNormalizer.normalize(query)
+
+    val normalizedQuery = normalizeReaderSearchText(query)
     if (normalizedQuery.isBlank()) return emptyList()
 
-    // جست‌وجو روی نسخه نرمال‌شده انجام می‌شود، اما بازه خروجی همیشه
-    // به اندیس‌های UTF-16 متن اصلی برگردانده می‌شود.
-    val mapped = PersianTextNormalizer.normalizeWithOffsets(text)
-    val source = mapped.text
-    if (source.isBlank() || normalizedQuery.length > source.length) return emptyList()
+    val normalizedText = StringBuilder()
+    val originalStarts = mutableListOf<Int>()
+    val originalEnds = mutableListOf<Int>()
 
+    text.forEachIndexed { index, originalChar ->
+        val normalizedChar = when (originalChar) {
+            'ي' -> "ی"
+            'ك' -> "ک"
+            'ة', 'ۀ' -> "ه"
+            'أ', 'إ', 'آ' -> "ا"
+            '\u0640' -> " "
+            else -> originalChar.toString()
+        }
+
+        normalizedChar.forEach { char ->
+            if (char in '\u064B'..'\u065F' || char == '\u0670') {
+                return@forEach
+            }
+
+            if (char.isWhitespace()) {
+                if (normalizedText.isNotEmpty() && normalizedText.last() != ' ') {
+                    normalizedText.append(' ')
+                    originalStarts.add(index)
+                    originalEnds.add(index + 1)
+                } else if (normalizedText.isNotEmpty()) {
+                    originalEnds[originalEnds.lastIndex] = index + 1
+                }
+            } else {
+                normalizedText.append(char)
+                originalStarts.add(index)
+                originalEnds.add(index + 1)
+            }
+        }
+    }
+
+    val source = normalizedText.toString()
     val matches = mutableListOf<ReaderSearchMatch>()
     var searchFrom = 0
-    val exactMode = matchMode == "exact"
 
     while (searchFrom <= source.length - normalizedQuery.length) {
         val foundIndex = source.indexOf(
@@ -102,6 +143,7 @@ private fun findReaderSearchMatches(
         if (foundIndex < 0) break
 
         val lastIndex = foundIndex + normalizedQuery.length - 1
+        val exactMode = matchMode == "exact"
         val leftBoundaryOk = !exactMode ||
             foundIndex == 0 ||
             !source[foundIndex - 1].isLetterOrDigit()
@@ -110,17 +152,19 @@ private fun findReaderSearchMatches(
             !source[lastIndex + 1].isLetterOrDigit()
 
         if (leftBoundaryOk && rightBoundaryOk &&
-            foundIndex in mapped.sourceStarts.indices &&
-            lastIndex in mapped.sourceEnds.indices
+            foundIndex < originalStarts.size &&
+            lastIndex < originalEnds.size
         ) {
-            matches += ReaderSearchMatch(
-                sectionIndex = sectionIndex,
-                start = mapped.sourceStarts[foundIndex],
-                end = mapped.sourceEnds[lastIndex]
+            matches.add(
+                ReaderSearchMatch(
+                    sectionIndex = sectionIndex,
+                    start = originalStarts[foundIndex],
+                    end = originalEnds[lastIndex]
+                )
             )
         }
 
-        // حفظ تطبیق‌های هم‌پوشان در حالت جزئی
+        // +1 keeps overlapping partial matches available as well.
         searchFrom = foundIndex + 1
     }
 
@@ -232,6 +276,7 @@ fun TextScreen(
     onRelatedClick: (SearchResult) -> Unit = {},
     footnotes: List<FootnoteEntity> = emptyList(),
     glossaryOccurrences: List<GlossaryOccurrence> = emptyList(),
+    onOpenGlossaryTerm: (String) -> Unit = {},
     saveError: String? = null,
     onAddFootnote: suspend (term: String, explanation: String) -> Result<Unit> = { _, _ -> Result.failure(IllegalStateException("ذخیره پاورقی در دسترس نیست")) },
     onEditFootnote: (FootnoteEntity, term: String, explanation: String) -> Unit = { _, _, _ -> },
@@ -981,7 +1026,7 @@ localSearchResultIsCurrentSection: Boolean = true,
                         term.verifiedMeanings.forEachIndexed { index, meaning -> Text("${index + 1}. $meaning") }
                         if (term.sources.isNotEmpty()) Text("منابع: ${term.sources.joinToString("، ")}", style = MaterialTheme.typography.labelSmall)
                     } },
-                    confirmButton = { TextButton(onClick = { selectedGlossary = null }) { Text("بستن") } }
+                    confirmButton = { Row { TextButton(onClick = { onOpenGlossaryTerm(term.termUid); selectedGlossary = null }) { Text("نمایش در فرهنگ اصطلاحات") }; TextButton(onClick = { selectedGlossary = null }) { Text("بستن") } } }
                 )
             }
 
@@ -1478,6 +1523,8 @@ fun TextPagerScreen(
     onAttachAudio: (sectionId: Long, uri: android.net.Uri) -> Unit = { _, _ -> },
     onRemoveAudio: (sectionId: Long) -> Unit = {},
     footnotesForSection: suspend (Long) -> List<com.example.bookapp.data.FootnoteEntity> = { emptyList() },
+    glossaryOccurrencesForSection: suspend (Long) -> List<GlossaryOccurrence> = { emptyList() },
+    onOpenGlossaryTerm: (String) -> Unit = {},
     onAddFootnote: suspend (Long, String, String) -> Result<Unit> = { _, _, _ ->
         Result.failure(IllegalStateException("ذخیره پاورقی در دسترس نیست"))
     },
@@ -1652,13 +1699,13 @@ val currentSearchResultSectionTitle =
                 val section = sections[page]
 
                 var pageFootnotes by remember(section.id) {
-                    mutableStateOf(
-                        listOf<com.example.bookapp.data.FootnoteEntity>()
-                    )
+                    mutableStateOf(listOf<com.example.bookapp.data.FootnoteEntity>())
                 }
+                var pageGlossaryOccurrences by remember(section.id) { mutableStateOf(emptyList<GlossaryOccurrence>()) }
 
                 LaunchedEffect(section.id) {
                     pageFootnotes = footnotesForSection(section.id)
+                    pageGlossaryOccurrences = glossaryOccurrencesForSection(section.id)
                 }
 
                 val pageMatches = searchMatches
@@ -1687,6 +1734,8 @@ val currentSearchResultSectionTitle =
 
                         sectionId = section.id,
                         audioUrl = section.audioUrl,
+                        glossaryOccurrences = pageGlossaryOccurrences,
+                        onOpenGlossaryTerm = onOpenGlossaryTerm,
 
                         onOpenSearch = {
                             searchPanelVisible = !searchPanelVisible
