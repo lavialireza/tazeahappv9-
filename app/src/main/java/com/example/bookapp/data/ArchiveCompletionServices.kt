@@ -74,22 +74,23 @@ object GlossaryTextLinker {
         val variants = (approved.map { Triple(it.id, it.headword, it.uid) } + spellings.filter { it.termId in byId }.map { Triple(it.termId, it.spelling, byId.getValue(it.termId).uid) })
             .filter { it.second.isNotBlank() }.distinctBy { it.first to normalizeSearchText(it.second) }
             .sortedByDescending { normalizeSearchText(it.second).length }
-        val normalized = normalizeWithOffsets(text)
+        val normalized = PersianTextNormalizer.normalizeWithOffsets(text)
         val found = mutableListOf<GlossaryOccurrence>()
         val occupied = mutableListOf<IntRange>()
         for ((id, variant, uid) in variants) {
             val needle = normalizeSearchText(variant)
             if (needle.isBlank()) continue
             var from = 0
-            while (from <= normalized.first.length - needle.length) {
-                val at = normalized.first.indexOf(needle, from)
+            while (from <= normalized.text.length - needle.length) {
+                val at = normalized.text.indexOf(needle, from)
                 if (at < 0) break
                 val afterIndex = at + needle.length
-                val leftBoundaryOk = at == 0 || !normalized.first[at - 1].isLetterOrDigit()
-                val rightBoundaryOk = afterIndex >= normalized.first.length || !normalized.first[afterIndex].isLetterOrDigit()
+                val leftBoundaryOk = at == 0 || !normalized.text[at - 1].isLetterOrDigit()
+                val rightBoundaryOk = afterIndex >= normalized.text.length || !normalized.text[afterIndex].isLetterOrDigit()
                 if (!leftBoundaryOk || !rightBoundaryOk) { from = at + 1; continue }
-                val start = normalized.second[at]
-                val end = normalized.second[(at + needle.length - 1).coerceAtMost(normalized.second.lastIndex)] + 1
+                val lastMappedIndex = (at + needle.length - 1).coerceAtMost(normalized.sourceStarts.lastIndex)
+                val start = normalized.sourceStarts[at]
+                val end = normalized.sourceEnds[lastMappedIndex]
                 val range = start..(end - 1)
                 if (occupied.none { it.first <= range.last && range.first <= it.last }) {
                     occupied += range
@@ -103,18 +104,6 @@ object GlossaryTextLinker {
         return found.sortedBy { it.start }
     }
 
-    private fun normalizeWithOffsets(source: String): Pair<String, List<Int>> {
-        val out = StringBuilder(); val offsets = mutableListOf<Int>()
-        source.forEachIndexed { index, raw ->
-            val c = when (raw) { 'ي', 'ى' -> 'ی'; 'ك' -> 'ک'; 'ۀ', 'ة' -> 'ه'; '\u0640', '\u200c' -> ' '; else -> raw }
-            if (c in '\u064B'..'\u065F' || c == '\u0670') return@forEachIndexed
-            if (c.isWhitespace()) {
-                if (out.isNotEmpty() && out.last() != ' ') { out.append(' '); offsets += index }
-            } else { out.append(c.lowercaseChar()); offsets += index }
-        }
-        if (out.isNotEmpty() && out.last() == ' ') { out.setLength(out.length - 1); offsets.removeAt(offsets.lastIndex) }
-        return out.toString() to offsets
-    }
 }
 
 /** گراف ساده و قابل خروجی از پیوندهای دانشنامه؛ یال‌ها از داده تأییدشده ساخته می‌شوند. */
