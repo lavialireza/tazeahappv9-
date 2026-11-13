@@ -3,6 +3,7 @@ package com.example.bookapp.ui.screens
 import com.example.bookapp.data.DialogueStageCueEntity
 import com.example.bookapp.data.DialogueTurnMetadataEntity
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.rememberScrollState
