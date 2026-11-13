@@ -314,7 +314,8 @@ fun AppNavigation(
                 onOpenSearch = { navigateIfAllowed("search", ROUTE_SEARCH) },
                 onOpenBookmarks = { navigateIfAllowed("bookmarks", ROUTE_BOOKMARKS) },
                 onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
-                onOpenAbout = { navController.navigate(ROUTE_ABOUT) }
+                onOpenAbout = { navController.navigate(ROUTE_ABOUT) },
+                onExit = { (context as? android.app.Activity)?.finish() }
             )
         }
 
@@ -566,9 +567,6 @@ fun AppNavigation(
                 onRead = { item ->
                     navController.navigate("sections/${item.roleId}/${item.roleTitle}")
                 },
-                onRehearse = { item ->
-                    navController.navigate("rehearsal/${item.roleId}/${item.roleTitle}")
-                },
                 onExportPdf = { item ->
                     if (!exportAllowed("pdf", "pdf.create", "pdf.save", "myRole", "myRole.pdf")) notifyExportDenied()
                     else scope.launch {
@@ -584,7 +582,6 @@ fun AppNavigation(
                 readOnly = publicViewer,
                 showPdf = featureEnabled("myRole.pdf") && featureEnabled("myRole") && featureEnabled("pdf") && featureEnabled("pdf.create") && featureEnabled("pdf.save"),
                 canRead = featureEnabled("myRole.view"),
-                canRehearse = featureEnabled("myRole.rehearse"),
                 canRemove = featureEnabled("myRole.remove")
             )
         }
@@ -612,10 +609,31 @@ fun AppNavigation(
             LaunchedEffect(roleId) {
                 sections = db.sectionDao().getByRole(roleId)
             }
+            val rehearsalScope = androidx.compose.runtime.rememberCoroutineScope()
             RehearsalScreen(
                 roleTitle = roleTitle,
                 sections = sections,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                canPlayAudio = featureEnabled("audio.play"),
+                canAddPracticeNote = featureEnabled("notes.add"),
+                onAddPracticeNote = { targetSection, noteTitle, noteContent ->
+                    if (featureEnabled("notes.add")) {
+                        rehearsalScope.launch {
+                            db.noteDao().insert(
+                                NoteEntity(
+                                    title = "${roleTitle} — ${targetSection.title}: ${noteTitle.trim()}",
+                                    content = noteContent.trim(),
+                                    sectionUid = targetSection.uid
+                                )
+                            )
+                            android.widget.Toast.makeText(
+                                context,
+                                "یادداشت تمرین ذخیره شد.",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                }
             )
         }
 

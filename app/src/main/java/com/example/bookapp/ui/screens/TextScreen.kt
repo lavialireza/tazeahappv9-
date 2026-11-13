@@ -1301,9 +1301,8 @@ private fun normalizeDictionaryTerm(value: String): String = value
 
 private fun isAlreadyInDictionary(context: Context, term: String): Boolean {
     val normalized = normalizeDictionaryTerm(term)
-    return normalized.isNotEmpty() && (GLOSSARY_TERMS.any {
-        normalizeDictionaryTerm(it.term) == normalized
-    } || com.example.bookapp.data.GlossaryStore.contains(context, normalized))
+    return normalized.isNotEmpty() &&
+        com.example.bookapp.data.GlossaryStore.contains(context, normalized)
 }
 
 @Composable
