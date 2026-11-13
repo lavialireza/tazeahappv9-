@@ -2,9 +2,9 @@ package com.example.bookapp.data
 
 /** نوع پیوندی که در فهرست محل‌های استفاده نمایش داده می‌شود. */
 enum class GlossaryLocationKind {
-    /** واژه به‌صورت خودکار در متن اصلی پیدا شده است. */
+    /** واژه با تطبیق نرمال‌شده در متن واقعی پیدا شده است. */
     AUTOMATIC_MATCH,
-    /** این بخش به‌عنوان نمونه کاربرد/شاهد در مدخل واژه ثبت شده است. */
+    /** این بخش به‌عنوان شاهد/نمونه کاربرد در مدخل اصطلاح ثبت شده است. */
     EXPLICIT_USAGE
 }
 
@@ -27,25 +27,23 @@ data class GlossaryTextLocation(
 )
 
 /**
- * بازیابی محل‌های استفاده یک اصطلاح بدون ذخیره‌سازی تکراری و بدون تغییر متن بخش‌ها.
- * نتایج خودکار از متن واقعی استخراج می‌شوند؛ نمونه‌های ثبت‌شده در مدخل جداگانه برچسب می‌خورند.
+ * فهرست محل‌های استفاده را در زمان درخواست از متن اصلی می‌سازد.
+ * هیچ داده‌ای در متن یا دیتابیس برای تطبیق خودکار نوشته نمی‌شود.
  */
 object GlossaryOccurrenceService {
     suspend fun findForTerm(db: AppDatabase, termUid: String): List<GlossaryTextLocation> {
         if (termUid.isBlank()) return emptyList()
 
-        val allTerms = db.glossaryDao().allTerms()
-        val term = allTerms.firstOrNull { it.uid == termUid } ?: return emptyList()
-        if (term.reviewStatus != GlossaryTermEntity.STATUS_VERIFIED) return emptyList()
+        val term = db.glossaryDao().termByUid(termUid)
+            ?.takeIf { it.reviewStatus == GlossaryTermEntity.STATUS_VERIFIED }
+            ?: return emptyList()
 
         val spellings = db.glossaryDao().spellings(term.id)
-        val meanings = db.glossaryDao().meanings(term.id)
+        val verifiedMeanings = db.glossaryDao().meanings(term.id)
+            .filter { it.reviewStatus == GlossaryTermEntity.STATUS_VERIFIED }
         val fieldsById = db.fieldDao().getAll().associateBy { it.id }
-        val explicitBySectionUid = meanings
-            .filter { it.reviewStatus == GlossaryTermEntity.STATUS_VERIFIED && !it.usageSectionUid.isNullOrBlank() }
-            .groupBy { it.usageSectionUid!! }
-
         val result = mutableListOf<GlossaryTextLocation>()
+
         db.taziehDao().getAll().forEach { tazieh ->
             val fieldTitle = fieldsById[tazieh.fieldId]?.title.orEmpty()
             db.roleDao().getByTazieh(tazieh.id).forEach { role ->
@@ -54,9 +52,11 @@ object GlossaryOccurrenceService {
                         text = section.content,
                         terms = listOf(term),
                         spellings = spellings,
-                        meanings = meanings
+                        meanings = verifiedMeanings
                     )
                     matches.forEach { occurrence ->
+                        val start = occurrence.start.coerceIn(0, section.content.length)
+                        val end = occurrence.endExclusive.coerceIn(start, section.content.length)
                         result += GlossaryTextLocation(
                             termUid = occurrence.termUid,
                             headword = occurrence.headword,
@@ -67,13 +67,20 @@ object GlossaryOccurrenceService {
                             taziehTitle = tazieh.title,
                             fieldTitle = fieldTitle,
                             kind = GlossaryLocationKind.AUTOMATIC_MATCH,
-                            start = occurrence.start,
-                            endExclusive = occurrence.endExclusive,
-                            quote = section.content.substring(occurrence.start, occurrence.endExclusive)
+                            start = start,
+                            endExclusive = end,
+                            quote = section.content.substring(start, end)
                         )
                     }
 
-                    explicitBySectionUid[section.uid].orEmpty().forEach { meaning ->
+                    // ارجاع ثبت‌شده فقط زمانی به این بخش وصل می‌شود که شناسه‌های موجود
+                    // با سلسله‌مراتب واقعی بخش، نقش و مجلس تعارض نداشته باشند.
+                    verifiedMeanings.forEach { meaning ->
+                        if (meaning.usageSectionUid != section.uid) return@forEach
+                        if (!meaning.usageRoleUid.isNullOrBlank() && meaning.usageRoleUid != role.uid) return@forEach
+                        if (!meaning.usageTaziehUid.isNullOrBlank() && meaning.usageTaziehUid != tazieh.uid) return@forEach
+                        if (!meaning.usageVersionUid.isNullOrBlank() && meaning.usageVersionUid != role.versionUid) return@forEach
+
                         result += GlossaryTextLocation(
                             termUid = term.uid,
                             headword = term.headword,
@@ -95,13 +102,18 @@ object GlossaryOccurrenceService {
         }
 
         return result.distinctBy {
-            listOf(it.sectionUid, it.kind.name, it.start?.toString().orEmpty(), it.endExclusive?.toString().orEmpty(), it.quote, it.sourceTitle, it.sourcePage).joinToString("|")
+            listOf(
+                it.sectionUid, it.kind.name, it.start?.toString().orEmpty(),
+                it.endExclusive?.toString().orEmpty(), it.quote, it.sourceTitle,
+                it.sourceAuthor, it.sourcePage
+            ).joinToString("|")
         }.sortedWith(
             compareBy<GlossaryTextLocation> { it.fieldTitle }
                 .thenBy { it.taziehTitle }
                 .thenBy { it.roleTitle }
                 .thenBy { it.sectionTitle }
                 .thenBy { it.start ?: Int.MAX_VALUE }
+                .thenBy { it.kind.ordinal }
         )
     }
 }
