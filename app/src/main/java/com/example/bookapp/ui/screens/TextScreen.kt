@@ -59,6 +59,8 @@ import com.example.bookapp.data.Prefs
 import com.example.bookapp.data.SearchResult
 import com.example.bookapp.data.SpeechHelper
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -276,7 +278,6 @@ fun TextScreen(
     onRelatedClick: (SearchResult) -> Unit = {},
     footnotes: List<FootnoteEntity> = emptyList(),
     glossaryOccurrences: List<GlossaryOccurrence> = emptyList(),
-    onOpenGlossaryTerm: (String) -> Unit = {},
     saveError: String? = null,
     onAddFootnote: suspend (term: String, explanation: String) -> Result<Unit> = { _, _ -> Result.failure(IllegalStateException("ذخیره پاورقی در دسترس نیست")) },
     onEditFootnote: (FootnoteEntity, term: String, explanation: String) -> Unit = { _, _, _ -> },
@@ -348,25 +349,67 @@ localSearchResultIsCurrentSection: Boolean = true,
         onDispose { applyImmersive(false) } // با خروج از صفحه، نوارهای سیستم برمی‌گردند
     }
 
-    var lineSpacing by remember { mutableFloatStateOf(Prefs.getLineSpacing(context)) }
-    // تنظیمات خواننده را محلی هم نگه می‌داریم تا تغییرات داخل همین صفحه
-    // بدون وابستگی به بازسازی NavHost فوراً روی متن دیده شوند.
-    var readerFontScale by remember { mutableFloatStateOf(fontScale) }
-    var readerDarkMode by remember { mutableStateOf(darkMode) }
-    var readerFontChoice by remember { mutableStateOf(fontChoice) }
+    var lineSpacing by remember {
+        mutableFloatStateOf(Prefs.getLineSpacing(context))
+    }
+
+    // تنظیمات مستقل صفحه مطالعه
+    var readerFontScale by remember {
+        mutableFloatStateOf(Prefs.getReaderFontScale(context))
+    }
+    var readerDarkMode by remember {
+        mutableStateOf(Prefs.getReaderDarkMode(context))
+    }
+    var readerFontChoice by remember {
+        mutableStateOf(Prefs.getReaderFontChoice(context))
+    }
+
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                readerFontScale = Prefs.getFontScale(context)
+                readerFontScale = Prefs.getReaderFontScale(context)
+                readerDarkMode = Prefs.getReaderDarkMode(context)
+                readerFontChoice = Prefs.getReaderFontChoice(context)
                 lineSpacing = Prefs.getLineSpacing(context)
-                readerFontChoice = Prefs.getFontChoice(context)
             }
         }
+
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
-    val scrollState = rememberScrollState()
+
+    val initialScrollPosition = remember(sectionId) {
+        sectionId?.let { Prefs.getReaderScrollPosition(context, it) } ?: 0
+    }
+    val scrollState = rememberScrollState(initial = initialScrollPosition)
+
+    LaunchedEffect(sectionId, scrollState) {
+        val currentSectionId = sectionId ?: return@LaunchedEffect
+
+        androidx.compose.runtime.snapshotFlow { scrollState.value }
+            .distinctUntilChanged()
+            .collectLatest { position ->
+                kotlinx.coroutines.delay(400)
+                Prefs.setReaderScrollPosition(
+                    context,
+                    currentSectionId,
+                    position
+                )
+            }
+    }
+
+    DisposableEffect(sectionId, scrollState) {
+        onDispose {
+            sectionId?.let {
+                Prefs.setReaderScrollPosition(context, it, scrollState.value)
+            }
+        }
+    }
+
     val textScope = rememberCoroutineScope()
 
     var textTopInScrollContent by remember { mutableFloatStateOf(0f) }
@@ -396,9 +439,6 @@ localSearchResultIsCurrentSection: Boolean = true,
             scrollState.animateScrollTo(target)
         }
     }
-    LaunchedEffect(fontScale) { readerFontScale = fontScale }
-    LaunchedEffect(darkMode) { readerDarkMode = darkMode }
-    LaunchedEffect(fontChoice) { readerFontChoice = fontChoice }
     var autoScroll by remember { mutableStateOf(Prefs.isReaderAutoScroll(context)) }
     var showReaderSettings by remember { mutableStateOf(false) }
     var isSpeaking by remember { mutableStateOf(false) }
@@ -602,10 +642,32 @@ localSearchResultIsCurrentSection: Boolean = true,
 ) {
           if (localSearchVisible && !immersive) {
     Card(
-        modifier = Modifier
-            .widthIn(max = 640.dp)
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+    modifier = Modifier
+        .widthIn(max = 640.dp)
+        .fillMaxWidth()
+        .padding(horizontal = 16.dp, vertical = 4.dp)
+        .pointerInput(localSearchVisible) {
+            var totalDrag = 0f
+
+            detectVerticalDragGestures(
+                onVerticalDrag = { change, dragAmount ->
+                    totalDrag += dragAmount
+
+                    if (totalDrag <= -48.dp.toPx()) {
+                        onCloseLocalSearch()
+                        totalDrag = 0f
+                    }
+
+                    change.consume()
+                },
+                onDragEnd = {
+                    totalDrag = 0f
+                },
+                onDragCancel = {
+                    totalDrag = 0f
+                }
+            )
+        },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
@@ -616,22 +678,8 @@ localSearchResultIsCurrentSection: Boolean = true,
         ) {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .pointerInput(localSearchVisible) {
-                        var totalDrag = 0f
-                        detectVerticalDragGestures(
-                            onVerticalDrag = { change, dragAmount ->
-                                totalDrag += dragAmount
-                                if (totalDrag <= -48.dp.toPx()) {
-                                    onCloseLocalSearch()
-                                    totalDrag = 0f
-                                }
-                                change.consume()
-                            },
-                            onDragEnd = { totalDrag = 0f },
-                            onDragCancel = { totalDrag = 0f }
-                        )
-                    },
+                    .fillMaxWidth(),
+                   
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
             ) {
                 Text(
@@ -1026,7 +1074,7 @@ localSearchResultIsCurrentSection: Boolean = true,
                         term.verifiedMeanings.forEachIndexed { index, meaning -> Text("${index + 1}. $meaning") }
                         if (term.sources.isNotEmpty()) Text("منابع: ${term.sources.joinToString("، ")}", style = MaterialTheme.typography.labelSmall)
                     } },
-                    confirmButton = { Row { TextButton(onClick = { onOpenGlossaryTerm(term.termUid); selectedGlossary = null }) { Text("نمایش در فرهنگ اصطلاحات") }; TextButton(onClick = { selectedGlossary = null }) { Text("بستن") } } }
+                    confirmButton = { TextButton(onClick = { selectedGlossary = null }) { Text("بستن") } }
                 )
             }
 
@@ -1122,6 +1170,7 @@ localSearchResultIsCurrentSection: Boolean = true,
                         value = readerFontScale,
                         onValueChange = { value ->
                             readerFontScale = value
+                            Prefs.setReaderFontScale(context, value)
                             onFontScaleChange(value)
                         },
                         valueRange = 0.8f..2.0f,
@@ -1137,6 +1186,7 @@ localSearchResultIsCurrentSection: Boolean = true,
                             checked = readerDarkMode,
                             onCheckedChange = { enabled ->
                                 readerDarkMode = enabled
+                                Prefs.setReaderDarkMode(context, enabled)
                                 onDarkModeChange(enabled)
                             }
                         )
@@ -1177,6 +1227,7 @@ localSearchResultIsCurrentSection: Boolean = true,
                                 selected = readerFontChoice == key,
                                 onClick = {
                                     readerFontChoice = key
+                                    Prefs.setReaderFontChoice(context, key)
                                     onFontChoiceChange(key)
                                 },
                                 label = { Text(label, fontFamily = FontChoices[key]) }
@@ -1195,6 +1246,30 @@ localSearchResultIsCurrentSection: Boolean = true,
                                 autoScroll = it
                                 Prefs.setReaderAutoScroll(context, it)
                             }
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    HorizontalDivider()
+
+                    TextButton(
+                        onClick = {
+                            Prefs.resetReaderSettings(context)
+
+                            readerFontScale = 1.0f
+                            readerDarkMode = false
+                            readerFontChoice = "titr"
+                            lineSpacing = 1.4f
+                            autoScroll = false
+
+                            onFontScaleChange(1.0f)
+                            onDarkModeChange(false)
+                            onFontChoiceChange("titr")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "بازگشت به تنظیمات پیش‌فرض",
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
@@ -1301,8 +1376,9 @@ private fun normalizeDictionaryTerm(value: String): String = value
 
 private fun isAlreadyInDictionary(context: Context, term: String): Boolean {
     val normalized = normalizeDictionaryTerm(term)
-    return normalized.isNotEmpty() &&
-        com.example.bookapp.data.GlossaryStore.contains(context, normalized)
+    return normalized.isNotEmpty() && (GLOSSARY_TERMS.any {
+        normalizeDictionaryTerm(it.term) == normalized
+    } || com.example.bookapp.data.GlossaryStore.contains(context, normalized))
 }
 
 @Composable
@@ -1522,8 +1598,6 @@ fun TextPagerScreen(
     onAttachAudio: (sectionId: Long, uri: android.net.Uri) -> Unit = { _, _ -> },
     onRemoveAudio: (sectionId: Long) -> Unit = {},
     footnotesForSection: suspend (Long) -> List<com.example.bookapp.data.FootnoteEntity> = { emptyList() },
-    glossaryOccurrencesForSection: suspend (Long) -> List<GlossaryOccurrence> = { emptyList() },
-    onOpenGlossaryTerm: (String) -> Unit = {},
     onAddFootnote: suspend (Long, String, String) -> Result<Unit> = { _, _, _ ->
         Result.failure(IllegalStateException("ذخیره پاورقی در دسترس نیست"))
     },
@@ -1698,13 +1772,13 @@ val currentSearchResultSectionTitle =
                 val section = sections[page]
 
                 var pageFootnotes by remember(section.id) {
-                    mutableStateOf(listOf<com.example.bookapp.data.FootnoteEntity>())
+                    mutableStateOf(
+                        listOf<com.example.bookapp.data.FootnoteEntity>()
+                    )
                 }
-                var pageGlossaryOccurrences by remember(section.id) { mutableStateOf(emptyList<GlossaryOccurrence>()) }
 
                 LaunchedEffect(section.id) {
                     pageFootnotes = footnotesForSection(section.id)
-                    pageGlossaryOccurrences = glossaryOccurrencesForSection(section.id)
                 }
 
                 val pageMatches = searchMatches
@@ -1733,8 +1807,6 @@ val currentSearchResultSectionTitle =
 
                         sectionId = section.id,
                         audioUrl = section.audioUrl,
-                        glossaryOccurrences = pageGlossaryOccurrences,
-                        onOpenGlossaryTerm = onOpenGlossaryTerm,
 
                         onOpenSearch = {
                             searchPanelVisible = !searchPanelVisible

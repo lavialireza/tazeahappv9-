@@ -42,5 +42,7 @@ object GlossaryStore {
             .edit().putString(KEY_TERMS, arr.toString()).commit()
     }
 
-    private fun normalize(value: String): String = PersianTextNormalizer.normalize(value)
+    private fun normalize(value: String): String = value.trim()
+        .replace('ي', 'ی').replace('ك', 'ک').replace('ۀ', 'ه').replace('ة', 'ه')
+        .replace(Regex("\\s+"), " ")
 }

@@ -56,7 +56,18 @@ data class AdvancedSearchOptions(
  * جستجوی فارسی را قبل از مقایسه یکدست می‌کند تا شکل‌های رایج «ی/ي»، «ک/ك»،
  * اعراب و نیم‌فاصله باعث از دست رفتن نتیجه نشوند.
  */
-fun normalizeSearchText(value: String): String = PersianTextNormalizer.normalize(value)
+fun normalizeSearchText(value: String): String = value
+    .lowercase()
+    .replace('ي', 'ی')
+    .replace('ى', 'ی')
+    .replace('ك', 'ک')
+    .replace('ۀ', 'ه')
+    .replace('ة', 'ه')
+    .replace('\u0640', ' ')
+    .replace('\u200c', ' ')
+    .replace(Regex("[\\u064B-\\u065F\\u0670]"), "")
+    .replace(Regex("\\s+"), " ")
+    .trim()
 
 object AdvancedSearchEngine {
     fun search(

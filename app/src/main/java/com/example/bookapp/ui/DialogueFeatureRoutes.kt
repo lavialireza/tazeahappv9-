@@ -394,6 +394,7 @@ fun NavGraphBuilder.dialogueFeatureRoutes(
                         sectionTitle = section.title,
                         content = section.content,
                         roleId = role.id,
+                        versionLabel = sourceInfo.versionLabel,
                         rehearsalOrderIndex = metadataById[source.id]
                             ?.rehearsalOrderIndex ?: source.orderIndex
                     )
@@ -413,6 +414,7 @@ fun NavGraphBuilder.dialogueFeatureRoutes(
             DialogueReaderScreen(
                 dialogueTitle = dialogueTitle,
                 turns = turns,
+                roleOrder = roleOrder,
                 onBack = { navController.popBackStack() },
                 readOnly = !canEdit,
                 showPdf = featureEnabled("pdf") &&
