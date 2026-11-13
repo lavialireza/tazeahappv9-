@@ -55,12 +55,11 @@ import com.example.bookapp.ui.theme.FontChoiceLabels
 import com.example.bookapp.ui.theme.FontChoices
 import com.example.bookapp.data.FootnoteEntity
 import com.example.bookapp.data.GlossaryOccurrence
+import com.example.bookapp.data.PersianTextNormalizer
 import com.example.bookapp.data.Prefs
 import com.example.bookapp.data.SearchResult
 import com.example.bookapp.data.SpeechHelper
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -72,20 +71,8 @@ private data class ReaderSearchMatch(
     val end: Int
 )
 
-private fun normalizeReaderSearchText(value: String): String {
-    return value
-        .replace('ي', 'ی')
-        .replace('ك', 'ک')
-        .replace('ة', 'ه')
-        .replace('ۀ', 'ه')
-        .replace('أ', 'ا')
-        .replace('إ', 'ا')
-        .replace('آ', 'ا')
-        .replace('\u0640', ' ')
-        .replace(Regex("[\\u064B-\\u065F\\u0670]"), "")
-        .replace(Regex("\\s+"), " ")
-        .trim()
-}
+private fun normalizeReaderSearchText(value: String): String =
+    PersianTextNormalizer.normalize(value)
 
 private fun findReaderSearchMatches(
     text: String,
@@ -93,48 +80,18 @@ private fun findReaderSearchMatches(
     sectionIndex: Int,
     matchMode: String = "exact"
 ): List<ReaderSearchMatch> {
-
-    val normalizedQuery = normalizeReaderSearchText(query)
+    val normalizedQuery = PersianTextNormalizer.normalize(query)
     if (normalizedQuery.isBlank()) return emptyList()
 
-    val normalizedText = StringBuilder()
-    val originalStarts = mutableListOf<Int>()
-    val originalEnds = mutableListOf<Int>()
+    // جست‌وجو روی نسخه نرمال‌شده انجام می‌شود، اما بازه خروجی همیشه
+    // به اندیس‌های UTF-16 متن اصلی برگردانده می‌شود.
+    val mapped = PersianTextNormalizer.normalizeWithOffsets(text)
+    val source = mapped.text
+    if (source.isBlank() || normalizedQuery.length > source.length) return emptyList()
 
-    text.forEachIndexed { index, originalChar ->
-        val normalizedChar = when (originalChar) {
-            'ي' -> "ی"
-            'ك' -> "ک"
-            'ة', 'ۀ' -> "ه"
-            'أ', 'إ', 'آ' -> "ا"
-            '\u0640' -> " "
-            else -> originalChar.toString()
-        }
-
-        normalizedChar.forEach { char ->
-            if (char in '\u064B'..'\u065F' || char == '\u0670') {
-                return@forEach
-            }
-
-            if (char.isWhitespace()) {
-                if (normalizedText.isNotEmpty() && normalizedText.last() != ' ') {
-                    normalizedText.append(' ')
-                    originalStarts.add(index)
-                    originalEnds.add(index + 1)
-                } else if (normalizedText.isNotEmpty()) {
-                    originalEnds[originalEnds.lastIndex] = index + 1
-                }
-            } else {
-                normalizedText.append(char)
-                originalStarts.add(index)
-                originalEnds.add(index + 1)
-            }
-        }
-    }
-
-    val source = normalizedText.toString()
     val matches = mutableListOf<ReaderSearchMatch>()
     var searchFrom = 0
+    val exactMode = matchMode == "exact"
 
     while (searchFrom <= source.length - normalizedQuery.length) {
         val foundIndex = source.indexOf(
@@ -145,7 +102,6 @@ private fun findReaderSearchMatches(
         if (foundIndex < 0) break
 
         val lastIndex = foundIndex + normalizedQuery.length - 1
-        val exactMode = matchMode == "exact"
         val leftBoundaryOk = !exactMode ||
             foundIndex == 0 ||
             !source[foundIndex - 1].isLetterOrDigit()
@@ -154,19 +110,17 @@ private fun findReaderSearchMatches(
             !source[lastIndex + 1].isLetterOrDigit()
 
         if (leftBoundaryOk && rightBoundaryOk &&
-            foundIndex < originalStarts.size &&
-            lastIndex < originalEnds.size
+            foundIndex in mapped.sourceStarts.indices &&
+            lastIndex in mapped.sourceEnds.indices
         ) {
-            matches.add(
-                ReaderSearchMatch(
-                    sectionIndex = sectionIndex,
-                    start = originalStarts[foundIndex],
-                    end = originalEnds[lastIndex]
-                )
+            matches += ReaderSearchMatch(
+                sectionIndex = sectionIndex,
+                start = mapped.sourceStarts[foundIndex],
+                end = mapped.sourceEnds[lastIndex]
             )
         }
 
-        // +1 keeps overlapping partial matches available as well.
+        // حفظ تطبیق‌های هم‌پوشان در حالت جزئی
         searchFrom = foundIndex + 1
     }
 
@@ -349,67 +303,25 @@ localSearchResultIsCurrentSection: Boolean = true,
         onDispose { applyImmersive(false) } // با خروج از صفحه، نوارهای سیستم برمی‌گردند
     }
 
-    var lineSpacing by remember {
-        mutableFloatStateOf(Prefs.getLineSpacing(context))
-    }
-
-    // تنظیمات مستقل صفحه مطالعه
-    var readerFontScale by remember {
-        mutableFloatStateOf(Prefs.getReaderFontScale(context))
-    }
-    var readerDarkMode by remember {
-        mutableStateOf(Prefs.getReaderDarkMode(context))
-    }
-    var readerFontChoice by remember {
-        mutableStateOf(Prefs.getReaderFontChoice(context))
-    }
-
+    var lineSpacing by remember { mutableFloatStateOf(Prefs.getLineSpacing(context)) }
+    // تنظیمات خواننده را محلی هم نگه می‌داریم تا تغییرات داخل همین صفحه
+    // بدون وابستگی به بازسازی NavHost فوراً روی متن دیده شوند.
+    var readerFontScale by remember { mutableFloatStateOf(fontScale) }
+    var readerDarkMode by remember { mutableStateOf(darkMode) }
+    var readerFontChoice by remember { mutableStateOf(fontChoice) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                readerFontScale = Prefs.getReaderFontScale(context)
-                readerDarkMode = Prefs.getReaderDarkMode(context)
-                readerFontChoice = Prefs.getReaderFontChoice(context)
+                readerFontScale = Prefs.getFontScale(context)
                 lineSpacing = Prefs.getLineSpacing(context)
+                readerFontChoice = Prefs.getFontChoice(context)
             }
         }
-
         lifecycleOwner.lifecycle.addObserver(observer)
-
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-
-    val initialScrollPosition = remember(sectionId) {
-        sectionId?.let { Prefs.getReaderScrollPosition(context, it) } ?: 0
-    }
-    val scrollState = rememberScrollState(initial = initialScrollPosition)
-
-    LaunchedEffect(sectionId, scrollState) {
-        val currentSectionId = sectionId ?: return@LaunchedEffect
-
-        androidx.compose.runtime.snapshotFlow { scrollState.value }
-            .distinctUntilChanged()
-            .collectLatest { position ->
-                kotlinx.coroutines.delay(400)
-                Prefs.setReaderScrollPosition(
-                    context,
-                    currentSectionId,
-                    position
-                )
-            }
-    }
-
-    DisposableEffect(sectionId, scrollState) {
-        onDispose {
-            sectionId?.let {
-                Prefs.setReaderScrollPosition(context, it, scrollState.value)
-            }
-        }
-    }
-
+    val scrollState = rememberScrollState()
     val textScope = rememberCoroutineScope()
 
     var textTopInScrollContent by remember { mutableFloatStateOf(0f) }
@@ -439,6 +351,9 @@ localSearchResultIsCurrentSection: Boolean = true,
             scrollState.animateScrollTo(target)
         }
     }
+    LaunchedEffect(fontScale) { readerFontScale = fontScale }
+    LaunchedEffect(darkMode) { readerDarkMode = darkMode }
+    LaunchedEffect(fontChoice) { readerFontChoice = fontChoice }
     var autoScroll by remember { mutableStateOf(Prefs.isReaderAutoScroll(context)) }
     var showReaderSettings by remember { mutableStateOf(false) }
     var isSpeaking by remember { mutableStateOf(false) }
@@ -642,32 +557,10 @@ localSearchResultIsCurrentSection: Boolean = true,
 ) {
           if (localSearchVisible && !immersive) {
     Card(
-    modifier = Modifier
-        .widthIn(max = 640.dp)
-        .fillMaxWidth()
-        .padding(horizontal = 16.dp, vertical = 4.dp)
-        .pointerInput(localSearchVisible) {
-            var totalDrag = 0f
-
-            detectVerticalDragGestures(
-                onVerticalDrag = { change, dragAmount ->
-                    totalDrag += dragAmount
-
-                    if (totalDrag <= -48.dp.toPx()) {
-                        onCloseLocalSearch()
-                        totalDrag = 0f
-                    }
-
-                    change.consume()
-                },
-                onDragEnd = {
-                    totalDrag = 0f
-                },
-                onDragCancel = {
-                    totalDrag = 0f
-                }
-            )
-        },
+        modifier = Modifier
+            .widthIn(max = 640.dp)
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
@@ -678,8 +571,22 @@ localSearchResultIsCurrentSection: Boolean = true,
         ) {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth(),
-                   
+                    .fillMaxWidth()
+                    .pointerInput(localSearchVisible) {
+                        var totalDrag = 0f
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { change, dragAmount ->
+                                totalDrag += dragAmount
+                                if (totalDrag <= -48.dp.toPx()) {
+                                    onCloseLocalSearch()
+                                    totalDrag = 0f
+                                }
+                                change.consume()
+                            },
+                            onDragEnd = { totalDrag = 0f },
+                            onDragCancel = { totalDrag = 0f }
+                        )
+                    },
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
             ) {
                 Text(
@@ -1170,7 +1077,6 @@ localSearchResultIsCurrentSection: Boolean = true,
                         value = readerFontScale,
                         onValueChange = { value ->
                             readerFontScale = value
-                            Prefs.setReaderFontScale(context, value)
                             onFontScaleChange(value)
                         },
                         valueRange = 0.8f..2.0f,
@@ -1186,7 +1092,6 @@ localSearchResultIsCurrentSection: Boolean = true,
                             checked = readerDarkMode,
                             onCheckedChange = { enabled ->
                                 readerDarkMode = enabled
-                                Prefs.setReaderDarkMode(context, enabled)
                                 onDarkModeChange(enabled)
                             }
                         )
@@ -1227,7 +1132,6 @@ localSearchResultIsCurrentSection: Boolean = true,
                                 selected = readerFontChoice == key,
                                 onClick = {
                                     readerFontChoice = key
-                                    Prefs.setReaderFontChoice(context, key)
                                     onFontChoiceChange(key)
                                 },
                                 label = { Text(label, fontFamily = FontChoices[key]) }
@@ -1246,30 +1150,6 @@ localSearchResultIsCurrentSection: Boolean = true,
                                 autoScroll = it
                                 Prefs.setReaderAutoScroll(context, it)
                             }
-                        )
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    HorizontalDivider()
-
-                    TextButton(
-                        onClick = {
-                            Prefs.resetReaderSettings(context)
-
-                            readerFontScale = 1.0f
-                            readerDarkMode = false
-                            readerFontChoice = "titr"
-                            lineSpacing = 1.4f
-                            autoScroll = false
-
-                            onFontScaleChange(1.0f)
-                            onDarkModeChange(false)
-                            onFontChoiceChange("titr")
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            "بازگشت به تنظیمات پیش‌فرض",
-                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
